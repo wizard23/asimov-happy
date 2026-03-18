@@ -1,3 +1,6 @@
+based on: https://chatgpt.com/c/69ba5e68-13a0-8385-aa83-827365e5351a
+---
+
 # Requirements Document — Client-Only Web Application for High-Dimensional Data Exploration with Kohonen Maps
 
 ## 1. Document Purpose
