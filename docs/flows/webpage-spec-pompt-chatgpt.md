@@ -1,0 +1,1 @@
+in a canvas (so we can refine it) please create a requirements document for a webapp (client only - no backend needes) that allows the user to load high dimensional datasets from json/jsonl file(s) and then create kohonen maps with that data. The app must support multiple algorithms. Add kohonesn original algorithm as the first algorithm that mus be supported
