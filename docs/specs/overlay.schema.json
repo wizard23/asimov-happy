@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/api-overlay-1.0.schema.json",
+  "title": "API UI Overlay v1.0",
+  "type": "object",
+  "required": ["overlayVersion", "target", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "overlayVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "specUrl": { "type": "string", "minLength": 1 },
+        "specVersion": { "type": "string", "minLength": 1 },
+        "specSha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        }
+      },
+      "anyOf": [
+        { "required": ["specVersion"] },
+        { "required": ["specSha256"] }
+      ]
+    },
+
+    "rules": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "required": ["selector", "apply"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "comment": { "type": "string" },
+        "selector": { "$ref": "#/$defs/selector" },
+        "apply": { "$ref": "#/$defs/apply" }
+      }
+    },
+
+    "selector": {
+      "oneOf": [
+        { "$ref": "#/$defs/operationSelector" },
+        { "$ref": "#/$defs/parameterSelector" },
+        { "$ref": "#/$defs/requestBodyFieldSelector" },
+        { "$ref": "#/$defs/responseFieldSelector" }
+      ]
+    },
+
+    "operationSelector": {
+      "type": "object",
+      "required": ["operationId"],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "parameterSelector": {
+      "type": "object",
+      "required": ["operationId", "parameter"],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 },
+        "parameter": {
+          "type": "object",
+          "required": ["in", "name"],
+          "additionalProperties": false,
+          "properties": {
+            "in": {
+              "type": "string",
+              "enum": ["query", "path", "header", "cookie"]
+            },
+            "name": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+
+    "requestBodyFieldSelector": {
+      "type": "object",
+      "required": ["operationId", "requestBodyField"],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 },
+        "requestBodyField": {
+          "type": "object",
+          "required": ["contentType", "schemaPointer"],
+          "additionalProperties": false,
+          "properties": {
+            "contentType": { "type": "string", "minLength": 1 },
+            "schemaPointer": {
+              "type": "string",
+              "pattern": "^/.*"
+            }
+          }
+        }
+      }
+    },
+
+    "responseFieldSelector": {
+      "type": "object",
+      "required": ["operationId", "responseField"],
+      "additionalProperties": false,
+      "properties": {
+        "operationId": { "type": "string", "minLength": 1 },
+        "responseField": {
+          "type": "object",
+          "required": ["status", "contentType", "schemaPointer"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "type": "integer", "minimum": 100, "maximum": 599 },
+            "contentType": { "type": "string", "minLength": 1 },
+            "schemaPointer": { "type": "string", "pattern": "^/.*" }
+          }
+        }
+      }
+    },
+
+    "apply": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ui": { "$ref": "#/$defs/uiApply" },
+        "wire": { "$ref": "#/$defs/wireApply" },
+        "resolver": { "$ref": "#/$defs/resolverApply" },
+        "constraints": { "$ref": "#/$defs/constraintsApply" }
+      },
+      "minProperties": 1
+    },
+
+    "uiApply": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "control": {
+          "type": "string",
+          "enum": [
+            "text",
+            "textarea",
+            "number",
+            "boolean",
+            "enumSelect",
+            "multiEnumSelect",
+            "date",
+            "dateTime",
+            "dateRange",
+            "symbolPicker",
+            "jsonEditor",
+            "arrayEditor",
+            "objectEditor"
+          ]
+        },
+        "label": { "type": "string" },
+        "help": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "group": { "type": "string" },
+        "order": { "type": "number" },
+        "advanced": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "readonly": { "type": "boolean" },
+
+        "defaultValue": {},
+
+        "presets": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["last7d", "last30d", "ytd", "mtd", "today", "yesterday"]
+              }
+            },
+            {
+              "type": "array",
+              "items": { "$ref": "#/$defs/customPreset" }
+            }
+          ]
+        }
+      }
+    },
+
+    "customPreset": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": {
+          "type": "string",
+          "enum": ["dateRange", "date", "dateTime", "value"]
+        },
+        "value": {}
+      }
+    },
+
+    "wireApply": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codec": {
+          "type": "string",
+          "enum": [
+            "isoDate",
+            "isoDateTime",
+            "epochSeconds",
+            "epochMillis",
+            "yyyymmdd",
+            "repeatedQueryParam",
+            "commaSeparated",
+            "spaceDelimited",
+            "pipeDelimited",
+            "jsonString",
+            "passthrough"
+          ]
+        },
+        "timezone": { "type": "string", "enum": ["UTC", "local"] },
+        "arrayStyle": {
+          "type": "string",
+          "enum": [
+            "specDefault",
+            "repeatedQueryParam",
+            "commaSeparated",
+            "spaceDelimited",
+            "pipeDelimited"
+          ],
+          "default": "specDefault"
+        }
+      }
+    },
+
+    "resolverApply": {
+      "type": "object",
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["endpoint"] },
+        "url": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "enum": ["GET", "POST"], "default": "GET" },
+        "debounceMs": { "type": "integer", "minimum": 0, "maximum": 5000 },
+
+        "resultPointer": { "type": "string", "pattern": "^/.*" },
+
+        "map": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "labelPointer": { "type": "string", "pattern": "^/.*" },
+            "valuePointer": { "type": "string", "pattern": "^/.*" },
+            "metaPointers": {
+              "type": "object",
+              "additionalProperties": { "type": "string", "pattern": "^/.*" }
+            }
+          }
+        }
+      }
+    },
+
+    "constraintsApply": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+
+        "minLength": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 0 },
+        "pattern": { "type": "string" },
+
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "exclusiveMinimum": { "type": "number" },
+        "exclusiveMaximum": { "type": "number" },
+        "multipleOf": { "type": "number", "exclusiveMinimum": 0 },
+
+        "minItems": { "type": "integer", "minimum": 0 },
+        "maxItems": { "type": "integer", "minimum": 0 },
+
+        "dateRangeMaxDays": { "type": "integer", "minimum": 1 },
+        "dateRangeAllowFuture": { "type": "boolean" },
+
+        "numberStep": { "type": "number", "exclusiveMinimum": 0 },
+
+        "allowedValues": {
+          "type": "array",
+          "items": {},
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

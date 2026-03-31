@@ -1,0 +1,47 @@
+{
+  "overlayVersion": "1.0.0",
+  "target": { "specVersion": "2026-01-01" },
+  "title": "Yahoo Marketdata Overlay",
+  "rules": [
+    {
+      "selector": { "operationId": "getBars", "parameter": { "in": "query", "name": "symbols" } },
+      "apply": {
+        "ui": { "control": "symbolPicker", "label": "Symbols", "presets": ["ytd"] },
+        "resolver": {
+          "type": "endpoint",
+          "url": "/providers/yahoo/symbols?query={q}",
+          "resultPointer": "/items",
+          "map": { "labelPointer": "/name", "valuePointer": "/symbol" }
+        },
+        "constraints": { "maxItems": 50 }
+      }
+    },
+    {
+      "selector": { "operationId": "getBars", "parameter": { "in": "query", "name": "from" } },
+      "apply": {
+        "ui": { "control": "dateTime", "label": "From" },
+        "wire": { "codec": "epochMillis", "timezone": "UTC" }
+      }
+    },
+    {
+      "selector": { "operationId": "getBars", "parameter": { "in": "query", "name": "to" } },
+      "apply": {
+        "ui": { "control": "dateTime", "label": "To", "presets": ["last7d", "last30d", "ytd"] },
+        "wire": { "codec": "epochMillis", "timezone": "UTC" },
+        "constraints": { "dateRangeMaxDays": 30, "dateRangeAllowFuture": false }
+      }
+    },
+    {
+      "selector": { "operationId": "getBars", "parameter": { "in": "query", "name": "apikey" } },
+      "apply": {
+        "ui": { "control": "text", "hidden": true }
+      }
+    },
+    {
+      "selector": { "operationId": "getBars", "parameter": { "in": "query", "name": "provider" } },
+      "apply": {
+        "ui": { "control": "text", "readonly": true, "defaultValue": "yahoo" }
+      }
+    }
+  ]
+}
