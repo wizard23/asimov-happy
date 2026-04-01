@@ -1,0 +1,22 @@
+{
+  "name": "@asimov/minimal-web",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "clean": "node -e \"import('node:fs').then(fs=>{fs.rmSync('dist',{recursive:true,force:true}); fs.rmSync('.vite',{recursive:true,force:true});})\""
+  },
+  "dependencies": {
+    "@asimov/minimal-shared": "^0.0.0",
+    "preact": "^10.25.4",
+    "preact-iso": "^2.7.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.2",
+    "vite": "^6.0.0"
+  }
+}

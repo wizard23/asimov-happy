@@ -1,0 +1,38 @@
+{
+  "name": "@asimov/minimal-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -b && npm run -w @asimov/minimal-web build",
+    "build:packages": "npm run -ws build",
+    "build:ts": "tsc -b",
+    "typecheck": "tsc -b --noEmit",
+    "typecheck:packages": "npm run -ws typecheck",
+    "clean": "npm run -ws clean",
+    "dev:ts": "tsc -b -w tsconfig.dev.json",
+    "dev:app": "concurrently -k -s first -n server,web \"npm run -w @asimov/minimal-server dev\" \"npm run dev:web\"",
+    "dev:server": "npm run -w @asimov/minimal-server dev",
+    "dev:web": "npm run -w @asimov/minimal-web dev",
+    "dev:cli": "npm run -w @asimov/minimal-cli dev",
+    "start:server": "npm run -w @asimov/minimal-server start",
+    "start:web": "npm run -w @asimov/minimal-web preview",
+    "start:cli": "npm run -w @asimov/minimal-cli start",
+
+    "lint": "eslint . --cache"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.8",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.8.1",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.53.0"
+  }
+}

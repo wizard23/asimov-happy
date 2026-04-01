@@ -1,0 +1,21 @@
+{
+  "name": "@asimov/minimal-cli",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "main": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "bin": {
+    "my-app": "./bin/my-app.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('dist',{recursive:true,force:true}))\"",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@asimov/minimal-shared": "^0.0.0"
+  }
+}
