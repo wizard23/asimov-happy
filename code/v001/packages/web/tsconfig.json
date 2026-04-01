@@ -8,9 +8,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
-    "paths": {
-      "@asimov/minimal-shared": ["../shared/src"]
-    },
     "types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

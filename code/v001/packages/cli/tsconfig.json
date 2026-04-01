@@ -6,9 +6,6 @@
     "outDir": "./dist",
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "baseUrl": ".",
-    "paths": {
-      "@asimov/minimal-shared": ["../shared/src"]
-    },
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
