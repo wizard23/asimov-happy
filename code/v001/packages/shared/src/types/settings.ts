@@ -96,7 +96,29 @@ export interface ExportedSettingsDocument {
   settings: AppSettings;
 }
 
+export interface SerializedComplexParameter {
+  real: number;
+  imaginary: number;
+}
+
+export interface SerializedSomCell {
+  index: number;
+  x: number;
+  y: number;
+  prototypeVector: number[];
+  representativeSampleIndex: number | null;
+  representativeParameter: SerializedComplexParameter | null;
+}
+
+export interface SerializedSomTrainingResult {
+  settings: TrainingSettings;
+  cells: SerializedSomCell[];
+  sampleCount: number;
+  metadata: SomTrainingMetadata;
+  fingerprint: ReproducibilityFingerprint;
+}
+
 export interface ExportedTrainingResultDocument {
   schemaVersion: string;
-  result: SomTrainingResult;
+  result: SerializedSomTrainingResult;
 }

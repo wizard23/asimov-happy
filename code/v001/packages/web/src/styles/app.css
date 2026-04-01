@@ -131,6 +131,10 @@ select {
   border-color: transparent;
 }
 
+.file-input {
+  display: none;
+}
+
 .status-card,
 .card {
   background: var(--surface-strong);

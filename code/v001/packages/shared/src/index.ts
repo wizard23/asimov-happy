@@ -28,6 +28,20 @@ export {
 export { generateJuliaParameters, sampleJuliaParameter } from "./julia/sampling.js";
 export { generateTrainingSamples } from "./julia/training-samples.js";
 export { createReproducibilityFingerprint } from "./reproducibility/fingerprint.js";
+export {
+  SETTINGS_DOCUMENT_SCHEMA_VERSION,
+  TRAINING_RESULT_DOCUMENT_SCHEMA_VERSION,
+} from "./serialization/schema.js";
+export {
+  createSettingsDocument,
+  parseSettingsDocument,
+} from "./serialization/settings-document.js";
+export {
+  createTrainingResultDocument,
+  deserializeTrainingResult,
+  parseTrainingResultDocument,
+  serializeTrainingResult,
+} from "./serialization/training-result-document.js";
 export { findBestMatchingUnit } from "./som/bmu.js";
 export { createSomCellIndex, initializeSomCells } from "./som/cells.js";
 export { getSquaredEuclideanDistance } from "./som/distance.js";
@@ -60,6 +74,9 @@ export type {
   ExportedTrainingResultDocument,
   JuliaViewport,
   ReproducibilityFingerprint,
+  SerializedComplexParameter,
+  SerializedSomCell,
+  SerializedSomTrainingResult,
   SomCell,
   SomTrainingMetadata,
   SomTrainingProgress,

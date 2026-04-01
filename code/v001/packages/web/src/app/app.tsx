@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { render } from "preact";
 import {
+  createSettingsDocument,
+  createTrainingResultDocument,
   createReproducibilityFingerprint,
   getDefaultAppSettings,
+  parseSettingsDocument,
+  parseTrainingResultDocument,
   splitAppSettings,
   validateAppSettings,
   type AppSettings,
@@ -92,6 +96,16 @@ function NumberInput(props: {
   );
 }
 
+function downloadJsonFile(filename: string, value: unknown): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function App(): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
@@ -105,6 +119,8 @@ function App(): preact.JSX.Element {
     lastCompletedFingerprint: null,
   });
   const workerRef = useRef<TrainingWorkerController | null>(null);
+  const settingsFileInputRef = useRef<HTMLInputElement | null>(null);
+  const resultFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const validation = useMemo(() => validateAppSettings(settings), [settings]);
   const trainingSettings = useMemo(() => splitAppSettings(settings).training, [settings]);
@@ -254,6 +270,104 @@ function App(): preact.JSX.Element {
     });
   }
 
+  function handleExportSettings(): void {
+    downloadJsonFile("julia-som-settings.json", createSettingsDocument(settings));
+  }
+
+  function handleExportTrainingResult(): void {
+    if (!session.result) {
+      setSession((current) => ({
+        ...current,
+        status: "error",
+        errorMessage: "No trained SOM is available to export.",
+      }));
+      return;
+    }
+
+    downloadJsonFile("julia-som-training-result.json", createTrainingResultDocument(session.result));
+  }
+
+  async function readSelectedFile(
+    input: HTMLInputElement | null,
+  ): Promise<string | null> {
+    const file = input?.files?.[0];
+    if (!file) {
+      return null;
+    }
+
+    return file.text();
+  }
+
+  async function handleImportSettings(): Promise<void> {
+    try {
+      const content = await readSelectedFile(settingsFileInputRef.current);
+      if (!content) {
+        return;
+      }
+
+      const importedSettings = parseSettingsDocument(content);
+      setSettings(importedSettings);
+      setSession((current) => ({
+        ...current,
+        errorMessage: null,
+      }));
+    } catch (error) {
+      setSession((current) => ({
+        ...current,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Failed to import settings.",
+      }));
+    } finally {
+      if (settingsFileInputRef.current) {
+        settingsFileInputRef.current.value = "";
+      }
+    }
+  }
+
+  async function handleImportTrainingResult(): Promise<void> {
+    try {
+      const content = await readSelectedFile(resultFileInputRef.current);
+      if (!content) {
+        return;
+      }
+
+      const importedResult = parseTrainingResultDocument(content);
+      const importedSettings: AppSettings = {
+        ...importedResult.settings,
+        viewerJuliaIterations: settings.viewerJuliaIterations,
+      };
+
+      setSettings(importedSettings);
+      setSelectedCellIndex(importedResult.cells[0]?.index ?? null);
+      setHoveredParameter(null);
+      setSession({
+        status: "completed",
+        progress: importedResult.metadata.totalSteps
+          ? {
+              totalSteps: importedResult.metadata.totalSteps,
+              completedSteps: importedResult.metadata.totalSteps,
+              currentRound: importedResult.settings.trainingRounds - 1,
+              currentSampleIndex: importedResult.sampleCount - 1,
+            }
+          : null,
+        result: importedResult,
+        errorMessage: null,
+        isStale: false,
+        lastCompletedFingerprint: importedResult.fingerprint,
+      });
+    } catch (error) {
+      setSession((current) => ({
+        ...current,
+        status: "error",
+        errorMessage: error instanceof Error ? error.message : "Failed to import trained SOM.",
+      }));
+    } finally {
+      if (resultFileInputRef.current) {
+        resultFileInputRef.current.value = "";
+      }
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="panel panel--controls">
@@ -383,7 +497,41 @@ function App(): preact.JSX.Element {
             <button className="button" type="button" onClick={handleReset}>
               Reset
             </button>
+            <button className="button" type="button" onClick={handleExportSettings}>
+              Export Settings
+            </button>
+            <button
+              className="button"
+              type="button"
+              onClick={() => settingsFileInputRef.current?.click()}
+            >
+              Import Settings
+            </button>
+            <button className="button" type="button" onClick={handleExportTrainingResult}>
+              Export Map
+            </button>
+            <button
+              className="button"
+              type="button"
+              onClick={() => resultFileInputRef.current?.click()}
+            >
+              Import Map
+            </button>
           </div>
+          <input
+            ref={settingsFileInputRef}
+            className="file-input"
+            type="file"
+            accept="application/json"
+            onChange={() => void handleImportSettings()}
+          />
+          <input
+            ref={resultFileInputRef}
+            className="file-input"
+            type="file"
+            accept="application/json"
+            onChange={() => void handleImportTrainingResult()}
+          />
         </section>
 
         <section className="group">
