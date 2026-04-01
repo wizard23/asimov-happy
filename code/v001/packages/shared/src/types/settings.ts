@@ -60,6 +60,20 @@ export interface SomTrainingProgress {
   currentSampleIndex: number;
 }
 
+export interface SomTrainingSchedule {
+  initialLearningRate: number;
+  finalLearningRate: number;
+  initialRadius: number;
+  finalRadius: number;
+}
+
+export interface SomTrainingMetadata {
+  totalSteps: number;
+  trainingSampleCount: number;
+  featureVectorLength: number;
+  schedule: SomTrainingSchedule;
+}
+
 export interface ReproducibilityFingerprint {
   appVersion: string;
   algorithmVersion: string;
@@ -73,6 +87,7 @@ export interface SomTrainingResult {
   settings: TrainingSettings;
   cells: SomCell[];
   sampleCount: number;
+  metadata: SomTrainingMetadata;
   fingerprint: ReproducibilityFingerprint;
 }
 

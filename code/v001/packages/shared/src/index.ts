@@ -28,12 +28,26 @@ export {
 export { generateJuliaParameters, sampleJuliaParameter } from "./julia/sampling.js";
 export { generateTrainingSamples } from "./julia/training-samples.js";
 export { createReproducibilityFingerprint } from "./reproducibility/fingerprint.js";
+export { findBestMatchingUnit } from "./som/bmu.js";
+export { createSomCellIndex, initializeSomCells } from "./som/cells.js";
+export { getSquaredEuclideanDistance } from "./som/distance.js";
+export { assignRepresentativeSamples } from "./som/representatives.js";
+export {
+  createSomTrainingSchedule,
+  DEFAULT_SOM_TRAINING_SCHEDULE,
+  interpolateSomDecay,
+} from "./som/schedule.js";
+export { createDeterministicShuffledIndices } from "./som/shuffle.js";
+export { trainSom, type TrainSomOptions } from "./som/train.js";
 export {
   cloneXorShift128State,
   createXorShift128StateFromSeed,
   type XorShift128State,
 } from "./rng/seed.js";
 export { XorShift128 } from "./rng/xorshift128.js";
+export { getTopologyDistance } from "./topology/distance.js";
+export { getHexGridDistance, type AxialCoordinate } from "./topology/hex.js";
+export { getSquareGridDistance } from "./topology/square.js";
 export function hello(name: string): string {
   return `Hello, ${name}!`;
 }
@@ -47,8 +61,10 @@ export type {
   JuliaViewport,
   ReproducibilityFingerprint,
   SomCell,
+  SomTrainingMetadata,
   SomTrainingProgress,
   SomTrainingResult,
+  SomTrainingSchedule,
   Topology,
   TrainingSample,
   TrainingSettings,
