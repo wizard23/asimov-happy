@@ -7,6 +7,7 @@ import {
   validateAppSettings,
   type AppSettings,
   type ReproducibilityFingerprint,
+  type ComplexParameter,
   type SomTrainingProgress,
   type SomTrainingResult,
 } from "@asimov/minimal-shared";
@@ -15,6 +16,8 @@ import {
   type TrainingWorkerController,
   type TrainingWorkerSuccessPayload,
 } from "../workers/training-client.js";
+import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
+import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
@@ -26,6 +29,14 @@ interface TrainingSessionState {
   errorMessage: string | null;
   isStale: boolean;
   lastCompletedFingerprint: ReproducibilityFingerprint | null;
+}
+
+function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | null) {
+  if (!result || cellIndex === null) {
+    return null;
+  }
+
+  return result.cells.find((cell) => cell.index === cellIndex) ?? null;
 }
 
 function formatPercentage(progress: SomTrainingProgress | null): string {
@@ -83,6 +94,8 @@ function NumberInput(props: {
 
 function App(): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
+  const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
+  const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [session, setSession] = useState<TrainingSessionState>({
     status: "idle",
     progress: null,
@@ -99,6 +112,11 @@ function App(): preact.JSX.Element {
     () => createReproducibilityFingerprint(trainingSettings),
     [trainingSettings],
   );
+  const selectedCell = useMemo(
+    () => getCellByIndex(session.result, selectedCellIndex),
+    [session.result, selectedCellIndex],
+  );
+  const viewerParameter = hoveredParameter ?? selectedCell?.representativeParameter ?? null;
 
   useEffect(() => {
     return () => {
@@ -123,6 +141,18 @@ function App(): preact.JSX.Element {
       };
     });
   }, [currentFingerprint]);
+
+  useEffect(() => {
+    if (!session.result) {
+      setSelectedCellIndex(null);
+      setHoveredParameter(null);
+      return;
+    }
+
+    const nextSelectedCell = session.result.cells[0] ?? null;
+    setSelectedCellIndex(nextSelectedCell?.index ?? null);
+    setHoveredParameter(null);
+  }, [session.result]);
 
   function updateSettings(patch: Partial<AppSettings>): void {
     setSettings((current) => ({ ...current, ...patch }));
@@ -212,6 +242,8 @@ function App(): preact.JSX.Element {
 
     const nextSettings = getDefaultAppSettings();
     setSettings(nextSettings);
+    setSelectedCellIndex(null);
+    setHoveredParameter(null);
     setSession({
       status: "idle",
       progress: null,
@@ -427,10 +459,48 @@ function App(): preact.JSX.Element {
 
           <article className="card">
             <p className="eyebrow">Representative</p>
-            <h3>First Cell</h3>
-            <p className="metric metric--large">{formatRepresentativeParameter(session.result)}</p>
+            <h3>Selected Cell</h3>
+            <p className="metric metric--large">
+              {viewerParameter
+                ? `${viewerParameter.real.toFixed(5)} ${viewerParameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(viewerParameter.imaginary).toFixed(5)}i`
+                : formatRepresentativeParameter(session.result)}
+            </p>
             <p className="detail">
-              Representative sample: {session.result?.cells[0]?.representativeSampleIndex ?? "n/a"}
+              Representative sample: {selectedCell?.representativeSampleIndex ?? "n/a"}
+            </p>
+          </article>
+        </section>
+
+        <section className="viewer-layout">
+          <article className="card card--map">
+            <p className="eyebrow">Map</p>
+            <h3>SOM Grid</h3>
+            <SomMapCanvas
+              result={session.result}
+              selectedCellIndex={selectedCellIndex}
+              onSelectCell={setSelectedCellIndex}
+              onHoverParameter={setHoveredParameter}
+            />
+            <p className="detail">
+              {selectedCell
+                ? `Selected cell: (${selectedCell.x}, ${selectedCell.y})`
+                : "No cell selected."}
+            </p>
+          </article>
+
+          <article className="card card--viewer">
+            <p className="eyebrow">Viewer</p>
+            <h3>Julia Set</h3>
+            <JuliaViewerCanvas
+              parameter={viewerParameter}
+              iterations={settings.viewerJuliaIterations}
+            />
+            <p className="detail">
+              {hoveredParameter
+                ? "Showing interpolated hover parameter."
+                : selectedCell
+                  ? "Showing the selected cell representative."
+                  : "Train and select a cell to inspect it."}
             </p>
           </article>
         </section>
@@ -441,8 +511,8 @@ function App(): preact.JSX.Element {
           <p className="eyebrow">Inspector</p>
           <h2>Implementation Status</h2>
           <p className="panel__lede">
-            Worker orchestration and deterministic training are live. Canvas map and viewer rendering
-            come next.
+            The app now renders the trained SOM and a live Julia viewer. Hover interpolation updates
+            the viewer continuously, while clicks lock selection.
           </p>
         </div>
 
@@ -450,7 +520,8 @@ function App(): preact.JSX.Element {
           <li>Training runs in a dedicated Web Worker and reports deterministic progress.</li>
           <li>Viewer-only settings remain separate from training settings.</li>
           <li>Changing training-relevant settings marks the current result stale.</li>
-          <li>Completed results already include reproducibility fingerprints and representative samples.</li>
+          <li>Square topology uses bilinear interpolation across cell quads.</li>
+          <li>Hex topology uses inverse-distance interpolation across nearby cell centers.</li>
         </ul>
       </section>
     </div>

@@ -166,6 +166,43 @@ select {
   margin-top: 20px;
 }
 
+.viewer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card--map,
+.card--viewer {
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-frame {
+  margin-top: 14px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #efe7d5;
+  border: 1px solid rgba(16, 35, 58, 0.12);
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #efe7d5;
+}
+
+.canvas--map {
+  max-height: 480px;
+  object-fit: contain;
+}
+
+.canvas--viewer {
+  aspect-ratio: 1 / 1;
+}
+
 .metric {
   margin: 8px 0 0;
   font-weight: 600;
@@ -203,6 +240,10 @@ select {
   }
 
   .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .viewer-layout {
     grid-template-columns: 1fr;
   }
 }
