@@ -29,6 +29,15 @@ export interface ComplexParameter {
   imaginary: number;
 }
 
+export interface ComplexBounds {
+  minReal: number;
+  maxReal: number;
+  minImaginary: number;
+  maxImaginary: number;
+}
+
+export interface JuliaViewport extends ComplexBounds {}
+
 export interface TrainingSample {
   sampleIndex: number;
   parameter: ComplexParameter;

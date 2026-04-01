@@ -14,6 +14,19 @@ export {
   splitAppSettings,
   validateAppSettings,
 } from "./config/settings.js";
+export {
+  JULIA_BAILOUT_RADIUS,
+  JULIA_PARAMETER_BOUNDS,
+  JULIA_VIEWPORT,
+} from "./julia/constants.js";
+export { getSmoothEscapeValue } from "./julia/escape-time.js";
+export {
+  getPixelCenterComplexCoordinate,
+  renderJuliaFeatureVector,
+  renderJuliaFeatureVectorForTraining,
+} from "./julia/features.js";
+export { generateJuliaParameters, sampleJuliaParameter } from "./julia/sampling.js";
+export { generateTrainingSamples } from "./julia/training-samples.js";
 export { createReproducibilityFingerprint } from "./reproducibility/fingerprint.js";
 export {
   cloneXorShift128State,
@@ -27,9 +40,11 @@ export function hello(name: string): string {
 export type {
   AppSettings,
   AppSettingsValidationResult,
+  ComplexBounds,
   ComplexParameter,
   ExportedSettingsDocument,
   ExportedTrainingResultDocument,
+  JuliaViewport,
   ReproducibilityFingerprint,
   SomCell,
   SomTrainingProgress,
