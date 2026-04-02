@@ -172,7 +172,7 @@ select {
 
 .viewer-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) minmax(320px, 380px);
   gap: 16px;
   margin-top: 20px;
 }
@@ -184,6 +184,7 @@ select {
 }
 
 .canvas-frame {
+  position: relative;
   margin-top: 14px;
   border-radius: 18px;
   overflow: hidden;
@@ -205,6 +206,23 @@ select {
 
 .canvas--viewer {
   aspect-ratio: 1 / 1;
+}
+
+.canvas-frame--mandelbrot {
+  background: #0d1d32;
+}
+
+.canvas--mandelbrot {
+  aspect-ratio: 3 / 2;
+}
+
+.mandelbrot-crosshair {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  transform: translate(-50%, -50%);
+  filter: invert(49%) sepia(72%) saturate(1651%) hue-rotate(342deg) brightness(93%) contrast(93%);
+  pointer-events: none;
 }
 
 .metric {

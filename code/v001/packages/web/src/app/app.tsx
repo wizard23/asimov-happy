@@ -21,6 +21,7 @@ import {
   type TrainingWorkerSuccessPayload,
 } from "../workers/training-client.js";
 import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
+import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import "../styles/app.css";
 
@@ -648,7 +649,16 @@ function App(): preact.JSX.Element {
                 ? "Showing interpolated hover parameter."
                 : selectedCell
                   ? "Showing the selected cell representative."
-                  : "Train and select a cell to inspect it."}
+                : "Train and select a cell to inspect it."}
+            </p>
+          </article>
+
+          <article className="card card--viewer">
+            <p className="eyebrow">Parameter Plane</p>
+            <h3>Mandelbrot Position</h3>
+            <MandelbrotOverviewCanvas parameter={viewerParameter} />
+            <p className="detail">
+              The crosshair marks the current Julia parameter `c` on the Mandelbrot set.
             </p>
           </article>
         </section>
