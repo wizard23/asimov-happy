@@ -86,6 +86,7 @@ function getCanvasPoint(
 export function SomMapCanvas(props: {
   result: SomTrainingResult | null;
   selectedCellIndex: number | null;
+  highlightedCellIndex: number | null;
   onSelectCell: (cellIndex: number | null) => void;
   onHoverParameter: (parameter: ComplexParameter | null) => void;
 }): preact.JSX.Element {
@@ -127,9 +128,14 @@ export function SomMapCanvas(props: {
         const x = cell.x * MAP_CELL_SIZE;
         const y = cell.y * MAP_CELL_SIZE;
         drawPrototypeImage(context, cell, x, y, MAP_CELL_SIZE, MAP_CELL_SIZE);
-        context.strokeStyle =
-          cell.index === props.selectedCellIndex ? "#cb5a2e" : "rgba(16, 35, 58, 0.18)";
-        context.lineWidth = cell.index === props.selectedCellIndex ? 3 : 1;
+        const isSelected = cell.index === props.selectedCellIndex;
+        const isHighlighted = cell.index === props.highlightedCellIndex;
+        context.strokeStyle = isSelected
+          ? "#cb5a2e"
+          : isHighlighted
+            ? "#1457a6"
+            : "rgba(16, 35, 58, 0.18)";
+        context.lineWidth = isSelected ? 3 : isHighlighted ? 2.5 : 1;
         context.strokeRect(x + 0.5, y + 0.5, MAP_CELL_SIZE - 1, MAP_CELL_SIZE - 1);
       }
       return;
@@ -148,12 +154,17 @@ export function SomMapCanvas(props: {
         MAP_CELL_SIZE,
         path,
       );
-      context.strokeStyle =
-        cell.index === props.selectedCellIndex ? "#cb5a2e" : "rgba(16, 35, 58, 0.2)";
-      context.lineWidth = cell.index === props.selectedCellIndex ? 3 : 1.25;
+      const isSelected = cell.index === props.selectedCellIndex;
+      const isHighlighted = cell.index === props.highlightedCellIndex;
+      context.strokeStyle = isSelected
+        ? "#cb5a2e"
+        : isHighlighted
+          ? "#1457a6"
+          : "rgba(16, 35, 58, 0.2)";
+      context.lineWidth = isSelected ? 3 : isHighlighted ? 2.5 : 1.25;
       context.stroke(path);
     }
-  }, [props.result, props.selectedCellIndex, canvasSize.x, canvasSize.y]);
+  }, [props.result, props.selectedCellIndex, props.highlightedCellIndex, canvasSize.x, canvasSize.y]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

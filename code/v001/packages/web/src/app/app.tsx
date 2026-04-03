@@ -44,6 +44,40 @@ function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | nu
   return result.cells.find((cell) => cell.index === cellIndex) ?? null;
 }
 
+function getNearestCellIndexForParameter(
+  result: SomTrainingResult | null,
+  parameter: ComplexParameter | null,
+): number | null {
+  if (!result || !parameter) {
+    return null;
+  }
+
+  let bestCellIndex: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const cell of result.cells) {
+    const representativeParameter = cell.representativeParameter;
+    if (!representativeParameter) {
+      continue;
+    }
+
+    const deltaReal = representativeParameter.real - parameter.real;
+    const deltaImaginary = representativeParameter.imaginary - parameter.imaginary;
+    const distance = deltaReal * deltaReal + deltaImaginary * deltaImaginary;
+
+    if (
+      distance < bestDistance ||
+      (distance === bestDistance && bestCellIndex !== null && cell.index < bestCellIndex) ||
+      bestCellIndex === null
+    ) {
+      bestCellIndex = cell.index;
+      bestDistance = distance;
+    }
+  }
+
+  return bestCellIndex;
+}
+
 function formatPercentage(progress: SomTrainingProgress | null): string {
   if (!progress || progress.totalSteps === 0) {
     return "0.0";
@@ -111,6 +145,7 @@ function App(): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
+  const [mandelbrotHoverParameter, setMandelbrotHoverParameter] = useState<ComplexParameter | null>(null);
   const [session, setSession] = useState<TrainingSessionState>({
     status: "idle",
     progress: null,
@@ -134,6 +169,11 @@ function App(): preact.JSX.Element {
     [session.result, selectedCellIndex],
   );
   const viewerParameter = hoveredParameter ?? selectedCell?.representativeParameter ?? null;
+  const mandelbrotParameter = mandelbrotHoverParameter ?? viewerParameter;
+  const highlightedCellIndex = useMemo(
+    () => getNearestCellIndexForParameter(session.result, mandelbrotHoverParameter),
+    [session.result, mandelbrotHoverParameter],
+  );
 
   useEffect(() => {
     return () => {
@@ -163,12 +203,14 @@ function App(): preact.JSX.Element {
     if (!session.result) {
       setSelectedCellIndex(null);
       setHoveredParameter(null);
+      setMandelbrotHoverParameter(null);
       return;
     }
 
     const nextSelectedCell = session.result.cells[0] ?? null;
     setSelectedCellIndex(nextSelectedCell?.index ?? null);
     setHoveredParameter(null);
+    setMandelbrotHoverParameter(null);
   }, [session.result]);
 
   function updateSettings(patch: Partial<AppSettings>): void {
@@ -261,6 +303,7 @@ function App(): preact.JSX.Element {
     setSettings(nextSettings);
     setSelectedCellIndex(null);
     setHoveredParameter(null);
+    setMandelbrotHoverParameter(null);
     setSession({
       status: "idle",
       progress: null,
@@ -341,6 +384,7 @@ function App(): preact.JSX.Element {
       setSettings(importedSettings);
       setSelectedCellIndex(importedResult.cells[0]?.index ?? null);
       setHoveredParameter(null);
+      setMandelbrotHoverParameter(null);
       setSession({
         status: "completed",
         progress: importedResult.metadata.totalSteps
@@ -627,6 +671,7 @@ function App(): preact.JSX.Element {
             <SomMapCanvas
               result={session.result}
               selectedCellIndex={selectedCellIndex}
+              highlightedCellIndex={highlightedCellIndex}
               onSelectCell={setSelectedCellIndex}
               onHoverParameter={setHoveredParameter}
             />
@@ -634,6 +679,11 @@ function App(): preact.JSX.Element {
               {selectedCell
                 ? `Selected cell: (${selectedCell.x}, ${selectedCell.y})`
                 : "No cell selected."}
+            </p>
+            <p className="detail">
+              {highlightedCellIndex !== null
+                ? `Nearest Mandelbrot hover match: cell #${highlightedCellIndex}`
+                : "Hover the Mandelbrot panel to highlight the nearest cell."}
             </p>
           </article>
 
@@ -656,9 +706,15 @@ function App(): preact.JSX.Element {
           <article className="card card--viewer">
             <p className="eyebrow">Parameter Plane</p>
             <h3>Mandelbrot Position</h3>
-            <MandelbrotOverviewCanvas parameter={viewerParameter} />
+            <MandelbrotOverviewCanvas
+              parameter={mandelbrotParameter}
+              onHoverParameter={setMandelbrotHoverParameter}
+            />
             <p className="detail">
               The crosshair marks the current Julia parameter `c` on the Mandelbrot set.
+            </p>
+            <p className="detail">
+              Hover this panel to preview a parameter and highlight the nearest Kohonen cell.
             </p>
           </article>
         </section>

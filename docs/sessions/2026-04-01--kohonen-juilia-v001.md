@@ -23,9 +23,5 @@ Please add another area that shows this position as a crosshair on top of the ma
 Use this svg for the crosshair: ./resources/svg/noun-crosshair-59595.svg
 
 
-
-
-
-
-
+Now please highlight the matching nearest kohonen cell when the user hovers over the mandelbrot set.
 if anything is unclear please just ask instead of guessing with code changes.

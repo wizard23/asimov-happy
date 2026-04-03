@@ -30,6 +30,23 @@ function mapToPixelPosition(parameter: ComplexParameter): { left: number; top: n
   };
 }
 
+function mapPointToParameter(
+  x: number,
+  y: number,
+): ComplexParameter {
+  const normalizedX = x / MANDELBROT_WIDTH;
+  const normalizedY = y / MANDELBROT_HEIGHT;
+
+  return {
+    real:
+      MANDELBROT_VIEWPORT.minReal +
+      (MANDELBROT_VIEWPORT.maxReal - MANDELBROT_VIEWPORT.minReal) * normalizedX,
+    imaginary:
+      MANDELBROT_VIEWPORT.maxImaginary -
+      (MANDELBROT_VIEWPORT.maxImaginary - MANDELBROT_VIEWPORT.minImaginary) * normalizedY,
+  };
+}
+
 function renderMandelbrotSet(): ImageData {
   const imageData = new ImageData(MANDELBROT_WIDTH, MANDELBROT_HEIGHT);
 
@@ -83,6 +100,7 @@ function renderMandelbrotSet(): ImageData {
 
 export function MandelbrotOverviewCanvas(props: {
   parameter: ComplexParameter | null;
+  onHoverParameter: (parameter: ComplexParameter | null) => void;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -104,6 +122,33 @@ export function MandelbrotOverviewCanvas(props: {
 
     context.putImageData(renderMandelbrotSet(), 0, 0);
   }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const activeCanvas = canvas;
+
+    function handleMove(event: MouseEvent): void {
+      const rect = activeCanvas.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * activeCanvas.width;
+      const y = ((event.clientY - rect.top) / rect.height) * activeCanvas.height;
+      props.onHoverParameter(mapPointToParameter(x, y));
+    }
+
+    function handleLeave(): void {
+      props.onHoverParameter(null);
+    }
+
+    activeCanvas.addEventListener("mousemove", handleMove);
+    activeCanvas.addEventListener("mouseleave", handleLeave);
+
+    return () => {
+      activeCanvas.removeEventListener("mousemove", handleMove);
+      activeCanvas.removeEventListener("mouseleave", handleLeave);
+    };
+  }, [props]);
 
   return (
     <div className="canvas-frame canvas-frame--mandelbrot">
