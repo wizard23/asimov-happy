@@ -30,6 +30,15 @@ function mapToPixelPosition(parameter: ComplexParameter): { left: number; top: n
   };
 }
 
+function mapToRelativePosition(parameter: ComplexParameter): { left: string; top: string } {
+  const pixelPosition = mapToPixelPosition(parameter);
+
+  return {
+    left: `${(pixelPosition.left / MANDELBROT_WIDTH) * 100}%`,
+    top: `${(pixelPosition.top / MANDELBROT_HEIGHT) * 100}%`,
+  };
+}
+
 function mapPointToParameter(
   x: number,
   y: number,
@@ -105,7 +114,7 @@ export function MandelbrotOverviewCanvas(props: {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const crosshairPosition = useMemo(
-    () => (props.parameter ? mapToPixelPosition(props.parameter) : null),
+    () => (props.parameter ? mapToRelativePosition(props.parameter) : null),
     [props.parameter],
   );
 
@@ -164,8 +173,8 @@ export function MandelbrotOverviewCanvas(props: {
           src={crosshairUrl}
           alt="Selected Julia parameter on the Mandelbrot set"
           style={{
-            left: `${crosshairPosition.left}px`,
-            top: `${crosshairPosition.top}px`,
+            left: crosshairPosition.left,
+            top: crosshairPosition.top,
           }}
         />
       ) : null}
