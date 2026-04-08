@@ -149,6 +149,13 @@ a {
   gap: 6px;
 }
 
+.panel__header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .panel__lede,
 .detail,
 .field__hint,
@@ -230,6 +237,10 @@ a {
   border-color: transparent;
 }
 
+.button--subtle {
+  background: transparent;
+}
+
 .file-input {
   display: none;
 }
@@ -274,6 +285,10 @@ a {
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px) minmax(320px, 380px);
   gap: 16px;
   margin-top: 20px;
+}
+
+.viewer-stack {
+  display: contents;
 }
 
 .card--map,
@@ -543,6 +558,46 @@ a {
     var(--canvas-mandelbrot);
 }
 
+.app-shell--zen {
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  align-items: start;
+}
+
+.panel--hidden,
+.status-card--hidden,
+.result-grid--hidden {
+  display: none;
+}
+
+.panel--summary-zen {
+  min-height: calc(100vh - 140px);
+}
+
+.viewer-layout--zen {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  align-items: stretch;
+  min-height: 100%;
+}
+
+.viewer-layout--zen .card--map {
+  min-height: 100%;
+}
+
+.viewer-layout--zen .canvas--map {
+  max-height: none;
+  min-height: 720px;
+}
+
+.viewer-stack--zen {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 16px;
+}
+
+.viewer-stack--zen .card--viewer {
+  min-height: 0;
+}
+
 @media (max-width: 1280px) {
   .theme-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -554,12 +609,29 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .app-shell--zen {
+    grid-template-columns: 1fr;
+  }
+
   .result-grid {
     grid-template-columns: 1fr;
   }
 
   .viewer-layout {
     grid-template-columns: 1fr;
+  }
+
+  .viewer-layout--zen {
+    grid-template-columns: 1fr;
+  }
+
+  .viewer-stack {
+    display: grid;
+    gap: 16px;
+  }
+
+  .viewer-layout--zen .canvas--map {
+    min-height: 0;
   }
 }
 
@@ -584,5 +656,10 @@ a {
   .settings-summary,
   .theme-grid {
     grid-template-columns: 1fr;
+  }
+
+  .panel__header-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

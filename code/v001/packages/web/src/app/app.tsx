@@ -312,6 +312,7 @@ function GuiSettingsRoute(props: {
 
 function MainWorkspace(): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
+  const [isZenView, setIsZenView] = useState(false);
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [mandelbrotHoverParameter, setMandelbrotHoverParameter] = useState<ComplexParameter | null>(
@@ -583,8 +584,8 @@ function MainWorkspace(): preact.JSX.Element {
   }
 
   return (
-    <div className="app-shell">
-      <aside className="panel panel--controls">
+    <div className={isZenView ? "app-shell app-shell--zen" : "app-shell"}>
+      <aside className={`panel panel--controls${isZenView ? " panel--hidden" : ""}`}>
         <div className="panel__header">
           <p className="eyebrow">Controls</p>
           <h1>Julia Set Kohonen Map</h1>
@@ -761,13 +762,24 @@ function MainWorkspace(): preact.JSX.Element {
         </section>
       </aside>
 
-      <main className="panel panel--summary">
+      <main className={`panel panel--summary${isZenView ? " panel--summary-zen" : ""}`}>
         <div className="panel__header">
-          <p className="eyebrow">Training</p>
-          <h2>Status</h2>
+          <div className="panel__header-row">
+            <div>
+              <p className="eyebrow">Training</p>
+              <h2>{isZenView ? "Zen View" : "Status"}</h2>
+            </div>
+            <button
+              className={`button${isZenView ? "" : " button--subtle"}`}
+              type="button"
+              onClick={() => setIsZenView((current) => !current)}
+            >
+              {isZenView ? "Exit Zen View" : "Zen View"}
+            </button>
+          </div>
         </div>
 
-        <section className="status-card">
+        <section className={`status-card${isZenView ? " status-card--hidden" : ""}`}>
           <div className="status-card__row">
             <span>State</span>
             <strong>{session.status}</strong>
@@ -797,7 +809,7 @@ function MainWorkspace(): preact.JSX.Element {
           {session.errorMessage ? <p className="error-banner">{session.errorMessage}</p> : null}
         </section>
 
-        <section className="result-grid">
+        <section className={`result-grid${isZenView ? " result-grid--hidden" : ""}`}>
           <article className="card">
             <p className="eyebrow">Fingerprint</p>
             <h3>Determinism</h3>
@@ -830,7 +842,7 @@ function MainWorkspace(): preact.JSX.Element {
           </article>
         </section>
 
-        <section className="viewer-layout">
+        <section className={isZenView ? "viewer-layout viewer-layout--zen" : "viewer-layout"}>
           <article className="card card--map">
             <p className="eyebrow">Map</p>
             <h3>SOM Grid</h3>
@@ -853,37 +865,42 @@ function MainWorkspace(): preact.JSX.Element {
             </p>
           </article>
 
-          <article className="card card--viewer">
-            <p className="eyebrow">Viewer</p>
-            <h3>Julia Set</h3>
-            <JuliaViewerCanvas parameter={viewerParameter} iterations={settings.viewerJuliaIterations} />
-            <p className="detail">
-              {hoveredParameter
-                ? "Showing interpolated hover parameter."
-                : selectedCell
-                  ? "Showing the selected cell representative."
-                  : "Train and select a cell to inspect it."}
-            </p>
-          </article>
+          <div className={isZenView ? "viewer-stack viewer-stack--zen" : "viewer-stack"}>
+            <article className="card card--viewer">
+              <p className="eyebrow">Parameter Plane</p>
+              <h3>Mandelbrot Position</h3>
+              <MandelbrotOverviewCanvas
+                parameter={mandelbrotParameter}
+                onHoverParameter={setMandelbrotHoverParameter}
+              />
+              <p className="detail">
+                The crosshair marks the current Julia parameter `c` on the Mandelbrot set.
+              </p>
+              <p className="detail">
+                Hover this panel to preview a parameter and highlight the nearest Kohonen cell.
+              </p>
+            </article>
 
-          <article className="card card--viewer">
-            <p className="eyebrow">Parameter Plane</p>
-            <h3>Mandelbrot Position</h3>
-            <MandelbrotOverviewCanvas
-              parameter={mandelbrotParameter}
-              onHoverParameter={setMandelbrotHoverParameter}
-            />
-            <p className="detail">
-              The crosshair marks the current Julia parameter `c` on the Mandelbrot set.
-            </p>
-            <p className="detail">
-              Hover this panel to preview a parameter and highlight the nearest Kohonen cell.
-            </p>
-          </article>
+            <article className="card card--viewer">
+              <p className="eyebrow">Viewer</p>
+              <h3>Julia Set</h3>
+              <JuliaViewerCanvas
+                parameter={viewerParameter}
+                iterations={settings.viewerJuliaIterations}
+              />
+              <p className="detail">
+                {hoveredParameter
+                  ? "Showing interpolated hover parameter."
+                  : selectedCell
+                    ? "Showing the selected cell representative."
+                    : "Train and select a cell to inspect it."}
+              </p>
+            </article>
+          </div>
         </section>
       </main>
 
-      <section className="panel panel--inspector">
+      <section className={`panel panel--inspector${isZenView ? " panel--hidden" : ""}`}>
         <div className="panel__header">
           <p className="eyebrow">Inspector</p>
           <h2>Implementation Status</h2>
