@@ -1,31 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { render } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
+  createReproducibilityFingerprint,
   createSettingsDocument,
   createTrainingResultDocument,
-  createReproducibilityFingerprint,
   getDefaultAppSettings,
   parseSettingsDocument,
   parseTrainingResultDocument,
   splitAppSettings,
   validateAppSettings,
   type AppSettings,
-  type ReproducibilityFingerprint,
   type ComplexParameter,
+  type ReproducibilityFingerprint,
   type SomTrainingProgress,
   type SomTrainingResult,
 } from "@asimov/minimal-shared";
+import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
+import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
+import { SomMapCanvas } from "../canvas/som-map-canvas.js";
+import {
+  APP_THEME_STORAGE_KEY,
+  DEFAULT_THEME_ID,
+  THEME_DEFINITIONS,
+  getStoredThemeId,
+  getThemeDefinition,
+  type ThemeDefinition,
+  type ThemeId,
+} from "./themes.js";
 import {
   createTrainingWorker,
   type TrainingWorkerController,
   type TrainingWorkerSuccessPayload,
 } from "../workers/training-client.js";
-import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
-import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
-import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
+type AppRoute = "/" | "/gui-settings";
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -34,6 +44,42 @@ interface TrainingSessionState {
   errorMessage: string | null;
   isStale: boolean;
   lastCompletedFingerprint: ReproducibilityFingerprint | null;
+}
+
+function getAppRoute(pathname: string): AppRoute {
+  return pathname === "/gui-settings" ? "/gui-settings" : "/";
+}
+
+function navigateToRoute(route: AppRoute): void {
+  if (window.location.pathname === route) {
+    return;
+  }
+
+  window.history.pushState({}, "", route);
+}
+
+function getThemePreviewStyle(theme: ThemeDefinition): preact.JSX.CSSProperties {
+  return theme.variables as unknown as preact.JSX.CSSProperties;
+}
+
+function applyTheme(themeId: ThemeId): void {
+  const theme = getThemeDefinition(themeId);
+  const root = document.documentElement;
+
+  root.dataset.theme = theme.id;
+  root.style.colorScheme = theme.colorScheme;
+
+  for (const [name, value] of Object.entries(theme.variables)) {
+    root.style.setProperty(name, value);
+  }
+}
+
+function getInitialThemeId(): ThemeId {
+  if (typeof window === "undefined") {
+    return DEFAULT_THEME_ID;
+  }
+
+  return getStoredThemeId(window.localStorage.getItem(APP_THEME_STORAGE_KEY));
 }
 
 function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | null) {
@@ -131,6 +177,29 @@ function NumberInput(props: {
   );
 }
 
+function NavLink(props: {
+  href: AppRoute;
+  currentRoute: AppRoute;
+  children: preact.ComponentChildren;
+}): preact.JSX.Element {
+  const isCurrent = props.currentRoute === props.href;
+
+  return (
+    <a
+      className={`nav-link${isCurrent ? " nav-link--current" : ""}`}
+      href={props.href}
+      aria-current={isCurrent ? "page" : undefined}
+      onClick={(event) => {
+        event.preventDefault();
+        navigateToRoute(props.href);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }}
+    >
+      {props.children}
+    </a>
+  );
+}
+
 function downloadJsonFile(filename: string, value: unknown): void {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
   const objectUrl = URL.createObjectURL(blob);
@@ -141,11 +210,113 @@ function downloadJsonFile(filename: string, value: unknown): void {
   URL.revokeObjectURL(objectUrl);
 }
 
-function App(): preact.JSX.Element {
+function ThemePreviewCard(props: {
+  theme: ThemeDefinition;
+  selectedThemeId: ThemeId;
+  onSelectTheme: (themeId: ThemeId) => void;
+}): preact.JSX.Element {
+  const isSelected = props.theme.id === props.selectedThemeId;
+
+  return (
+    <button
+      type="button"
+      className={`theme-card${isSelected ? " theme-card--selected" : ""}`}
+      aria-pressed={isSelected}
+      onClick={() => props.onSelectTheme(props.theme.id)}
+    >
+      <div className="theme-card__preview" style={getThemePreviewStyle(props.theme)}>
+        <div className="theme-preview">
+          <div className="theme-preview__masthead">
+            <span className="theme-preview__pill theme-preview__pill--accent" />
+            <span className="theme-preview__pill theme-preview__pill--strong" />
+          </div>
+          <div className="theme-preview__body">
+            <aside className="theme-preview__sidebar">
+              <span className="theme-preview__line theme-preview__line--short" />
+              <span className="theme-preview__line" />
+              <span className="theme-preview__line theme-preview__line--short" />
+            </aside>
+            <div className="theme-preview__content">
+              <div className="theme-preview__hero" />
+              <div className="theme-preview__row">
+                <div className="theme-preview__panel" />
+                <div className="theme-preview__panel theme-preview__panel--accent" />
+              </div>
+              <div className="theme-preview__canvas" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="theme-card__meta">
+        <div>
+          <strong>{props.theme.label}</strong>
+          <p className="detail">{props.theme.description}</p>
+        </div>
+        <span className={`theme-card__badge${isSelected ? " theme-card__badge--selected" : ""}`}>
+          {isSelected ? "Active" : props.theme.colorScheme}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function GuiSettingsRoute(props: {
+  selectedThemeId: ThemeId;
+  onSelectTheme: (themeId: ThemeId) => void;
+}): preact.JSX.Element {
+  const activeTheme = getThemeDefinition(props.selectedThemeId);
+
+  return (
+    <div className="route-shell route-shell--settings">
+      <section className="panel panel--settings-intro">
+        <div className="panel__header">
+          <p className="eyebrow">GUI Settings</p>
+          <h1>Theme Studio</h1>
+          <p className="panel__lede">
+            Choose one of the app-wide UI themes. Previews are live miniatures of the same surface,
+            accent, border, and canvas values applied to the workspace.
+          </p>
+        </div>
+
+        <div className="settings-summary">
+          <article className="card">
+            <p className="eyebrow">Current Theme</p>
+            <h3>{activeTheme.label}</h3>
+            <p className="detail">{activeTheme.description}</p>
+            <p className="metric">{activeTheme.colorScheme === "dark" ? "Dark-leaning" : "Light-leaning"}</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Palette Intent</p>
+            <h3>Balanced Contrast</h3>
+            <p className="detail">
+              Each theme keeps surface contrast and accent intensity within a restrained range so
+              the UI remains readable while still feeling distinct.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="theme-grid" aria-label="Theme choices">
+        {THEME_DEFINITIONS.map((theme) => (
+          <ThemePreviewCard
+            key={theme.id}
+            theme={theme}
+            selectedThemeId={props.selectedThemeId}
+            onSelectTheme={props.onSelectTheme}
+          />
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function MainWorkspace(): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
-  const [mandelbrotHoverParameter, setMandelbrotHoverParameter] = useState<ComplexParameter | null>(null);
+  const [mandelbrotHoverParameter, setMandelbrotHoverParameter] = useState<ComplexParameter | null>(
+    null,
+  );
   const [session, setSession] = useState<TrainingSessionState>({
     status: "idle",
     progress: null,
@@ -331,9 +502,7 @@ function App(): preact.JSX.Element {
     downloadJsonFile("julia-som-training-result.json", createTrainingResultDocument(session.result));
   }
 
-  async function readSelectedFile(
-    input: HTMLInputElement | null,
-  ): Promise<string | null> {
+  async function readSelectedFile(input: HTMLInputElement | null): Promise<string | null> {
     const file = input?.files?.[0];
     if (!file) {
       return null;
@@ -507,10 +676,7 @@ function App(): preact.JSX.Element {
 
         <section className="group">
           <h2>Viewer</h2>
-          <Field
-            label="Viewer Iterations"
-            hint="Viewer-only changes must not trigger retraining."
-          >
+          <Field label="Viewer Iterations" hint="Viewer-only changes must not trigger retraining.">
             <NumberInput
               value={settings.viewerJuliaIterations}
               min={8}
@@ -690,16 +856,13 @@ function App(): preact.JSX.Element {
           <article className="card card--viewer">
             <p className="eyebrow">Viewer</p>
             <h3>Julia Set</h3>
-            <JuliaViewerCanvas
-              parameter={viewerParameter}
-              iterations={settings.viewerJuliaIterations}
-            />
+            <JuliaViewerCanvas parameter={viewerParameter} iterations={settings.viewerJuliaIterations} />
             <p className="detail">
               {hoveredParameter
                 ? "Showing interpolated hover parameter."
                 : selectedCell
                   ? "Showing the selected cell representative."
-                : "Train and select a cell to inspect it."}
+                  : "Train and select a cell to inspect it."}
             </p>
           </article>
 
@@ -738,6 +901,55 @@ function App(): preact.JSX.Element {
           <li>Hex topology uses inverse-distance interpolation across nearby cell centers.</li>
         </ul>
       </section>
+    </div>
+  );
+}
+
+function App(): preact.JSX.Element {
+  const [route, setRoute] = useState<AppRoute>(() =>
+    typeof window === "undefined" ? "/" : getAppRoute(window.location.pathname),
+  );
+  const [themeId, setThemeId] = useState<ThemeId>(getInitialThemeId);
+
+  useEffect(() => {
+    function handleLocationChange(): void {
+      setRoute(getAppRoute(window.location.pathname));
+    }
+
+    window.addEventListener("popstate", handleLocationChange);
+    return () => window.removeEventListener("popstate", handleLocationChange);
+  }, []);
+
+  useEffect(() => {
+    applyTheme(themeId);
+    window.localStorage.setItem(APP_THEME_STORAGE_KEY, themeId);
+  }, [themeId]);
+
+  const activeTheme = useMemo(() => getThemeDefinition(themeId), [themeId]);
+
+  return (
+    <div className="app-page">
+      <header className="topbar">
+        <div className="topbar__title">
+          <p className="eyebrow">Asimov Happy</p>
+          <h2>Julia Set Kohonen Map</h2>
+          <p className="detail">Theme: {activeTheme.label}</p>
+        </div>
+        <nav className="topbar__nav" aria-label="Primary">
+          <NavLink href="/" currentRoute={route}>
+            Workspace
+          </NavLink>
+          <NavLink href="/gui-settings" currentRoute={route}>
+            GUI Settings
+          </NavLink>
+        </nav>
+      </header>
+
+      {route === "/gui-settings" ? (
+        <GuiSettingsRoute selectedThemeId={themeId} onSelectTheme={setThemeId} />
+      ) : (
+        <MainWorkspace />
+      )}
     </div>
   );
 }
