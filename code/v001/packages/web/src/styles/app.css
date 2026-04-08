@@ -564,7 +564,7 @@ a {
 }
 
 .app-shell--zen {
-  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 0;
   min-height: 100vh;
@@ -587,9 +587,11 @@ a {
 }
 
 .viewer-layout--zen {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  --zen-side-width: min(50vw, 50vh);
+  grid-template-columns: minmax(0, 1fr) var(--zen-side-width);
   align-items: stretch;
-  min-height: 100%;
+  min-height: 100vh;
+  height: 100vh;
   margin-top: 0;
   gap: 0;
 }
@@ -599,18 +601,21 @@ a {
 }
 
 .viewer-layout--zen .card--map {
-  min-height: 100%;
+  min-height: 100vh;
   padding: 0;
   border-radius: 0;
   border-top: 0;
   border-bottom: 0;
   border-left: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .viewer-layout--zen .canvas--map {
-  max-height: none;
-  height: 100vh;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .viewer-stack--zen {
@@ -618,6 +623,7 @@ a {
   grid-template-rows: 1fr 1fr;
   gap: 0;
   min-height: 100vh;
+  height: 100vh;
 }
 
 .viewer-stack--zen .card--viewer {
@@ -645,19 +651,26 @@ a {
 
 .viewer-layout--zen .canvas-frame {
   flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
   border-left: 0;
   border-right: 0;
   border-radius: 0;
   margin-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .viewer-layout--zen .canvas--viewer,
 .viewer-layout--zen .canvas--mandelbrot {
-  height: 50vh;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .viewer-layout--zen .card--viewer .canvas-frame {
-  min-height: 50vh;
+  min-height: 0;
 }
 
 @media (max-width: 1280px) {
@@ -685,11 +698,27 @@ a {
 
   .viewer-layout--zen {
     grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    min-height: auto;
+    height: auto;
   }
 
   .viewer-stack {
     display: grid;
     gap: 16px;
+  }
+
+  .viewer-stack--zen {
+    height: auto;
+    min-height: 0;
+  }
+
+  .viewer-layout--zen .card--map {
+    min-height: 50vh;
+  }
+
+  .viewer-layout--zen .card--viewer {
+    min-height: 50vh;
   }
 
   .viewer-layout--zen .canvas--map {

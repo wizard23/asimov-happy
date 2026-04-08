@@ -58,6 +58,24 @@ function navigateToRoute(route: AppRoute): void {
   window.history.pushState({}, "", route);
 }
 
+function getInitialZenView(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("zen") === "1";
+}
+
+function syncZenQuery(isZenView: boolean): void {
+  const url = new URL(window.location.href);
+  if (isZenView) {
+    url.searchParams.set("zen", "1");
+  } else {
+    url.searchParams.delete("zen");
+  }
+  window.history.replaceState(window.history.state, "", url);
+}
+
 function getThemePreviewStyle(theme: ThemeDefinition): preact.JSX.CSSProperties {
   return theme.variables as unknown as preact.JSX.CSSProperties;
 }
@@ -931,7 +949,7 @@ function App(): preact.JSX.Element {
     typeof window === "undefined" ? "/" : getAppRoute(window.location.pathname),
   );
   const [themeId, setThemeId] = useState<ThemeId>(getInitialThemeId);
-  const [isZenView, setIsZenView] = useState(false);
+  const [isZenView, setIsZenView] = useState(getInitialZenView);
 
   useEffect(() => {
     function handleLocationChange(): void {
@@ -946,6 +964,10 @@ function App(): preact.JSX.Element {
     applyTheme(themeId);
     window.localStorage.setItem(APP_THEME_STORAGE_KEY, themeId);
   }, [themeId]);
+
+  useEffect(() => {
+    syncZenQuery(isZenView);
+  }, [isZenView]);
 
   useEffect(() => {
     if (!isZenView) {

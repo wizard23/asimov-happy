@@ -17,3 +17,5 @@ zen mode does not fill the whole window. Please look at the screenshot.
 In other words:
 * Aspect ratio of every element must be correct
 * fill the whole window as good as possible without compromising on the aspect ratios please
+
+can u use a headless broser to view the page on localhost?
