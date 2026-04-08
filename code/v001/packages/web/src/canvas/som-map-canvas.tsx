@@ -94,7 +94,7 @@ export function SomMapCanvas(props: {
 
   const canvasSize = useMemo(() => {
     if (!props.result) {
-      return { x: 480, y: 360 };
+      return { x: 480, y: 480 };
     }
     return getCanvasSize(props.result, props.result.settings.topology, MAP_CELL_SIZE);
   }, [props.result]);

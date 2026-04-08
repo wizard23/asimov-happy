@@ -25,3 +25,6 @@ Very good already. But there are some issues:
 * there is still so much free space in the window!
   * why does the kohonen map not fill it's entire area?
   * why is there so much free space between mandelbrot and julia set and between those and the map?
+
+there is still this problem: when I hover over the mandelbrot the cursor position is not the same as the current complex number selected.
+Do you understand what I measn? can you reproduce this with the headless broweser?

@@ -584,15 +584,18 @@ a {
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .viewer-layout--zen {
-  --zen-side-width: min(50vw, 50vh);
-  --zen-side-width: min(60vh, 42vw);
-  grid-template-columns: minmax(0, 1fr) var(--zen-side-width);
+  width: min(100vw, calc(100vh * 8 / 5));
+  height: min(100vh, calc(100vw * 5 / 8));
+  grid-template-columns: 5fr 3fr;
   align-items: stretch;
-  min-height: 100vh;
-  height: 100vh;
+  min-height: 0;
+  min-width: 0;
   margin-top: 0;
   gap: 0;
 }
@@ -602,7 +605,7 @@ a {
 }
 
 .viewer-layout--zen .card--map {
-  min-height: 100vh;
+  min-height: 0;
   padding: 0;
   border-radius: 0;
   border-top: 0;
@@ -624,8 +627,8 @@ a {
   display: grid;
   grid-template-rows: 2fr 3fr;
   gap: 0;
-  min-height: 100vh;
-  height: 100vh;
+  min-height: 0;
+  height: 100%;
 }
 
 .viewer-stack--zen .card--viewer {
@@ -701,7 +704,7 @@ a {
   .viewer-layout--zen {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
-    min-height: auto;
+    width: 100%;
     height: auto;
   }
 
