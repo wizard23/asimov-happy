@@ -310,9 +310,11 @@ function GuiSettingsRoute(props: {
   );
 }
 
-function MainWorkspace(): preact.JSX.Element {
+function MainWorkspace(props: {
+  isZenView: boolean;
+  onToggleZenView: () => void;
+}): preact.JSX.Element {
   const [settings, setSettings] = useState<AppSettings>(() => getDefaultAppSettings());
-  const [isZenView, setIsZenView] = useState(false);
   const [selectedCellIndex, setSelectedCellIndex] = useState<number | null>(null);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [mandelbrotHoverParameter, setMandelbrotHoverParameter] = useState<ComplexParameter | null>(
@@ -584,8 +586,8 @@ function MainWorkspace(): preact.JSX.Element {
   }
 
   return (
-    <div className={isZenView ? "app-shell app-shell--zen" : "app-shell"}>
-      <aside className={`panel panel--controls${isZenView ? " panel--hidden" : ""}`}>
+    <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell"}>
+      <aside className={`panel panel--controls${props.isZenView ? " panel--hidden" : ""}`}>
         <div className="panel__header">
           <p className="eyebrow">Controls</p>
           <h1>Julia Set Kohonen Map</h1>
@@ -762,24 +764,26 @@ function MainWorkspace(): preact.JSX.Element {
         </section>
       </aside>
 
-      <main className={`panel panel--summary${isZenView ? " panel--summary-zen" : ""}`}>
+      <main className={`panel panel--summary${props.isZenView ? " panel--summary-zen" : ""}`}>
         <div className="panel__header">
-          <div className="panel__header-row">
+          <div className={`panel__header-row${props.isZenView ? " panel__header-row--zen" : ""}`}>
             <div>
               <p className="eyebrow">Training</p>
-              <h2>{isZenView ? "Zen View" : "Status"}</h2>
+              <h2>{props.isZenView ? "Zen View" : "Status"}</h2>
             </div>
-            <button
-              className={`button${isZenView ? "" : " button--subtle"}`}
-              type="button"
-              onClick={() => setIsZenView((current) => !current)}
-            >
-              {isZenView ? "Exit Zen View" : "Zen View"}
-            </button>
+            {props.isZenView ? null : (
+              <button
+                className="button button--subtle"
+                type="button"
+                onClick={props.onToggleZenView}
+              >
+                Zen View
+              </button>
+            )}
           </div>
         </div>
 
-        <section className={`status-card${isZenView ? " status-card--hidden" : ""}`}>
+        <section className={`status-card${props.isZenView ? " status-card--hidden" : ""}`}>
           <div className="status-card__row">
             <span>State</span>
             <strong>{session.status}</strong>
@@ -809,7 +813,7 @@ function MainWorkspace(): preact.JSX.Element {
           {session.errorMessage ? <p className="error-banner">{session.errorMessage}</p> : null}
         </section>
 
-        <section className={`result-grid${isZenView ? " result-grid--hidden" : ""}`}>
+        <section className={`result-grid${props.isZenView ? " result-grid--hidden" : ""}`}>
           <article className="card">
             <p className="eyebrow">Fingerprint</p>
             <h3>Determinism</h3>
@@ -842,7 +846,7 @@ function MainWorkspace(): preact.JSX.Element {
           </article>
         </section>
 
-        <section className={isZenView ? "viewer-layout viewer-layout--zen" : "viewer-layout"}>
+        <section className={props.isZenView ? "viewer-layout viewer-layout--zen" : "viewer-layout"}>
           <article className="card card--map">
             <p className="eyebrow">Map</p>
             <h3>SOM Grid</h3>
@@ -865,7 +869,7 @@ function MainWorkspace(): preact.JSX.Element {
             </p>
           </article>
 
-          <div className={isZenView ? "viewer-stack viewer-stack--zen" : "viewer-stack"}>
+          <div className={props.isZenView ? "viewer-stack viewer-stack--zen" : "viewer-stack"}>
             <article className="card card--viewer">
               <p className="eyebrow">Parameter Plane</p>
               <h3>Mandelbrot Position</h3>
@@ -900,7 +904,7 @@ function MainWorkspace(): preact.JSX.Element {
         </section>
       </main>
 
-      <section className={`panel panel--inspector${isZenView ? " panel--hidden" : ""}`}>
+      <section className={`panel panel--inspector${props.isZenView ? " panel--hidden" : ""}`}>
         <div className="panel__header">
           <p className="eyebrow">Inspector</p>
           <h2>Implementation Status</h2>
@@ -927,6 +931,7 @@ function App(): preact.JSX.Element {
     typeof window === "undefined" ? "/" : getAppRoute(window.location.pathname),
   );
   const [themeId, setThemeId] = useState<ThemeId>(getInitialThemeId);
+  const [isZenView, setIsZenView] = useState(false);
 
   useEffect(() => {
     function handleLocationChange(): void {
@@ -942,30 +947,46 @@ function App(): preact.JSX.Element {
     window.localStorage.setItem(APP_THEME_STORAGE_KEY, themeId);
   }, [themeId]);
 
+  useEffect(() => {
+    if (!isZenView) {
+      return;
+    }
+
+    function handleKeydown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsZenView(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [isZenView]);
+
   const activeTheme = useMemo(() => getThemeDefinition(themeId), [themeId]);
 
   return (
-    <div className="app-page">
-      <header className="topbar">
-        <div className="topbar__title">
-          <p className="eyebrow">Asimov Happy</p>
-          <h2>Julia Set Kohonen Map</h2>
-          <p className="detail">Theme: {activeTheme.label}</p>
-        </div>
-        <nav className="topbar__nav" aria-label="Primary">
-          <NavLink href="/" currentRoute={route}>
-            Workspace
-          </NavLink>
-          <NavLink href="/gui-settings" currentRoute={route}>
-            GUI Settings
-          </NavLink>
-        </nav>
-      </header>
-
+    <div className={isZenView ? "app-page app-page--zen" : "app-page"}>
+      {!isZenView ? (
+        <header className="topbar">
+          <div className="topbar__title">
+            <p className="eyebrow">Asimov Happy</p>
+            <h2>Julia Set Kohonen Map</h2>
+            <p className="detail">Theme: {activeTheme.label}</p>
+          </div>
+          <nav className="topbar__nav" aria-label="Primary">
+            <NavLink href="/" currentRoute={route}>
+              Workspace
+            </NavLink>
+            <NavLink href="/gui-settings" currentRoute={route}>
+              GUI Settings
+            </NavLink>
+          </nav>
+        </header>
+      ) : null}
       {route === "/gui-settings" ? (
         <GuiSettingsRoute selectedThemeId={themeId} onSelectTheme={setThemeId} />
       ) : (
-        <MainWorkspace />
+        <MainWorkspace isZenView={isZenView} onToggleZenView={() => setIsZenView((current) => !current)} />
       )}
     </div>
   );
