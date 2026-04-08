@@ -19,3 +19,9 @@ In other words:
 * fill the whole window as good as possible without compromising on the aspect ratios please
 
 can u use a headless broser to view the page on localhost?
+
+Very good already. But there are some issues:
+* when I hover over the mandelbrot the cursor position is not the same as the current complex number selected.
+* there is still so much free space in the window!
+  * why does the kohonen map not fill it's entire area?
+  * why is there so much free space between mandelbrot and julia set and between those and the map?

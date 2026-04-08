@@ -360,7 +360,8 @@ function MainWorkspace(props: {
     () => getCellByIndex(session.result, selectedCellIndex),
     [session.result, selectedCellIndex],
   );
-  const viewerParameter = hoveredParameter ?? selectedCell?.representativeParameter ?? null;
+  const viewerParameter =
+    mandelbrotHoverParameter ?? hoveredParameter ?? selectedCell?.representativeParameter ?? null;
   const mandelbrotParameter = mandelbrotHoverParameter ?? viewerParameter;
   const highlightedCellIndex = useMemo(
     () => getNearestCellIndexForParameter(session.result, mandelbrotHoverParameter),
