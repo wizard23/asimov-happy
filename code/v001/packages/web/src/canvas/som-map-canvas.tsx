@@ -8,8 +8,6 @@ import {
   type Point2D,
 } from "./map-geometry.js";
 
-const MAP_CELL_SIZE = 28;
-
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
@@ -91,13 +89,15 @@ export function SomMapCanvas(props: {
   onHoverParameter: (parameter: ComplexParameter | null) => void;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cellWidth = props.result?.settings.featureWidth ?? 28;
+  const cellHeight = props.result?.settings.featureHeight ?? 28;
 
   const canvasSize = useMemo(() => {
     if (!props.result) {
       return { x: 480, y: 480 };
     }
-    return getCanvasSize(props.result, props.result.settings.topology, MAP_CELL_SIZE);
-  }, [props.result]);
+    return getCanvasSize(props.result, props.result.settings.topology, cellWidth, cellHeight);
+  }, [props.result, cellWidth, cellHeight]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -125,15 +125,15 @@ export function SomMapCanvas(props: {
     const topology = result.settings.topology;
     if (topology === "squares") {
       for (const cell of result.cells) {
-        const x = cell.x * MAP_CELL_SIZE;
-        const y = cell.y * MAP_CELL_SIZE;
+        const x = cell.x * cellWidth;
+        const y = cell.y * cellHeight;
         drawPrototypeImage(
           context,
           cell,
           x,
           y,
-          MAP_CELL_SIZE,
-          MAP_CELL_SIZE,
+          cellWidth,
+          cellHeight,
           result.settings.featureWidth,
           result.settings.featureHeight,
         );
@@ -145,22 +145,22 @@ export function SomMapCanvas(props: {
             ? "#1457a6"
             : "rgba(16, 35, 58, 0.18)";
         context.lineWidth = isSelected ? 3 : isHighlighted ? 2.5 : 1;
-        context.strokeRect(x + 0.5, y + 0.5, MAP_CELL_SIZE - 1, MAP_CELL_SIZE - 1);
+        context.strokeRect(x + 0.5, y + 0.5, cellWidth - 1, cellHeight - 1);
       }
       return;
     }
 
-    const radius = MAP_CELL_SIZE / 2;
+    const radius = Math.min(cellWidth, cellHeight) / 2;
     for (const cell of result.cells) {
-      const center = getCellCenter("hexagons", cell, MAP_CELL_SIZE, MAP_CELL_SIZE);
+      const center = getCellCenter("hexagons", cell, cellWidth, cellHeight);
       const path = createHexPath(center, radius - 1);
       drawPrototypeImage(
         context,
         cell,
-        center.x - radius,
-        center.y - radius,
-        MAP_CELL_SIZE,
-        MAP_CELL_SIZE,
+        center.x - cellWidth / 2,
+        center.y - cellHeight / 2,
+        cellWidth,
+        cellHeight,
         result.settings.featureWidth,
         result.settings.featureHeight,
         path,
@@ -175,7 +175,15 @@ export function SomMapCanvas(props: {
       context.lineWidth = isSelected ? 3 : isHighlighted ? 2.5 : 1.25;
       context.stroke(path);
     }
-  }, [props.result, props.selectedCellIndex, props.highlightedCellIndex, canvasSize.x, canvasSize.y]);
+  }, [
+    props.result,
+    props.selectedCellIndex,
+    props.highlightedCellIndex,
+    canvasSize.x,
+    canvasSize.y,
+    cellWidth,
+    cellHeight,
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -188,7 +196,7 @@ export function SomMapCanvas(props: {
 
     function handleMove(event: MouseEvent): void {
       const point = getCanvasPoint(activeCanvas, event);
-      props.onHoverParameter(getInterpolatedParameterAtPoint(activeResult, point, MAP_CELL_SIZE));
+      props.onHoverParameter(getInterpolatedParameterAtPoint(activeResult, point, cellWidth, cellHeight));
     }
 
     function handleLeave(): void {
@@ -197,7 +205,7 @@ export function SomMapCanvas(props: {
 
     function handleClick(event: MouseEvent): void {
       const point = getCanvasPoint(activeCanvas, event);
-      const cell = getClosestCellAtPoint(activeResult, point, MAP_CELL_SIZE);
+      const cell = getClosestCellAtPoint(activeResult, point, cellWidth, cellHeight);
       props.onSelectCell(cell?.index ?? null);
     }
 
@@ -210,10 +218,10 @@ export function SomMapCanvas(props: {
       activeCanvas.removeEventListener("mouseleave", handleLeave);
       activeCanvas.removeEventListener("click", handleClick);
     };
-  }, [props]);
+  }, [props, cellWidth, cellHeight]);
 
   return (
-    <div className="canvas-frame">
+    <div className="canvas-frame canvas-frame--map">
       <canvas
         ref={canvasRef}
         className="canvas canvas--map"

@@ -52,32 +52,41 @@ export function getCellCenter(
   };
 }
 
-export function getHexCanvasSize(result: SomTrainingResult, cellSize: number): Point2D {
-  const radius = cellSize / 2;
+export function getHexCanvasSize(
+  result: SomTrainingResult,
+  cellWidth: number,
+  cellHeight: number,
+): Point2D {
+  const radius = Math.min(cellWidth, cellHeight) / 2;
   const horizontalSpacing = Math.sqrt(3) * radius;
   const verticalSpacing = 1.5 * radius;
 
   return {
     x: horizontalSpacing * result.settings.somWidth + horizontalSpacing / 2 + radius,
-    y: verticalSpacing * Math.max(result.settings.somHeight - 1, 0) + cellSize,
+    y: verticalSpacing * Math.max(result.settings.somHeight - 1, 0) + cellHeight,
   };
 }
 
-export function getSquareCanvasSize(result: SomTrainingResult, cellSize: number): Point2D {
+export function getSquareCanvasSize(
+  result: SomTrainingResult,
+  cellWidth: number,
+  cellHeight: number,
+): Point2D {
   return {
-    x: result.settings.somWidth * cellSize,
-    y: result.settings.somHeight * cellSize,
+    x: result.settings.somWidth * cellWidth,
+    y: result.settings.somHeight * cellHeight,
   };
 }
 
 export function getCanvasSize(
   result: SomTrainingResult,
   topology: Topology,
-  cellSize: number,
+  cellWidth: number,
+  cellHeight: number,
 ): Point2D {
   return topology === "squares"
-    ? getSquareCanvasSize(result, cellSize)
-    : getHexCanvasSize(result, cellSize);
+    ? getSquareCanvasSize(result, cellWidth, cellHeight)
+    : getHexCanvasSize(result, cellWidth, cellHeight);
 }
 
 function getCellByCoordinates(
@@ -92,13 +101,14 @@ function getCellByCoordinates(
 function getInterpolatedSquareParameter(
   result: SomTrainingResult,
   point: Point2D,
-  cellSize: number,
+  cellWidth: number,
+  cellHeight: number,
 ): ComplexParameter | null {
   const maxX = result.settings.somWidth - 1;
   const maxY = result.settings.somHeight - 1;
 
-  const gridX = clamp(point.x / cellSize, 0, maxX);
-  const gridY = clamp(point.y / cellSize, 0, maxY);
+  const gridX = clamp(point.x / cellWidth, 0, maxX);
+  const gridY = clamp(point.y / cellHeight, 0, maxY);
 
   const x0 = Math.floor(gridX);
   const y0 = Math.floor(gridY);
@@ -146,7 +156,8 @@ function weightedComplexParameter(parameters: WeightedParameter[]): ComplexParam
 function getInterpolatedHexParameter(
   result: SomTrainingResult,
   point: Point2D,
-  cellSize: number,
+  cellWidth: number,
+  cellHeight: number,
 ): ComplexParameter | null {
   const withDistances = result.cells
     .map((cell) => {
@@ -155,7 +166,7 @@ function getInterpolatedHexParameter(
         return null;
       }
 
-      const center = getCellCenter("hexagons", cell, cellSize, cellSize);
+      const center = getCellCenter("hexagons", cell, cellWidth, cellHeight);
       const dx = center.x - point.x;
       const dy = center.y - point.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
@@ -188,23 +199,25 @@ function getInterpolatedHexParameter(
 export function getInterpolatedParameterAtPoint(
   result: SomTrainingResult,
   point: Point2D,
-  cellSize: number,
+  cellWidth: number,
+  cellHeight: number,
 ): ComplexParameter | null {
   return result.settings.topology === "squares"
-    ? getInterpolatedSquareParameter(result, point, cellSize)
-    : getInterpolatedHexParameter(result, point, cellSize);
+    ? getInterpolatedSquareParameter(result, point, cellWidth, cellHeight)
+    : getInterpolatedHexParameter(result, point, cellWidth, cellHeight);
 }
 
 export function getClosestCellAtPoint(
   result: SomTrainingResult,
   point: Point2D,
-  cellSize: number,
+  cellWidth: number,
+  cellHeight: number,
 ): SomCell | null {
   let bestCell: SomCell | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const cell of result.cells) {
-    const center = getCellCenter(result.settings.topology, cell, cellSize, cellSize);
+    const center = getCellCenter(result.settings.topology, cell, cellWidth, cellHeight);
     const dx = center.x - point.x;
     const dy = center.y - point.y;
     const distance = dx * dx + dy * dy;
