@@ -1046,11 +1046,15 @@ function App(): preact.JSX.Element {
           </nav>
         </header>
       ) : null}
-      {route === "/gui-settings" ? (
+      <div hidden={route !== "/"}>
+        <MainWorkspace
+          isZenView={isZenView}
+          onToggleZenView={() => setIsZenView((current) => !current)}
+        />
+      </div>
+      <div hidden={route !== "/gui-settings"}>
         <GuiSettingsRoute selectedThemeId={themeId} onSelectTheme={setThemeId} />
-      ) : (
-        <MainWorkspace isZenView={isZenView} onToggleZenView={() => setIsZenView((current) => !current)} />
-      )}
+      </div>
     </div>
   );
 }
