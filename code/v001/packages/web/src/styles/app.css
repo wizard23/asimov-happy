@@ -321,6 +321,8 @@ a {
 .canvas--map {
   max-height: 480px;
   object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .canvas--viewer {

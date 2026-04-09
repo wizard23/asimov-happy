@@ -51,7 +51,7 @@ function drawPrototypeImage(
   if (clipPath) {
     context.clip(clipPath);
   }
-  context.imageSmoothingEnabled = true;
+  context.imageSmoothingEnabled = false;
   context.drawImage(bitmapCanvas, x, y, width, height);
   context.restore();
 }
