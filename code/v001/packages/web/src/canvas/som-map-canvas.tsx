@@ -21,11 +21,11 @@ function drawPrototypeImage(
   y: number,
   width: number,
   height: number,
+  featureWidth: number,
+  featureHeight: number,
   clipPath?: Path2D,
 ): void {
-  const vectorLength = cell.prototypeVector.length;
-  const side = Math.max(1, Math.round(Math.sqrt(vectorLength)));
-  const imageData = context.createImageData(side, side);
+  const imageData = context.createImageData(featureWidth, featureHeight);
 
   for (let index = 0; index < imageData.data.length; index += 4) {
     const vectorIndex = Math.floor(index / 4);
@@ -38,8 +38,8 @@ function drawPrototypeImage(
   }
 
   const bitmapCanvas = document.createElement("canvas");
-  bitmapCanvas.width = side;
-  bitmapCanvas.height = side;
+  bitmapCanvas.width = featureWidth;
+  bitmapCanvas.height = featureHeight;
   const bitmapContext = bitmapCanvas.getContext("2d");
   if (!bitmapContext) {
     return;
@@ -127,7 +127,16 @@ export function SomMapCanvas(props: {
       for (const cell of result.cells) {
         const x = cell.x * MAP_CELL_SIZE;
         const y = cell.y * MAP_CELL_SIZE;
-        drawPrototypeImage(context, cell, x, y, MAP_CELL_SIZE, MAP_CELL_SIZE);
+        drawPrototypeImage(
+          context,
+          cell,
+          x,
+          y,
+          MAP_CELL_SIZE,
+          MAP_CELL_SIZE,
+          result.settings.featureWidth,
+          result.settings.featureHeight,
+        );
         const isSelected = cell.index === props.selectedCellIndex;
         const isHighlighted = cell.index === props.highlightedCellIndex;
         context.strokeStyle = isSelected
@@ -152,6 +161,8 @@ export function SomMapCanvas(props: {
         center.y - radius,
         MAP_CELL_SIZE,
         MAP_CELL_SIZE,
+        result.settings.featureWidth,
+        result.settings.featureHeight,
         path,
       );
       const isSelected = cell.index === props.selectedCellIndex;

@@ -46,6 +46,21 @@ interface TrainingSessionState {
   lastCompletedFingerprint: ReproducibilityFingerprint | null;
 }
 
+function areFingerprintsEquivalent(
+  left: ReproducibilityFingerprint | null,
+  right: ReproducibilityFingerprint,
+): boolean {
+  if (!left) {
+    return false;
+  }
+
+  return (
+    left.appVersion === right.appVersion &&
+    left.algorithmVersion === right.algorithmVersion &&
+    left.settingsDigest === right.settingsDigest
+  );
+}
+
 function getAppRoute(pathname: string): AppRoute {
   return pathname === "/gui-settings" ? "/gui-settings" : "/";
 }
@@ -148,6 +163,14 @@ function formatPercentage(progress: SomTrainingProgress | null): string {
   }
 
   return ((progress.completedSteps / progress.totalSteps) * 100).toFixed(1);
+}
+
+function formatProgressValue(value: number | null | undefined): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  return value + 1;
 }
 
 function formatRepresentativeParameter(result: SomTrainingResult | null): string {
@@ -377,9 +400,9 @@ function MainWorkspace(props: {
 
   useEffect(() => {
     setSession((current) => {
-      const completedFingerprint = current.lastCompletedFingerprint?.settingsDigest;
       const nextIsStale =
-        current.result !== null && completedFingerprint !== currentFingerprint.settingsDigest;
+        current.result !== null &&
+        !areFingerprintsEquivalent(current.lastCompletedFingerprint, currentFingerprint);
 
       if (current.isStale === nextIsStale) {
         return current;
@@ -467,18 +490,35 @@ function MainWorkspace(props: {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown worker error during training.";
+      if (message === "Training cancelled.") {
+        setSession((current) => ({
+          ...current,
+          status: "cancelled",
+          errorMessage: "Training cancelled.",
+        }));
+        return;
+      }
+
       setSession((current) => ({
         ...current,
         status: current.status === "cancelled" ? "cancelled" : "error",
         errorMessage: message,
       }));
+    } finally {
+      worker.dispose();
+      if (workerRef.current === worker) {
+        workerRef.current = null;
+      }
     }
   }
 
   function handleCancel(): void {
-    workerRef.current?.cancel();
-    workerRef.current?.dispose();
-    workerRef.current = null;
+    const worker = workerRef.current;
+    if (!worker) {
+      return;
+    }
+
+    worker.cancel();
 
     setSession((current) => ({
       ...current,
@@ -819,11 +859,11 @@ function MainWorkspace(props: {
           </div>
           <div className="status-card__row">
             <span>Current round</span>
-            <strong>{session.progress?.currentRound ?? 0}</strong>
+            <strong>{formatProgressValue(session.progress?.currentRound)}</strong>
           </div>
           <div className="status-card__row">
             <span>Current sample</span>
-            <strong>{session.progress?.currentSampleIndex ?? 0}</strong>
+            <strong>{formatProgressValue(session.progress?.currentSampleIndex)}</strong>
           </div>
           <div className="status-card__row">
             <span>Result stale</span>
