@@ -1,3 +1,10 @@
+# asimov
+# Don't steal my...
+.secrets
+.env
+
+
+
 # Logs
 logs
 *.log
