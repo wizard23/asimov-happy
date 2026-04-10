@@ -10,6 +10,7 @@ export {
   deriveTrainingSampleCount,
   getDefaultAppSettings,
   getDefaultTrainingSettings,
+  getTrainingSampleCacheKey,
   getDefaultViewerSettings,
   splitAppSettings,
   validateAppSettings,

@@ -46,6 +46,16 @@ export function deriveTrainingSampleCount(settings: TrainingSettings): number {
   return settings.somWidth * settings.somHeight * SETTINGS_LIMITS.trainingSampleMultiplier;
 }
 
+export function getTrainingSampleCacheKey(settings: TrainingSettings): string {
+  return JSON.stringify({
+    randomSeed: settings.randomSeed,
+    trainingJuliaIterations: settings.trainingJuliaIterations,
+    featureWidth: settings.featureWidth,
+    featureHeight: settings.featureHeight,
+    trainingSampleCount: deriveTrainingSampleCount(settings),
+  });
+}
+
 export function validateAppSettings(settings: AppSettings): AppSettingsValidationResult {
   const errors: string[] = [];
 

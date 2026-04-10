@@ -67,11 +67,22 @@ export interface SomTrainingSchedule {
   finalRadius: number;
 }
 
+export interface SomTrainingTimings {
+  sampleGenerationMs: number;
+  totalTrainingMs: number;
+  initializationMs: number;
+  bmuSearchMs: number;
+  neighborhoodUpdateMs: number;
+  representativeAssignmentMs: number;
+  usedSampleCache: boolean;
+}
+
 export interface SomTrainingMetadata {
   totalSteps: number;
   trainingSampleCount: number;
   featureVectorLength: number;
   schedule: SomTrainingSchedule;
+  timings: SomTrainingTimings;
 }
 
 export interface ReproducibilityFingerprint {

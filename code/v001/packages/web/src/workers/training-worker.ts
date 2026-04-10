@@ -1,4 +1,11 @@
-import { generateTrainingSamples, trainSom, type SomTrainingProgress, type TrainingSettings } from "@asimov/minimal-shared";
+import {
+  generateTrainingSamples,
+  getTrainingSampleCacheKey,
+  trainSom,
+  type SomTrainingProgress,
+  type TrainingSample,
+  type TrainingSettings,
+} from "@asimov/minimal-shared";
 
 type TrainingWorkerRequest =
   | {
@@ -33,6 +40,8 @@ type TrainingWorkerResponse =
     };
 
 let activeRequestId: number | null = null;
+let cachedTrainingSampleKey: string | null = null;
+let cachedTrainingSamples: TrainingSample[] | null = null;
 
 function postMessageToMainThread(message: TrainingWorkerResponse): void {
   self.postMessage(message);
@@ -55,10 +64,25 @@ self.onmessage = (event: MessageEvent<TrainingWorkerRequest>) => {
   activeRequestId = message.requestId;
 
   try {
-    const samples = generateTrainingSamples(message.settings);
+    const sampleCacheKey = getTrainingSampleCacheKey(message.settings);
+    const canReuseSamples =
+      cachedTrainingSampleKey === sampleCacheKey && cachedTrainingSamples !== null;
+    const sampleGenerationStartMs = performance.now();
+    const samples = canReuseSamples && cachedTrainingSamples
+      ? cachedTrainingSamples
+      : generateTrainingSamples(message.settings);
+    const sampleGenerationMs = performance.now() - sampleGenerationStartMs;
+
+    if (!canReuseSamples) {
+      cachedTrainingSampleKey = sampleCacheKey;
+      cachedTrainingSamples = samples;
+    }
+
     const result = trainSom({
       settings: message.settings,
       samples,
+      sampleGenerationMs,
+      usedSampleCache: canReuseSamples,
       onProgress(progress) {
         if (activeRequestId !== message.requestId) {
           return;

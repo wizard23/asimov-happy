@@ -18,6 +18,8 @@ export interface TrainSomOptions {
   settings: TrainingSettings;
   samples: TrainingSample[];
   onProgress?: (progress: SomTrainingProgress) => void;
+  sampleGenerationMs?: number;
+  usedSampleCache?: boolean;
 }
 
 function getNeighborhoodInfluence(distance: number, radius: number): number {
@@ -42,7 +44,14 @@ function updateCellPrototype(
   }
 }
 
-export function trainSom({ settings, samples, onProgress }: TrainSomOptions): SomTrainingResult {
+export function trainSom({
+  settings,
+  samples,
+  onProgress,
+  sampleGenerationMs = 0,
+  usedSampleCache = false,
+}: TrainSomOptions): SomTrainingResult {
+  const trainingStartMs = performance.now();
   if (samples.length === 0) {
     throw new Error("SOM training requires at least one training sample.");
   }
@@ -55,8 +64,12 @@ export function trainSom({ settings, samples, onProgress }: TrainSomOptions): So
   }
 
   const schedule = createSomTrainingSchedule(settings);
+  const initializationStartMs = performance.now();
   const cells = initializeSomCells(settings, samples);
+  const initializationMs = performance.now() - initializationStartMs;
   const totalSteps = settings.trainingRounds * samples.length;
+  let bmuSearchMs = 0;
+  let neighborhoodUpdateMs = 0;
 
   let completedSteps = 0;
   for (let round = 0; round < settings.trainingRounds; round += 1) {
@@ -87,8 +100,11 @@ export function trainSom({ settings, samples, onProgress }: TrainSomOptions): So
         completedSteps,
         totalSteps,
       );
+      const bmuStartMs = performance.now();
       const bestMatchingUnit = findBestMatchingUnit(cells, sample);
+      bmuSearchMs += performance.now() - bmuStartMs;
 
+      const updateStartMs = performance.now();
       for (const cell of cells) {
         const distance = getTopologyDistance(
           settings.topology,
@@ -100,6 +116,7 @@ export function trainSom({ settings, samples, onProgress }: TrainSomOptions): So
         const influence = getNeighborhoodInfluence(distance, radius);
         updateCellPrototype(cell, sample, learningRate, influence);
       }
+      neighborhoodUpdateMs += performance.now() - updateStartMs;
 
       completedSteps += 1;
       onProgress?.({
@@ -111,7 +128,10 @@ export function trainSom({ settings, samples, onProgress }: TrainSomOptions): So
     }
   }
 
+  const representativeAssignmentStartMs = performance.now();
   assignRepresentativeSamples(cells, samples);
+  const representativeAssignmentMs = performance.now() - representativeAssignmentStartMs;
+  const totalTrainingMs = performance.now() - trainingStartMs;
 
   return {
     settings,
@@ -122,6 +142,15 @@ export function trainSom({ settings, samples, onProgress }: TrainSomOptions): So
       trainingSampleCount: samples.length,
       featureVectorLength: settings.featureWidth * settings.featureHeight,
       schedule,
+      timings: {
+        sampleGenerationMs,
+        totalTrainingMs,
+        initializationMs,
+        bmuSearchMs,
+        neighborhoodUpdateMs,
+        representativeAssignmentMs,
+        usedSampleCache,
+      },
     },
     fingerprint: createReproducibilityFingerprint(settings),
   };
