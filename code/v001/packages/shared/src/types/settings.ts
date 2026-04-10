@@ -18,6 +18,7 @@ export interface TrainingSettings {
 
 export interface ViewerSettings {
   viewerJuliaIterations: number;
+  showMandelbrotSomGrid: boolean;
 }
 
 export interface AppSettings extends TrainingSettings, ViewerSettings {}

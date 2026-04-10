@@ -795,6 +795,17 @@ function MainWorkspace(props: {
               onChange={(value) => updateSettings({ viewerJuliaIterations: value })}
             />
           </Field>
+          <Field label="Mandelbrot SOM Grid" hint="Overlay the rectangular SOM lattice in parameter space.">
+            <input
+              type="checkbox"
+              checked={settings.showMandelbrotSomGrid}
+              onInput={(event) =>
+                updateSettings({
+                  showMandelbrotSomGrid: (event.currentTarget as HTMLInputElement).checked,
+                })
+              }
+            />
+          </Field>
         </section>
 
         <section className="group">
@@ -1051,6 +1062,8 @@ function MainWorkspace(props: {
               <MandelbrotOverviewCanvas
                 parameter={mandelbrotParameter}
                 onHoverParameter={setMandelbrotHoverParameter}
+                result={session.result}
+                showSomGrid={settings.showMandelbrotSomGrid}
               />
               <p className="detail">
                 The crosshair marks the current Julia parameter `c` on the Mandelbrot set.

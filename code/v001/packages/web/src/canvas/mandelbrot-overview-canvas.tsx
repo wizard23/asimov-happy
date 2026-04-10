@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type { ComplexBounds, ComplexParameter } from "@asimov/minimal-shared";
+import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
 import crosshairUrl from "../assets/noun-crosshair-59595.svg";
 
 const MANDELBROT_WIDTH = 360;
@@ -145,6 +145,65 @@ function renderMandelbrotSet(viewport: ComplexBounds): ImageData {
   return imageData;
 }
 
+function drawSomGridOverlay(
+  context: CanvasRenderingContext2D,
+  result: SomTrainingResult,
+  viewport: ComplexBounds,
+): void {
+  const cellsByCoordinates = new Map<string, ComplexParameter>();
+
+  for (const cell of result.cells) {
+    if (!cell.representativeParameter) {
+      continue;
+    }
+    cellsByCoordinates.set(`${cell.x},${cell.y}`, cell.representativeParameter);
+  }
+
+  context.save();
+  context.strokeStyle = "rgba(248, 219, 120, 0.65)";
+  context.lineWidth = 1.5;
+
+  for (const cell of result.cells) {
+    const current = cell.representativeParameter;
+    if (!current) {
+      continue;
+    }
+
+    const currentPoint = mapToPixelPosition(current, viewport);
+    const right = cellsByCoordinates.get(`${cell.x + 1},${cell.y}`);
+    if (right) {
+      const rightPoint = mapToPixelPosition(right, viewport);
+      context.beginPath();
+      context.moveTo(currentPoint.left, currentPoint.top);
+      context.lineTo(rightPoint.left, rightPoint.top);
+      context.stroke();
+    }
+
+    const below = cellsByCoordinates.get(`${cell.x},${cell.y + 1}`);
+    if (below) {
+      const belowPoint = mapToPixelPosition(below, viewport);
+      context.beginPath();
+      context.moveTo(currentPoint.left, currentPoint.top);
+      context.lineTo(belowPoint.left, belowPoint.top);
+      context.stroke();
+    }
+  }
+
+  context.fillStyle = "rgba(255, 244, 197, 0.85)";
+  for (const cell of result.cells) {
+    if (!cell.representativeParameter) {
+      continue;
+    }
+
+    const point = mapToPixelPosition(cell.representativeParameter, viewport);
+    context.beginPath();
+    context.arc(point.left, point.top, 2.5, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  context.restore();
+}
+
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -156,6 +215,8 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
 export function MandelbrotOverviewCanvas(props: {
   parameter: ComplexParameter | null;
   onHoverParameter: (parameter: ComplexParameter | null) => void;
+  result: SomTrainingResult | null;
+  showSomGrid: boolean;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -190,7 +251,10 @@ export function MandelbrotOverviewCanvas(props: {
     }
 
     context.putImageData(renderMandelbrotSet(viewport), 0, 0);
-  }, [viewport]);
+    if (props.showSomGrid && props.result) {
+      drawSomGridOverlay(context, props.result, viewport);
+    }
+  }, [viewport, props.result, props.showSomGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

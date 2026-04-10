@@ -114,6 +114,7 @@ export function splitAppSettings(settings: AppSettings): {
     enableNeighborhoodPruning,
     neighborhoodPruningThreshold,
     viewerJuliaIterations,
+    showMandelbrotSomGrid,
   } = settings;
 
   return {
@@ -132,6 +133,7 @@ export function splitAppSettings(settings: AppSettings): {
     },
     viewer: {
       viewerJuliaIterations,
+      showMandelbrotSomGrid,
     },
   };
 }

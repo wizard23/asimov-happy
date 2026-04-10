@@ -20,6 +20,7 @@ export const DEFAULT_TRAINING_SETTINGS: TrainingSettings = {
 
 export const DEFAULT_VIEWER_SETTINGS: ViewerSettings = {
   viewerJuliaIterations: 192,
+  showMandelbrotSomGrid: false,
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
