@@ -311,6 +311,22 @@ a {
   border: 1px solid var(--border);
 }
 
+.canvas-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: hsl(215 32% 12% / 0.78);
+  color: hsl(45 45% 92%);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
 .canvas-frame--map {
   overflow: auto;
 }
