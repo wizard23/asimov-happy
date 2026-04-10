@@ -8,8 +8,8 @@ const MANDELBROT_MAX_ITERATIONS = 96;
 const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
   minReal: -2.2,
   maxReal: 1.0,
-  minImaginary: -1.4,
-  maxImaginary: 1.4,
+  minImaginary: -1.0666666666666667,
+  maxImaginary: 1.0666666666666667,
 };
 const MIN_VIEWPORT_SPAN = 0.02;
 const ZOOM_IN_FACTOR = 0.85;
