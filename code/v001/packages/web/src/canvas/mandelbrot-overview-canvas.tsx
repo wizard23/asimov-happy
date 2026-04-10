@@ -159,6 +159,7 @@ export function MandelbrotOverviewCanvas(props: {
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const viewportRef = useRef<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
 
@@ -167,6 +168,10 @@ export function MandelbrotOverviewCanvas(props: {
     [props.parameter, viewport],
   );
   const overlayLabel = hoveredParameter ?? props.parameter;
+
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -196,7 +201,7 @@ export function MandelbrotOverviewCanvas(props: {
 
     function handleMove(event: MouseEvent): void {
       const point = getCanvasPoint(activeCanvas, event);
-      const parameter = mapPointToParameter(point.x, point.y, viewport);
+      const parameter = mapPointToParameter(point.x, point.y, viewportRef.current);
       updateHover(parameter);
 
       const dragState = dragStateRef.current;
@@ -234,7 +239,7 @@ export function MandelbrotOverviewCanvas(props: {
       dragStateRef.current = {
         pointerStartX: point.x,
         pointerStartY: point.y,
-        viewportAtStart: viewport,
+        viewportAtStart: viewportRef.current,
       };
       activeCanvas.style.cursor = "grabbing";
       event.preventDefault();
@@ -248,7 +253,7 @@ export function MandelbrotOverviewCanvas(props: {
     function handleWheel(event: WheelEvent): void {
       event.preventDefault();
       const point = getCanvasPoint(activeCanvas, event);
-      const anchor = mapPointToParameter(point.x, point.y, viewport);
+      const anchor = mapPointToParameter(point.x, point.y, viewportRef.current);
       setViewport((current) =>
         zoomViewport(current, anchor, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR),
       );
@@ -271,7 +276,7 @@ export function MandelbrotOverviewCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [props, viewport]);
+  }, [props]);
 
   return (
     <div className="canvas-frame canvas-frame--mandelbrot">

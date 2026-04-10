@@ -83,6 +83,7 @@ export function JuliaViewerCanvas(props: {
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
 
   const featureVector = useMemo(() => {
@@ -97,6 +98,10 @@ export function JuliaViewerCanvas(props: {
       viewport,
     );
   }, [props.parameter, props.iterations, viewport]);
+
+  useEffect(() => {
+    viewportRef.current = viewport;
+  }, [viewport]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -150,7 +155,7 @@ export function JuliaViewerCanvas(props: {
       dragStateRef.current = {
         pointerStartX: point.x,
         pointerStartY: point.y,
-        viewportAtStart: viewport,
+        viewportAtStart: viewportRef.current,
       };
       activeCanvas.style.cursor = "grabbing";
       event.preventDefault();
@@ -190,7 +195,7 @@ export function JuliaViewerCanvas(props: {
 
       event.preventDefault();
       const point = getCanvasPoint(activeCanvas, event);
-      const anchor = mapPointToCoordinate(point.x, point.y, viewport);
+      const anchor = mapPointToCoordinate(point.x, point.y, viewportRef.current);
       setViewport((current) =>
         zoomViewport(current, anchor, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR),
       );
@@ -210,7 +215,7 @@ export function JuliaViewerCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [props.parameter, viewport]);
+  }, [props.parameter]);
 
   return (
     <div className="canvas-frame">
