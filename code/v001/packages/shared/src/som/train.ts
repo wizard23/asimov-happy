@@ -22,6 +22,9 @@ export interface TrainSomOptions {
   usedSampleCache?: boolean;
 }
 
+const MIN_NEIGHBORHOOD_INFLUENCE = 1e-4;
+const NEIGHBORHOOD_RADIUS_MULTIPLIER = Math.sqrt(-2 * Math.log(MIN_NEIGHBORHOOD_INFLUENCE));
+
 function getNeighborhoodInfluence(distance: number, radius: number): number {
   const safeRadius = Math.max(radius, 1e-6);
   return Math.exp(-(distance * distance) / (2 * safeRadius * safeRadius));
@@ -105,6 +108,7 @@ export function trainSom({
       bmuSearchMs += performance.now() - bmuStartMs;
 
       const updateStartMs = performance.now();
+      const maxNeighborhoodDistance = radius * NEIGHBORHOOD_RADIUS_MULTIPLIER;
       for (const cell of cells) {
         const distance = getTopologyDistance(
           settings.topology,
@@ -113,7 +117,13 @@ export function trainSom({
           cell.x,
           cell.y,
         );
+        if (distance > maxNeighborhoodDistance) {
+          continue;
+        }
         const influence = getNeighborhoodInfluence(distance, radius);
+        if (influence < MIN_NEIGHBORHOOD_INFLUENCE) {
+          continue;
+        }
         updateCellPrototype(cell, sample, learningRate, influence);
       }
       neighborhoodUpdateMs += performance.now() - updateStartMs;
