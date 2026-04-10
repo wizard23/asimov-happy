@@ -71,6 +71,17 @@ export function validateAppSettings(settings: AppSettings): AppSettingsValidatio
     errors.push("randomSeed must not be empty.");
   }
 
+  if (!Number.isFinite(settings.neighborhoodPruningThreshold)) {
+    errors.push("neighborhoodPruningThreshold must be finite.");
+  } else if (
+    settings.neighborhoodPruningThreshold < SETTINGS_LIMITS.neighborhoodPruningThreshold.min ||
+    settings.neighborhoodPruningThreshold > SETTINGS_LIMITS.neighborhoodPruningThreshold.max
+  ) {
+    errors.push(
+      `neighborhoodPruningThreshold must be between ${SETTINGS_LIMITS.neighborhoodPruningThreshold.min} and ${SETTINGS_LIMITS.neighborhoodPruningThreshold.max}.`,
+    );
+  }
+
   const featureVectorLength = settings.featureWidth * settings.featureHeight;
   if (featureVectorLength > SETTINGS_LIMITS.maxFeatureVectorLength) {
     errors.push(
@@ -99,6 +110,9 @@ export function splitAppSettings(settings: AppSettings): {
     featureHeight,
     trainingRounds,
     randomSeed,
+    enableSampleCache,
+    enableNeighborhoodPruning,
+    neighborhoodPruningThreshold,
     viewerJuliaIterations,
   } = settings;
 
@@ -112,6 +126,9 @@ export function splitAppSettings(settings: AppSettings): {
       featureHeight,
       trainingRounds,
       randomSeed,
+      enableSampleCache,
+      enableNeighborhoodPruning,
+      neighborhoodPruningThreshold,
     },
     viewer: {
       viewerJuliaIterations,

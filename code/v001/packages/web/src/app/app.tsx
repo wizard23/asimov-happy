@@ -11,6 +11,7 @@ import {
   validateAppSettings,
   type AppSettings,
   type ComplexParameter,
+  type PerformanceMode,
   type ReproducibilityFingerprint,
   type SomTrainingProgress,
   type SomTrainingResult,
@@ -181,6 +182,37 @@ function formatRepresentativeParameter(result: SomTrainingResult | null): string
   }
 
   return `${parameter.real.toFixed(5)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(5)}i`;
+}
+
+function getPerformanceMode(settings: AppSettings): PerformanceMode {
+  if (
+    settings.enableSampleCache &&
+    !settings.enableNeighborhoodPruning
+  ) {
+    return "exact";
+  }
+
+  if (
+    settings.enableSampleCache &&
+    settings.enableNeighborhoodPruning &&
+    settings.neighborhoodPruningThreshold === 1e-4
+  ) {
+    return "faster";
+  }
+
+  return "custom";
+}
+
+function getPruningSliderValue(threshold: number): number {
+  return Math.log10(threshold);
+}
+
+function getThresholdForSliderValue(value: number): number {
+  return Number(Math.pow(10, value).toPrecision(6));
+}
+
+function formatThreshold(threshold: number): string {
+  return threshold.toExponential(0);
 }
 
 function Field(props: {
@@ -433,6 +465,22 @@ function MainWorkspace(props: {
     setSettings((current) => ({ ...current, ...patch }));
   }
 
+  function applyPerformanceMode(mode: Exclude<PerformanceMode, "custom">): void {
+    if (mode === "exact") {
+      updateSettings({
+        enableSampleCache: true,
+        enableNeighborhoodPruning: false,
+      });
+      return;
+    }
+
+    updateSettings({
+      enableSampleCache: true,
+      enableNeighborhoodPruning: true,
+      neighborhoodPruningThreshold: 1e-4,
+    });
+  }
+
   async function handleTrain(): Promise<void> {
     if (!validation.isValid) {
       setSession((current) => ({
@@ -608,6 +656,7 @@ function MainWorkspace(props: {
 
       const importedResult = parseTrainingResultDocument(content);
       const importedSettings: AppSettings = {
+        ...getDefaultAppSettings(),
         ...importedResult.settings,
         viewerJuliaIterations: settings.viewerJuliaIterations,
       };
@@ -746,6 +795,73 @@ function MainWorkspace(props: {
               onChange={(value) => updateSettings({ viewerJuliaIterations: value })}
             />
           </Field>
+        </section>
+
+        <section className="group">
+          <h2>Performance</h2>
+          <Field label="Performance Mode">
+            <select
+              className="field__input"
+              value={getPerformanceMode(settings)}
+              onInput={(event) => {
+                const mode = (event.currentTarget as HTMLSelectElement).value as PerformanceMode;
+                if (mode !== "custom") {
+                  applyPerformanceMode(mode);
+                }
+              }}
+            >
+              <option value="exact">Exact</option>
+              <option value="faster">Faster</option>
+              <option value="custom">Custom</option>
+            </select>
+          </Field>
+          <Field label="Sample Cache" hint="Reuse generated Julia training samples when possible.">
+            <input
+              type="checkbox"
+              checked={settings.enableSampleCache}
+              onInput={(event) =>
+                updateSettings({
+                  enableSampleCache: (event.currentTarget as HTMLInputElement).checked,
+                })
+              }
+            />
+          </Field>
+          <Field
+            label="Neighborhood Pruning"
+            hint="Skip updates once Gaussian influence falls below the selected threshold."
+          >
+            <input
+              type="checkbox"
+              checked={settings.enableNeighborhoodPruning}
+              onInput={(event) =>
+                updateSettings({
+                  enableNeighborhoodPruning: (event.currentTarget as HTMLInputElement).checked,
+                })
+              }
+            />
+          </Field>
+          {settings.enableNeighborhoodPruning ? (
+            <Field
+              label="Pruning Threshold"
+              hint={`Log scale from 1e-6 to 1e-2. Current: ${formatThreshold(settings.neighborhoodPruningThreshold)}`}
+            >
+              <input
+                className="field__input"
+                type="range"
+                min={-6}
+                max={-2}
+                step={0.1}
+                value={getPruningSliderValue(settings.neighborhoodPruningThreshold)}
+                onInput={(event) =>
+                  updateSettings({
+                    neighborhoodPruningThreshold: getThresholdForSliderValue(
+                      Number((event.currentTarget as HTMLInputElement).value),
+                    ),
+                  })
+                }
+              />
+            </Field>
+          ) : null}
         </section>
 
         <section className="group">

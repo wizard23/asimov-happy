@@ -13,6 +13,9 @@ export const DEFAULT_TRAINING_SETTINGS: TrainingSettings = {
   featureHeight: 32,
   trainingRounds: 12,
   randomSeed: "default-seed-0001",
+  enableSampleCache: true,
+  enableNeighborhoodPruning: true,
+  neighborhoodPruningThreshold: 1e-4,
 };
 
 export const DEFAULT_VIEWER_SETTINGS: ViewerSettings = {

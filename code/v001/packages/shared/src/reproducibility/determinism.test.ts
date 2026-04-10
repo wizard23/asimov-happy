@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   generateTrainingSamples,
+  getDefaultTrainingSettings,
   trainSom,
   XorShift128,
 } from "../index.js";
@@ -20,6 +21,7 @@ test("xorshift128 produces a stable sequence for a fixed seed", () => {
 
 test("training sample generation is deterministic", () => {
   const settings = {
+    ...getDefaultTrainingSettings(),
     somWidth: 3,
     somHeight: 2,
     topology: "squares" as const,
@@ -47,6 +49,7 @@ test("training sample generation is deterministic", () => {
 
 test("som training is deterministic for identical settings and seed", () => {
   const settings = {
+    ...getDefaultTrainingSettings(),
     somWidth: 4,
     somHeight: 4,
     topology: "hexagons" as const,

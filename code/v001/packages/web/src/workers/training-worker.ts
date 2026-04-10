@@ -66,7 +66,9 @@ self.onmessage = (event: MessageEvent<TrainingWorkerRequest>) => {
   try {
     const sampleCacheKey = getTrainingSampleCacheKey(message.settings);
     const canReuseSamples =
-      cachedTrainingSampleKey === sampleCacheKey && cachedTrainingSamples !== null;
+      message.settings.enableSampleCache &&
+      cachedTrainingSampleKey === sampleCacheKey &&
+      cachedTrainingSamples !== null;
     const sampleGenerationStartMs = performance.now();
     const samples = canReuseSamples && cachedTrainingSamples
       ? cachedTrainingSamples

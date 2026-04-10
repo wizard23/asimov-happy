@@ -74,6 +74,7 @@ export type {
   ExportedSettingsDocument,
   ExportedTrainingResultDocument,
   JuliaViewport,
+  PerformanceMode,
   ReproducibilityFingerprint,
   SerializedComplexParameter,
   SerializedSomCell,

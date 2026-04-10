@@ -1,5 +1,7 @@
 export type Topology = "squares" | "hexagons";
 
+export type PerformanceMode = "exact" | "faster" | "custom";
+
 export interface TrainingSettings {
   somWidth: number;
   somHeight: number;
@@ -9,6 +11,9 @@ export interface TrainingSettings {
   featureHeight: number;
   trainingRounds: number;
   randomSeed: string;
+  enableSampleCache: boolean;
+  enableNeighborhoodPruning: boolean;
+  neighborhoodPruningThreshold: number;
 }
 
 export interface ViewerSettings {

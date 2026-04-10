@@ -6,6 +6,7 @@ import {
   deserializeTrainingResult,
   generateTrainingSamples,
   getDefaultAppSettings,
+  getDefaultTrainingSettings,
   parseSettingsDocument,
   parseTrainingResultDocument,
   serializeTrainingResult,
@@ -21,6 +22,7 @@ test("settings documents round-trip deterministically", () => {
 
 test("training result documents round-trip typed arrays and metadata", () => {
   const settings = {
+    ...getDefaultTrainingSettings(),
     somWidth: 4,
     somHeight: 3,
     topology: "squares" as const,
