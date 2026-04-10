@@ -159,6 +159,7 @@ export function MandelbrotOverviewCanvas(props: {
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const onHoverParameterRef = useRef(props.onHoverParameter);
   const viewportRef = useRef<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
@@ -168,6 +169,10 @@ export function MandelbrotOverviewCanvas(props: {
     [props.parameter, viewport],
   );
   const overlayLabel = hoveredParameter ?? props.parameter;
+
+  useEffect(() => {
+    onHoverParameterRef.current = props.onHoverParameter;
+  }, [props.onHoverParameter]);
 
   useEffect(() => {
     viewportRef.current = viewport;
@@ -196,7 +201,7 @@ export function MandelbrotOverviewCanvas(props: {
 
     function updateHover(parameter: ComplexParameter | null): void {
       setHoveredParameter(parameter);
-      props.onHoverParameter(parameter);
+      onHoverParameterRef.current(parameter);
     }
 
     function handleMove(event: MouseEvent): void {
@@ -276,7 +281,7 @@ export function MandelbrotOverviewCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [props]);
+  }, []);
 
   return (
     <div className="canvas-frame canvas-frame--mandelbrot">
