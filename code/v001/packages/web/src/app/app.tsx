@@ -410,11 +410,14 @@ function ExplorerWorkspace(props: {
     imaginary: 0.11301,
   });
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
+  const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(false);
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
   const [juliaIterations, setJuliaIterations] = useState(256);
 
   const palettes = getFractalPalettes();
+  const activeParameter =
+    isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
 
   return (
     <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
@@ -459,11 +462,22 @@ function ExplorerWorkspace(props: {
               onChange={setJuliaIterations}
             />
           </Field>
+          <Field
+            label="Live Preview"
+            hint="When enabled, the Julia set follows the current Mandelbrot hover position and reverts to the last clicked point on mouse leave."
+          >
+            <input
+              type="checkbox"
+              checked={isLivePreviewEnabled}
+              onInput={(event) => setIsLivePreviewEnabled(event.currentTarget.checked)}
+            />
+          </Field>
         </section>
 
         <section className="group">
           <h2>Selection</h2>
           <p className="metric">Selected: {formatComplexParameter(selectedParameter)}</p>
+          <p className="detail">Active: {formatComplexParameter(activeParameter)}</p>
           <p className="detail">
             Hover: {formatComplexParameter(hoveredParameter)}
           </p>
@@ -498,8 +512,12 @@ function ExplorerWorkspace(props: {
           <article className="card">
             <p className="eyebrow">Selection</p>
             <h3>Julia Constant</h3>
-            <p className="metric metric--large">{formatComplexParameter(selectedParameter)}</p>
-            <p className="detail">Click in the Mandelbrot panel to update the Julia constant.</p>
+            <p className="metric metric--large">{formatComplexParameter(activeParameter)}</p>
+            <p className="detail">
+              {isLivePreviewEnabled
+                ? "Live Preview is active. Move across the Mandelbrot panel to scrub the Julia constant."
+                : "Click in the Mandelbrot panel to update the Julia constant."}
+            </p>
           </article>
           <article className="card">
             <p className="eyebrow">Palette</p>
@@ -510,10 +528,10 @@ function ExplorerWorkspace(props: {
             <p className="detail">Both fractal views use the same palette mapping.</p>
           </article>
           <article className="card">
-            <p className="eyebrow">Iterations</p>
-            <h3>Quality</h3>
-            <p className="metric metric--large">{mandelbrotIterations} / {juliaIterations}</p>
-            <p className="detail">Mandelbrot / Julia iteration limits.</p>
+            <p className="eyebrow">Interaction</p>
+            <h3>Mode</h3>
+            <p className="metric metric--large">{isLivePreviewEnabled ? "Live Preview" : "Click Select"}</p>
+            <p className="detail">Mandelbrot: {mandelbrotIterations} iterations. Julia: {juliaIterations} iterations.</p>
           </article>
         </section>
 
@@ -522,7 +540,7 @@ function ExplorerWorkspace(props: {
             <p className="eyebrow">Parameter Plane</p>
             <h3>Mandelbrot Explorer</h3>
             <MandelbrotOverviewCanvas
-              parameter={selectedParameter}
+              parameter={activeParameter}
               onHoverParameter={setHoveredParameter}
               onSelectParameter={setSelectedParameter}
               iterations={mandelbrotIterations}
@@ -537,12 +555,14 @@ function ExplorerWorkspace(props: {
             <p className="eyebrow">Result</p>
             <h3>Julia Set</h3>
             <JuliaViewerCanvas
-              parameter={selectedParameter}
+              parameter={activeParameter}
               iterations={juliaIterations}
               palette={palette}
             />
             <p className="detail">
-              The Julia viewer stays locked to the last selected Mandelbrot point.
+              {isLivePreviewEnabled
+                ? "The Julia viewer follows the current hover position and falls back to the last clicked point on mouse leave."
+                : "The Julia viewer stays locked to the last selected Mandelbrot point."}
             </p>
           </article>
         </section>
@@ -559,7 +579,8 @@ function ExplorerWorkspace(props: {
 
         <ul className="notes">
           <li>Mandelbrot and Julia iteration counts are fully independent here.</li>
-          <li>The crosshair marks the currently selected Mandelbrot parameter.</li>
+          <li>The crosshair marks the active Mandelbrot parameter used for the Julia set.</li>
+          <li>Live Preview uses hover as a temporary Julia parameter override.</li>
           <li>Zen mode hides all controls and keeps only the two canvases fullscreen.</li>
         </ul>
       </section>

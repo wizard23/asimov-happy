@@ -46,4 +46,8 @@ please fix
 
 why is the mandelbrot canvas only 360x240 pixel? It should always adapt to the space it has available please.
 
-please add a checkbox for "always select current hover point" or "smooth mode" that automatically selects the current hover position in the mandelbrot viewer for the juli set.
+i need  a checkbox for "always select current hover point" or "smooth mode" that automatically selects the current hover position in the mandelbrot viewer for the juli set. Now we have to click each position explicitly. Before you change anything: does this make sense? if it is unclear laet's fix the spec before we make changes.
+Also: I need a better name for this mode: please suggest one or two better names.
+
+
+your suggestion is good. please make it so.
