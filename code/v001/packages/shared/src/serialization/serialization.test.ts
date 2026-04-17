@@ -13,14 +13,14 @@ import {
   trainSom,
 } from "../index.js";
 
-test("settings documents round-trip deterministically", () => {
+void test("settings documents round-trip deterministically", () => {
   const settings = getDefaultAppSettings();
   const document = createSettingsDocument(settings);
   const parsed = parseSettingsDocument(JSON.stringify(document));
   assert.deepEqual(parsed, settings);
 });
 
-test("training result documents round-trip typed arrays and metadata", () => {
+void test("training result documents round-trip typed arrays and metadata", () => {
   const settings = {
     ...getDefaultTrainingSettings(),
     somWidth: 4,

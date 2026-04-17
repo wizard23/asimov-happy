@@ -7,7 +7,7 @@ import {
   XorShift128,
 } from "../index.js";
 
-test("xorshift128 produces a stable sequence for a fixed seed", () => {
+void test("xorshift128 produces a stable sequence for a fixed seed", () => {
   const rng = new XorShift128("rng-seed-0001");
   const sequence = [
     rng.nextUint32(),
@@ -19,7 +19,7 @@ test("xorshift128 produces a stable sequence for a fixed seed", () => {
   assert.deepEqual(sequence, [1880187002, 2934644307, 2470174382, 2704101339]);
 });
 
-test("training sample generation is deterministic", () => {
+void test("training sample generation is deterministic", () => {
   const settings = {
     ...getDefaultTrainingSettings(),
     somWidth: 3,
@@ -47,7 +47,7 @@ test("training sample generation is deterministic", () => {
   );
 });
 
-test("som training is deterministic for identical settings and seed", () => {
+void test("som training is deterministic for identical settings and seed", () => {
   const settings = {
     ...getDefaultTrainingSettings(),
     somWidth: 4,

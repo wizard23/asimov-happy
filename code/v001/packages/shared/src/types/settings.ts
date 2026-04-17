@@ -42,7 +42,7 @@ export interface ComplexBounds {
   maxImaginary: number;
 }
 
-export interface JuliaViewport extends ComplexBounds {}
+export type JuliaViewport = ComplexBounds;
 
 export interface TrainingSample {
   sampleIndex: number;

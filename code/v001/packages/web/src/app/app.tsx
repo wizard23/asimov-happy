@@ -243,7 +243,7 @@ function NumberInput(props: {
       min={props.min}
       max={props.max}
       onInput={(event) => {
-        const nextValue = Number((event.currentTarget as HTMLInputElement).value);
+        const nextValue = Number(event.currentTarget.value);
         props.onChange(nextValue);
       }}
     />
@@ -729,7 +729,7 @@ function MainWorkspace(props: {
               value={settings.topology}
               onInput={(event) =>
                 updateSettings({
-                  topology: (event.currentTarget as HTMLSelectElement).value as AppSettings["topology"],
+                  topology: event.currentTarget.value,
                 })
               }
             >
@@ -750,9 +750,7 @@ function MainWorkspace(props: {
               className="field__input"
               type="text"
               value={settings.randomSeed}
-              onInput={(event) =>
-                updateSettings({ randomSeed: (event.currentTarget as HTMLInputElement).value })
-              }
+              onInput={(event) => updateSettings({ randomSeed: event.currentTarget.value })}
             />
           </Field>
         </section>
@@ -801,7 +799,7 @@ function MainWorkspace(props: {
               checked={settings.showMandelbrotSomGrid}
               onInput={(event) =>
                 updateSettings({
-                  showMandelbrotSomGrid: (event.currentTarget as HTMLInputElement).checked,
+                  showMandelbrotSomGrid: event.currentTarget.checked,
                 })
               }
             />
@@ -815,7 +813,7 @@ function MainWorkspace(props: {
               className="field__input"
               value={getPerformanceMode(settings)}
               onInput={(event) => {
-                const mode = (event.currentTarget as HTMLSelectElement).value as PerformanceMode;
+                const mode = event.currentTarget.value;
                 if (mode !== "custom") {
                   applyPerformanceMode(mode);
                 }
@@ -832,7 +830,7 @@ function MainWorkspace(props: {
               checked={settings.enableSampleCache}
               onInput={(event) =>
                 updateSettings({
-                  enableSampleCache: (event.currentTarget as HTMLInputElement).checked,
+                  enableSampleCache: event.currentTarget.checked,
                 })
               }
             />
@@ -846,7 +844,7 @@ function MainWorkspace(props: {
               checked={settings.enableNeighborhoodPruning}
               onInput={(event) =>
                 updateSettings({
-                  enableNeighborhoodPruning: (event.currentTarget as HTMLInputElement).checked,
+                  enableNeighborhoodPruning: event.currentTarget.checked,
                 })
               }
             />
@@ -866,7 +864,7 @@ function MainWorkspace(props: {
                 onInput={(event) =>
                   updateSettings({
                     neighborhoodPruningThreshold: getThresholdForSliderValue(
-                      Number((event.currentTarget as HTMLInputElement).value),
+                      Number(event.currentTarget.value),
                     ),
                   })
                 }
