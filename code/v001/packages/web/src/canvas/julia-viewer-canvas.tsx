@@ -5,6 +5,11 @@ import {
   type ComplexParameter,
   type JuliaViewport,
 } from "@asimov/minimal-shared";
+import {
+  getPaletteColor,
+  getPaletteCssBackground,
+  type FractalPaletteId,
+} from "./fractal-palette.js";
 
 const VIEWER_SIZE = 360;
 const MIN_VIEWPORT_SPAN = 0.02;
@@ -15,10 +20,6 @@ interface DragState {
   pointerStartX: number;
   pointerStartY: number;
   viewportAtStart: JuliaViewport;
-}
-
-function clampByte(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
 function getViewportWidth(viewport: JuliaViewport): number {
@@ -80,6 +81,7 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
   iterations: number;
+  palette: FractalPaletteId;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -115,7 +117,7 @@ export function JuliaViewerCanvas(props: {
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#f3ede1";
+    context.fillStyle = getPaletteCssBackground(props.palette);
     context.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!featureVector) {
@@ -129,15 +131,15 @@ export function JuliaViewerCanvas(props: {
     for (let index = 0; index < featureVector.length; index += 1) {
       const pixelIndex = index * 4;
       const value = featureVector[index] ?? 0;
-      const channel = clampByte(value * 255);
-      imageData.data[pixelIndex] = channel;
-      imageData.data[pixelIndex + 1] = channel;
-      imageData.data[pixelIndex + 2] = channel;
+      const color = getPaletteColor(props.palette, value);
+      imageData.data[pixelIndex] = color.red;
+      imageData.data[pixelIndex + 1] = color.green;
+      imageData.data[pixelIndex + 2] = color.blue;
       imageData.data[pixelIndex + 3] = 255;
     }
 
     context.putImageData(imageData, 0, 0);
-  }, [featureVector]);
+  }, [featureVector, props.palette]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -225,6 +227,7 @@ export function JuliaViewerCanvas(props: {
         className="canvas canvas--viewer"
         width={VIEWER_SIZE}
         height={VIEWER_SIZE}
+        style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
       />
     </div>
   );

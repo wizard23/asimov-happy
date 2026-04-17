@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
 import crosshairUrl from "../assets/noun-crosshair-59595.svg";
+import {
+  clampByte,
+  getPaletteColor,
+  getPaletteCssBackground,
+  type FractalPaletteId,
+} from "./fractal-palette.js";
 
 const MANDELBROT_WIDTH = 360;
 const MANDELBROT_HEIGHT = 240;
 const MANDELBROT_MAX_ITERATIONS = 96;
+const CLICK_SELECTION_THRESHOLD = 5;
 const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
   minReal: -2.2,
   maxReal: 1.0,
@@ -19,10 +26,6 @@ interface DragState {
   pointerStartX: number;
   pointerStartY: number;
   viewportAtStart: ComplexBounds;
-}
-
-function clampByte(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
 function getViewportWidth(viewport: ComplexBounds): number {
@@ -98,7 +101,11 @@ function zoomViewport(
   };
 }
 
-function renderMandelbrotSet(viewport: ComplexBounds): ImageData {
+function renderMandelbrotSet(
+  viewport: ComplexBounds,
+  iterations: number,
+  palette: FractalPaletteId,
+): ImageData {
   const imageData = new ImageData(MANDELBROT_WIDTH, MANDELBROT_HEIGHT);
 
   for (let y = 0; y < MANDELBROT_HEIGHT; y += 1) {
@@ -113,7 +120,7 @@ function renderMandelbrotSet(viewport: ComplexBounds): ImageData {
       let escaped = false;
       let iteration = 0;
 
-      for (; iteration < MANDELBROT_MAX_ITERATIONS; iteration += 1) {
+      for (; iteration < iterations; iteration += 1) {
         const nextReal = real * real - imaginary * imaginary + cReal;
         const nextImaginary = 2 * real * imaginary + cImaginary;
         real = nextReal;
@@ -127,17 +134,21 @@ function renderMandelbrotSet(viewport: ComplexBounds): ImageData {
 
       const pixelIndex = (y * MANDELBROT_WIDTH + x) * 4;
       if (!escaped) {
-        imageData.data[pixelIndex] = 17;
-        imageData.data[pixelIndex + 1] = 33;
-        imageData.data[pixelIndex + 2] = 58;
+        const color = getPaletteColor(palette, 0, { isInterior: true });
+        imageData.data[pixelIndex] = color.red;
+        imageData.data[pixelIndex + 1] = color.green;
+        imageData.data[pixelIndex + 2] = color.blue;
         imageData.data[pixelIndex + 3] = 255;
         continue;
       }
 
-      const tone = clampByte((iteration / MANDELBROT_MAX_ITERATIONS) * 255);
-      imageData.data[pixelIndex] = clampByte(tone * 0.72);
-      imageData.data[pixelIndex + 1] = clampByte(tone * 0.84);
-      imageData.data[pixelIndex + 2] = tone;
+      const magnitudeSquared = real * real + imaginary * imaginary;
+      const smoothedIteration = iteration + 1 - Math.log2(Math.log2(Math.max(magnitudeSquared, 4)));
+      const normalized = Math.max(0, Math.min(1, smoothedIteration / iterations));
+      const color = getPaletteColor(palette, normalized);
+      imageData.data[pixelIndex] = clampByte(color.red);
+      imageData.data[pixelIndex + 1] = clampByte(color.green);
+      imageData.data[pixelIndex + 2] = clampByte(color.blue);
       imageData.data[pixelIndex + 3] = 255;
     }
   }
@@ -215,8 +226,11 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
 export function MandelbrotOverviewCanvas(props: {
   parameter: ComplexParameter | null;
   onHoverParameter: (parameter: ComplexParameter | null) => void;
-  result: SomTrainingResult | null;
-  showSomGrid: boolean;
+  onSelectParameter?: (parameter: ComplexParameter) => void;
+  result?: SomTrainingResult | null;
+  showSomGrid?: boolean;
+  iterations?: number;
+  palette?: FractalPaletteId;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -250,11 +264,19 @@ export function MandelbrotOverviewCanvas(props: {
       return;
     }
 
-    context.putImageData(renderMandelbrotSet(viewport), 0, 0);
+    context.putImageData(
+      renderMandelbrotSet(
+        viewport,
+        props.iterations ?? MANDELBROT_MAX_ITERATIONS,
+        props.palette ?? "ember",
+      ),
+      0,
+      0,
+    );
     if (props.showSomGrid && props.result) {
       drawSomGridOverlay(context, props.result, viewport);
     }
-  }, [viewport, props.result, props.showSomGrid]);
+  }, [viewport, props.iterations, props.palette, props.result, props.showSomGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -314,7 +336,18 @@ export function MandelbrotOverviewCanvas(props: {
       event.preventDefault();
     }
 
-    function handleMouseUp(): void {
+    function handleMouseUp(event: MouseEvent): void {
+      if (dragStateRef.current && props.onSelectParameter && activeCanvas.contains(event.target as Node)) {
+        const point = getCanvasPoint(activeCanvas, event);
+        const deltaX = point.x - dragStateRef.current.pointerStartX;
+        const deltaY = point.y - dragStateRef.current.pointerStartY;
+        const movedDistance = Math.hypot(deltaX, deltaY);
+
+        if (movedDistance <= CLICK_SELECTION_THRESHOLD) {
+          props.onSelectParameter(mapPointToParameter(point.x, point.y, viewportRef.current));
+        }
+      }
+
       dragStateRef.current = null;
       activeCanvas.style.cursor = "crosshair";
     }
@@ -345,7 +378,7 @@ export function MandelbrotOverviewCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []);
+  }, [props.onSelectParameter]);
 
   return (
     <div className="canvas-frame canvas-frame--mandelbrot">
@@ -355,6 +388,7 @@ export function MandelbrotOverviewCanvas(props: {
         className="canvas canvas--mandelbrot"
         width={MANDELBROT_WIDTH}
         height={MANDELBROT_HEIGHT}
+        style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
       />
       {crosshairPosition ? (
         <img

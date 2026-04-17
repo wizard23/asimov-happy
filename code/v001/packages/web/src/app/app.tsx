@@ -15,9 +15,15 @@ import {
   type ReproducibilityFingerprint,
   type SomTrainingProgress,
   type SomTrainingResult,
+  type Topology,
 } from "@asimov/minimal-shared";
 import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
 import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
+import {
+  DEFAULT_FRACTAL_PALETTE_ID,
+  getFractalPalettes,
+  type FractalPaletteId,
+} from "../canvas/fractal-palette.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import {
   APP_THEME_STORAGE_KEY,
@@ -36,7 +42,7 @@ import {
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
-type AppRoute = "/" | "/gui-settings";
+type AppRoute = "/" | "/explorer" | "/gui-settings";
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -63,6 +69,10 @@ function areFingerprintsEquivalent(
 }
 
 function getAppRoute(pathname: string): AppRoute {
+  if (pathname === "/explorer") {
+    return "/explorer";
+  }
+
   return pathname === "/gui-settings" ? "/gui-settings" : "/";
 }
 
@@ -182,6 +192,14 @@ function formatRepresentativeParameter(result: SomTrainingResult | null): string
   }
 
   return `${parameter.real.toFixed(5)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(5)}i`;
+}
+
+function formatComplexParameter(parameter: ComplexParameter | null): string {
+  if (!parameter) {
+    return "n/a";
+  }
+
+  return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
 }
 
 function getPerformanceMode(settings: AppSettings): PerformanceMode {
@@ -378,6 +396,172 @@ function GuiSettingsRoute(props: {
             onSelectTheme={props.onSelectTheme}
           />
         ))}
+      </section>
+    </div>
+  );
+}
+
+function ExplorerWorkspace(props: {
+  isZenView: boolean;
+  onToggleZenView: () => void;
+}): preact.JSX.Element {
+  const [selectedParameter, setSelectedParameter] = useState<ComplexParameter>({
+    real: -0.74543,
+    imaginary: 0.11301,
+  });
+  const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
+  const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
+  const [juliaIterations, setJuliaIterations] = useState(256);
+
+  const palettes = getFractalPalettes();
+
+  return (
+    <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
+      <aside className={`panel panel--controls${props.isZenView ? " panel--hidden" : ""}`}>
+        <div className="panel__header">
+          <p className="eyebrow">Explorer</p>
+          <h1>Mandelbrot to Julia</h1>
+          <p className="panel__lede">
+            Click a point on the Mandelbrot plane to lock a complex constant `c`, then inspect the
+            corresponding Julia set with independent render settings.
+          </p>
+        </div>
+
+        <section className="group">
+          <h2>Display</h2>
+          <Field label="Palette">
+            <select
+              className="field__input"
+              value={palette}
+              onInput={(event) => setPalette(event.currentTarget.value as FractalPaletteId)}
+            >
+              {palettes.map((paletteDefinition) => (
+                <option key={paletteDefinition.id} value={paletteDefinition.id}>
+                  {paletteDefinition.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Mandelbrot Iterations">
+            <NumberInput
+              value={mandelbrotIterations}
+              min={16}
+              max={2048}
+              onChange={setMandelbrotIterations}
+            />
+          </Field>
+          <Field label="Julia Iterations">
+            <NumberInput
+              value={juliaIterations}
+              min={16}
+              max={4096}
+              onChange={setJuliaIterations}
+            />
+          </Field>
+        </section>
+
+        <section className="group">
+          <h2>Selection</h2>
+          <p className="metric">Selected: {formatComplexParameter(selectedParameter)}</p>
+          <p className="detail">
+            Hover: {formatComplexParameter(hoveredParameter)}
+          </p>
+          <div className="actions">
+            <button className="button button--primary" type="button" onClick={props.onToggleZenView}>
+              Zen View
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <main className={`panel panel--summary${props.isZenView ? " panel--summary-zen" : ""}`}>
+        <div className="panel__header">
+          <div className={`panel__header-row${props.isZenView ? " panel__header-row--zen" : ""}`}>
+            <div>
+              <p className="eyebrow">Standalone</p>
+              <h2>{props.isZenView ? "Zen View" : "Explorer"}</h2>
+            </div>
+            {props.isZenView ? null : (
+              <button
+                className="button button--subtle"
+                type="button"
+                onClick={props.onToggleZenView}
+              >
+                Zen View
+              </button>
+            )}
+          </div>
+        </div>
+
+        <section className={`result-grid${props.isZenView ? " result-grid--hidden" : ""}`}>
+          <article className="card">
+            <p className="eyebrow">Selection</p>
+            <h3>Julia Constant</h3>
+            <p className="metric metric--large">{formatComplexParameter(selectedParameter)}</p>
+            <p className="detail">Click in the Mandelbrot panel to update the Julia constant.</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Palette</p>
+            <h3>Render Mode</h3>
+            <p className="metric metric--large">
+              {palettes.find((paletteDefinition) => paletteDefinition.id === palette)?.label ?? palette}
+            </p>
+            <p className="detail">Both fractal views use the same palette mapping.</p>
+          </article>
+          <article className="card">
+            <p className="eyebrow">Iterations</p>
+            <h3>Quality</h3>
+            <p className="metric metric--large">{mandelbrotIterations} / {juliaIterations}</p>
+            <p className="detail">Mandelbrot / Julia iteration limits.</p>
+          </article>
+        </section>
+
+        <section className={props.isZenView ? "explorer-layout explorer-layout--zen" : "explorer-layout"}>
+          <article className="card card--viewer">
+            <p className="eyebrow">Parameter Plane</p>
+            <h3>Mandelbrot Explorer</h3>
+            <MandelbrotOverviewCanvas
+              parameter={selectedParameter}
+              onHoverParameter={setHoveredParameter}
+              onSelectParameter={setSelectedParameter}
+              iterations={mandelbrotIterations}
+              palette={palette}
+            />
+            <p className="detail">
+              Hover to inspect coordinates, drag to pan, scroll to zoom, click to choose `c`.
+            </p>
+          </article>
+
+          <article className="card card--viewer">
+            <p className="eyebrow">Result</p>
+            <h3>Julia Set</h3>
+            <JuliaViewerCanvas
+              parameter={selectedParameter}
+              iterations={juliaIterations}
+              palette={palette}
+            />
+            <p className="detail">
+              The Julia viewer stays locked to the last selected Mandelbrot point.
+            </p>
+          </article>
+        </section>
+      </main>
+
+      <section className={`panel panel--inspector${props.isZenView ? " panel--hidden" : ""}`}>
+        <div className="panel__header">
+          <p className="eyebrow">Notes</p>
+          <h2>Interaction</h2>
+          <p className="panel__lede">
+            This route bypasses SOM training entirely and reuses only the fractal rendering path.
+          </p>
+        </div>
+
+        <ul className="notes">
+          <li>Mandelbrot and Julia iteration counts are fully independent here.</li>
+          <li>The crosshair marks the currently selected Mandelbrot parameter.</li>
+          <li>Zen mode hides all controls and keeps only the two canvases fullscreen.</li>
+        </ul>
       </section>
     </div>
   );
@@ -729,7 +913,7 @@ function MainWorkspace(props: {
               value={settings.topology}
               onInput={(event) =>
                 updateSettings({
-                  topology: event.currentTarget.value,
+                  topology: event.currentTarget.value as Topology,
                 })
               }
             >
@@ -813,7 +997,7 @@ function MainWorkspace(props: {
               className="field__input"
               value={getPerformanceMode(settings)}
               onInput={(event) => {
-                const mode = event.currentTarget.value;
+                const mode = event.currentTarget.value as PerformanceMode;
                 if (mode !== "custom") {
                   applyPerformanceMode(mode);
                 }
@@ -1077,6 +1261,7 @@ function MainWorkspace(props: {
               <JuliaViewerCanvas
                 parameter={viewerParameter}
                 iterations={settings.viewerJuliaIterations}
+                palette={DEFAULT_FRACTAL_PALETTE_ID}
               />
               <p className="detail">
                 {hoveredParameter
@@ -1153,6 +1338,7 @@ function App(): preact.JSX.Element {
   }, [isZenView]);
 
   const activeTheme = useMemo(() => getThemeDefinition(themeId), [themeId]);
+  const routeTitle = route === "/explorer" ? "Julia Set Explorer" : "Julia Set Kohonen Map";
 
   return (
     <div className={isZenView ? "app-page app-page--zen" : "app-page"}>
@@ -1160,12 +1346,15 @@ function App(): preact.JSX.Element {
         <header className="topbar">
           <div className="topbar__title">
             <p className="eyebrow">Asimov Happy</p>
-            <h2>Julia Set Kohonen Map</h2>
+            <h2>{routeTitle}</h2>
             <p className="detail">Theme: {activeTheme.label}</p>
           </div>
           <nav className="topbar__nav" aria-label="Primary">
             <NavLink href="/" currentRoute={route}>
               Workspace
+            </NavLink>
+            <NavLink href="/explorer" currentRoute={route}>
+              Explorer
             </NavLink>
             <NavLink href="/gui-settings" currentRoute={route}>
               GUI Settings
@@ -1175,6 +1364,12 @@ function App(): preact.JSX.Element {
       ) : null}
       <div hidden={route !== "/"}>
         <MainWorkspace
+          isZenView={isZenView}
+          onToggleZenView={() => setIsZenView((current) => !current)}
+        />
+      </div>
+      <div hidden={route !== "/explorer"}>
+        <ExplorerWorkspace
           isZenView={isZenView}
           onToggleZenView={() => setIsZenView((current) => !current)}
         />
