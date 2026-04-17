@@ -88,8 +88,12 @@ function zoomViewport(
   anchor: ComplexParameter,
   factor: number,
 ): ComplexBounds {
-  const nextWidth = Math.max(getViewportWidth(viewport) * factor, MIN_VIEWPORT_SPAN);
-  const nextHeight = Math.max(getViewportHeight(viewport) * factor, MIN_VIEWPORT_SPAN);
+  const viewportWidth = getViewportWidth(viewport);
+  const viewportHeight = getViewportHeight(viewport);
+  const aspectRatio = viewportWidth / viewportHeight;
+  const minimumWidth = MIN_VIEWPORT_SPAN * aspectRatio;
+  const nextHeight = Math.max(viewportHeight * factor, MIN_VIEWPORT_SPAN);
+  const nextWidth = Math.max(viewportWidth * factor, minimumWidth);
   const normalizedX = (anchor.real - viewport.minReal) / getViewportWidth(viewport);
   const normalizedY = (viewport.maxImaginary - anchor.imaginary) / getViewportHeight(viewport);
 
