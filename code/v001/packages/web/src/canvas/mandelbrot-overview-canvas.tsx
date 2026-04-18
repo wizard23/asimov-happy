@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
-import crosshairUrl from "../assets/noun-crosshair-59595.svg";
 import {
   clampByte,
   getPaletteColor,
@@ -54,18 +53,6 @@ function mapToPixelPosition(
   return {
     left: normalizedX * MANDELBROT_WIDTH,
     top: normalizedY * MANDELBROT_HEIGHT,
-  };
-}
-
-function mapToRelativePosition(
-  parameter: ComplexParameter,
-  viewport: ComplexBounds,
-): { left: string; top: string } {
-  const pixelPosition = mapToPixelPosition(parameter, viewport);
-
-  return {
-    left: `${(pixelPosition.left / MANDELBROT_WIDTH) * 100}%`,
-    top: `${(pixelPosition.top / MANDELBROT_HEIGHT) * 100}%`,
   };
 }
 
@@ -266,6 +253,53 @@ function drawOrbitOverlay(
   context.restore();
 }
 
+function drawAxesOverlay(
+  context: CanvasRenderingContext2D,
+  viewport: ComplexBounds,
+): void {
+  context.save();
+  context.strokeStyle = "rgba(255, 255, 255, 0.45)";
+  context.lineWidth = 1;
+  context.setLineDash([5, 4]);
+
+  if (viewport.minReal <= 0 && viewport.maxReal >= 0) {
+    const x = mapToPixelPosition({ real: 0, imaginary: viewport.minImaginary }, viewport).left;
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, MANDELBROT_HEIGHT);
+    context.stroke();
+  }
+
+  if (viewport.minImaginary <= 0 && viewport.maxImaginary >= 0) {
+    const y = mapToPixelPosition({ real: viewport.minReal, imaginary: 0 }, viewport).top;
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(MANDELBROT_WIDTH, y);
+    context.stroke();
+  }
+
+  context.restore();
+}
+
+function drawPointMarker(
+  context: CanvasRenderingContext2D,
+  parameter: ComplexParameter,
+  viewport: ComplexBounds,
+  color: string,
+  radius: number,
+): void {
+  const point = mapToPixelPosition(parameter, viewport);
+  context.save();
+  context.strokeStyle = "rgba(255, 255, 255, 0.92)";
+  context.fillStyle = color;
+  context.lineWidth = 1.5;
+  context.beginPath();
+  context.arc(point.left, point.top, radius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  context.restore();
+}
+
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -276,10 +310,12 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
 
 export function MandelbrotOverviewCanvas(props: {
   parameter: ComplexParameter | null;
+  selectedParameter?: ComplexParameter | null;
   onHoverParameter: (parameter: ComplexParameter | null) => void;
   onSelectParameter?: (parameter: ComplexParameter) => void;
   result?: SomTrainingResult | null;
   showSomGrid?: boolean;
+  showAxes?: boolean;
   showOrbit?: boolean;
   orbitSteps?: number;
   iterations?: number;
@@ -292,10 +328,7 @@ export function MandelbrotOverviewCanvas(props: {
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
 
-  const crosshairPosition = useMemo(
-    () => (props.parameter ? mapToRelativePosition(props.parameter, viewport) : null),
-    [props.parameter, viewport],
-  );
+  const selectedParameter = props.selectedParameter ?? props.parameter;
   const overlayLabel = hoveredParameter ?? props.parameter;
 
   useEffect(() => {
@@ -326,11 +359,25 @@ export function MandelbrotOverviewCanvas(props: {
       0,
       0,
     );
+    if (props.showAxes) {
+      drawAxesOverlay(context, viewport);
+    }
     if (props.showSomGrid && props.result) {
       drawSomGridOverlay(context, props.result, viewport);
     }
     if (props.showOrbit && props.parameter) {
       drawOrbitOverlay(context, props.parameter, viewport, Math.max(1, props.orbitSteps ?? 10));
+    }
+    if (selectedParameter) {
+      drawPointMarker(context, selectedParameter, viewport, "rgba(255, 72, 72, 0.95)", 4.5);
+    }
+    if (
+      props.parameter &&
+      (!selectedParameter ||
+        props.parameter.real !== selectedParameter.real ||
+        props.parameter.imaginary !== selectedParameter.imaginary)
+    ) {
+      drawPointMarker(context, props.parameter, viewport, "rgba(70, 147, 255, 0.95)", 4);
     }
   }, [
     viewport,
@@ -339,8 +386,11 @@ export function MandelbrotOverviewCanvas(props: {
     props.palette,
     props.parameter,
     props.result,
+    props.selectedParameter,
+    props.showAxes,
     props.showOrbit,
     props.showSomGrid,
+    selectedParameter,
   ]);
 
   useEffect(() => {
@@ -455,17 +505,6 @@ export function MandelbrotOverviewCanvas(props: {
         height={MANDELBROT_HEIGHT}
         style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
       />
-      {crosshairPosition ? (
-        <img
-          className="mandelbrot-crosshair"
-          src={crosshairUrl}
-          alt="Selected Julia parameter on the Mandelbrot set"
-          style={{
-            left: crosshairPosition.left,
-            top: crosshairPosition.top,
-          }}
-        />
-      ) : null}
     </div>
   );
 }

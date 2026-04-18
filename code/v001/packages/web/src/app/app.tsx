@@ -22,6 +22,7 @@ import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.j
 import {
   DEFAULT_FRACTAL_PALETTE_ID,
   getFractalPalettes,
+  getThemeFractalPaletteId,
   type FractalPaletteId,
 } from "../canvas/fractal-palette.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
@@ -404,6 +405,7 @@ function GuiSettingsRoute(props: {
 function ExplorerWorkspace(props: {
   isZenView: boolean;
   onToggleZenView: () => void;
+  themeId: ThemeId;
 }): preact.JSX.Element {
   const [selectedParameter, setSelectedParameter] = useState<ComplexParameter>({
     real: -0.74543,
@@ -412,8 +414,11 @@ function ExplorerWorkspace(props: {
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(false);
   const [showOrbit, setShowOrbit] = useState(false);
+  const [showAxes, setShowAxes] = useState(false);
   const [orbitSteps, setOrbitSteps] = useState(10);
-  const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
+  const [palette, setPalette] = useState<FractalPaletteId>(() =>
+    getThemeFractalPaletteId(props.themeId),
+  );
   const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
   const [juliaIterations, setJuliaIterations] = useState(256);
 
@@ -439,7 +444,7 @@ function ExplorerWorkspace(props: {
             <select
               className="field__input"
               value={palette}
-              onInput={(event) => setPalette(event.currentTarget.value as FractalPaletteId)}
+              onInput={(event) => setPalette(event.currentTarget.value)}
             >
               {palettes.map((paletteDefinition) => (
                 <option key={paletteDefinition.id} value={paletteDefinition.id}>
@@ -479,6 +484,13 @@ function ExplorerWorkspace(props: {
               type="checkbox"
               checked={showOrbit}
               onInput={(event) => setShowOrbit(event.currentTarget.checked)}
+            />
+          </Field>
+          <Field label="Show Axes" hint="Draw the real and imaginary axes over both fractal views.">
+            <input
+              type="checkbox"
+              checked={showAxes}
+              onInput={(event) => setShowAxes(event.currentTarget.checked)}
             />
           </Field>
           <Field label="Orbit Steps">
@@ -563,9 +575,11 @@ function ExplorerWorkspace(props: {
             <h3>Mandelbrot Explorer</h3>
             <MandelbrotOverviewCanvas
               parameter={activeParameter}
+              selectedParameter={selectedParameter}
               onHoverParameter={setHoveredParameter}
               onSelectParameter={setSelectedParameter}
               iterations={mandelbrotIterations}
+              showAxes={showAxes}
               showOrbit={showOrbit}
               orbitSteps={orbitSteps}
               palette={palette}
@@ -582,6 +596,7 @@ function ExplorerWorkspace(props: {
               parameter={activeParameter}
               iterations={juliaIterations}
               palette={palette}
+              showAxes={showAxes}
             />
             <p className="detail">
               {isLivePreviewEnabled
@@ -603,9 +618,11 @@ function ExplorerWorkspace(props: {
 
         <ul className="notes">
           <li>Mandelbrot and Julia iteration counts are fully independent here.</li>
-          <li>The crosshair marks the active Mandelbrot parameter used for the Julia set.</li>
+          <li>The last clicked Mandelbrot point stays highlighted in red.</li>
+          <li>When Live Preview is active, the current hover point is highlighted in blue.</li>
           <li>Live Preview uses hover as a temporary Julia parameter override.</li>
-          <li>Show Orbit draws the first configured Mandelbrot iteration steps starting from `z0 = 0`.</li>
+          <li>Show Orbit draws the first configured Mandelbrot iteration steps beginning at `z1`.</li>
+          <li>Show Axes overlays the real and imaginary axes on both fractal views.</li>
           <li>Zen mode hides all controls and keeps only the two canvases fullscreen.</li>
         </ul>
       </section>
@@ -1418,6 +1435,7 @@ function App(): preact.JSX.Element {
         <ExplorerWorkspace
           isZenView={isZenView}
           onToggleZenView={() => setIsZenView((current) => !current)}
+          themeId={themeId}
         />
       </div>
       <div hidden={route !== "/gui-settings"}>

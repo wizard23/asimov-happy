@@ -82,10 +82,39 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
   };
 }
 
+function drawAxesOverlay(
+  context: CanvasRenderingContext2D,
+  viewport: JuliaViewport,
+): void {
+  context.save();
+  context.strokeStyle = "rgba(255, 255, 255, 0.45)";
+  context.lineWidth = 1;
+  context.setLineDash([5, 4]);
+
+  if (viewport.minReal <= 0 && viewport.maxReal >= 0) {
+    const x = ((0 - viewport.minReal) / getViewportWidth(viewport)) * VIEWER_SIZE;
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, VIEWER_SIZE);
+    context.stroke();
+  }
+
+  if (viewport.minImaginary <= 0 && viewport.maxImaginary >= 0) {
+    const y = ((viewport.maxImaginary - 0) / getViewportHeight(viewport)) * VIEWER_SIZE;
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(VIEWER_SIZE, y);
+    context.stroke();
+  }
+
+  context.restore();
+}
+
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
   iterations: number;
   palette: FractalPaletteId;
+  showAxes?: boolean;
 }): preact.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -143,7 +172,10 @@ export function JuliaViewerCanvas(props: {
     }
 
     context.putImageData(imageData, 0, 0);
-  }, [featureVector, props.palette]);
+    if (props.showAxes) {
+      drawAxesOverlay(context, viewport);
+    }
+  }, [featureVector, props.palette, props.showAxes, viewport]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

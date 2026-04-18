@@ -1,4 +1,10 @@
-export type FractalPaletteId = "ember" | "oceanic" | "graphite";
+import {
+  THEME_DEFINITIONS,
+  type ThemeDefinition,
+  type ThemeId,
+} from "../app/themes.js";
+
+export type FractalPaletteId = string;
 
 interface RgbColor {
   red: number;
@@ -11,7 +17,7 @@ interface PaletteStop {
   color: RgbColor;
 }
 
-interface FractalPaletteDefinition {
+export interface FractalPaletteDefinition {
   id: FractalPaletteId;
   label: string;
   background: RgbColor;
@@ -19,7 +25,7 @@ interface FractalPaletteDefinition {
   stops: PaletteStop[];
 }
 
-const FRACTAL_PALETTES: FractalPaletteDefinition[] = [
+const CUSTOM_PALETTES: FractalPaletteDefinition[] = [
   {
     id: "ember",
     label: "Ember",
@@ -60,20 +66,119 @@ const FRACTAL_PALETTES: FractalPaletteDefinition[] = [
 
 export const DEFAULT_FRACTAL_PALETTE_ID: FractalPaletteId = "ember";
 
-export function getFractalPalettes(): FractalPaletteDefinition[] {
-  return FRACTAL_PALETTES;
-}
-
-export function getFractalPalette(paletteId: FractalPaletteId): FractalPaletteDefinition {
-  return FRACTAL_PALETTES.find((palette) => palette.id === paletteId) ?? FRACTAL_PALETTES[0]!;
+function clampChannel(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }
 
 function interpolateChannel(start: number, end: number, ratio: number): number {
   return start + (end - start) * ratio;
 }
 
+function mixRgb(first: RgbColor, second: RgbColor, ratio: number): RgbColor {
+  return {
+    red: clampChannel(interpolateChannel(first.red, second.red, ratio)),
+    green: clampChannel(interpolateChannel(first.green, second.green, ratio)),
+    blue: clampChannel(interpolateChannel(first.blue, second.blue, ratio)),
+  };
+}
+
+function darken(color: RgbColor, ratio: number): RgbColor {
+  return mixRgb(color, { red: 0, green: 0, blue: 0 }, ratio);
+}
+
+function parseHslColor(value: string): RgbColor {
+  const match = value.match(/hsla?\(\s*([0-9.]+)\s+([0-9.]+)%\s+([0-9.]+)%(?:\s*\/\s*([0-9.]+%?))?\s*\)/i);
+  if (!match) {
+    throw new Error(`Unsupported theme color format: ${value}`);
+  }
+
+  const hue = Number(match[1]);
+  const saturation = Number(match[2]) / 100;
+  const lightness = Number(match[3]) / 100;
+
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const huePrime = ((hue % 360) + 360) % 360 / 60;
+  const secondary = chroma * (1 - Math.abs((huePrime % 2) - 1));
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (huePrime >= 0 && huePrime < 1) {
+    red = chroma;
+    green = secondary;
+  } else if (huePrime < 2) {
+    red = secondary;
+    green = chroma;
+  } else if (huePrime < 3) {
+    green = chroma;
+    blue = secondary;
+  } else if (huePrime < 4) {
+    green = secondary;
+    blue = chroma;
+  } else if (huePrime < 5) {
+    red = secondary;
+    blue = chroma;
+  } else {
+    red = chroma;
+    blue = secondary;
+  }
+
+  const matchLightness = lightness - chroma / 2;
+  return {
+    red: clampChannel((red + matchLightness) * 255),
+    green: clampChannel((green + matchLightness) * 255),
+    blue: clampChannel((blue + matchLightness) * 255),
+  };
+}
+
+function getThemeColor(theme: ThemeDefinition, variableName: string): RgbColor {
+  const value = theme.variables[variableName];
+  if (!value) {
+    throw new Error(`Theme ${theme.id} is missing ${variableName}.`);
+  }
+  return parseHslColor(value);
+}
+
+function createThemePalette(theme: ThemeDefinition): FractalPaletteDefinition {
+  const background = getThemeColor(theme, "--canvas-mandelbrot");
+  const accent = getThemeColor(theme, "--accent");
+  const accentStrong = getThemeColor(theme, "--accent-strong");
+  const text = getThemeColor(theme, "--text-color");
+  const muted = getThemeColor(theme, "--muted");
+
+  return {
+    id: `theme:${theme.id}`,
+    label: `Theme: ${theme.label}`,
+    background,
+    interior: darken(background, theme.colorScheme === "light" ? 0.22 : 0.16),
+    stops: [
+      { position: 0, color: mixRgb(background, accent, 0.28) },
+      { position: 0.4, color: accent },
+      { position: 0.75, color: accentStrong },
+      { position: 1, color: mixRgb(text, muted, 0.25) },
+    ],
+  };
+}
+
+const FRACTAL_PALETTES: FractalPaletteDefinition[] = [
+  ...CUSTOM_PALETTES,
+  ...THEME_DEFINITIONS.map((theme) => createThemePalette(theme)),
+];
+
+export function getFractalPalettes(): FractalPaletteDefinition[] {
+  return FRACTAL_PALETTES;
+}
+
+export function getThemeFractalPaletteId(themeId: ThemeId): FractalPaletteId {
+  return `theme:${themeId}`;
+}
+
+export function getFractalPalette(paletteId: FractalPaletteId): FractalPaletteDefinition {
+  return FRACTAL_PALETTES.find((palette) => palette.id === paletteId) ?? FRACTAL_PALETTES[0]!;
+}
+
 export function clampByte(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
+  return clampChannel(value);
 }
 
 export function getPaletteColor(
@@ -102,11 +207,11 @@ export function getPaletteColor(
     (normalizedValue - lowerStop.position) / (upperStop.position - lowerStop.position);
 
   return {
-    red: clampByte(interpolateChannel(lowerStop.color.red, upperStop.color.red, localRatio)),
-    green: clampByte(
+    red: clampChannel(interpolateChannel(lowerStop.color.red, upperStop.color.red, localRatio)),
+    green: clampChannel(
       interpolateChannel(lowerStop.color.green, upperStop.color.green, localRatio),
     ),
-    blue: clampByte(interpolateChannel(lowerStop.color.blue, upperStop.color.blue, localRatio)),
+    blue: clampChannel(interpolateChannel(lowerStop.color.blue, upperStop.color.blue, localRatio)),
   };
 }
 

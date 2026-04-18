@@ -62,7 +62,7 @@ Pleas don't include 0/0 in the orbit
 
 
 
-couple of things
+couple of things:
 * please add a checkbox for drawing the real and imaginary axis on top of the mandelbrot and julia set
 * always highlight the last clicked point in the mandelbrot set please
   * the last clicked point should be highlighted in red
