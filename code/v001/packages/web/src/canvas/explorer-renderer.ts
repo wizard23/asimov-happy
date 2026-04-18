@@ -3,6 +3,15 @@ import type { FractalPaletteId } from "./fractal-palette.js";
 
 export type ExplorerRendererId = "cpu" | "webgl" | "webgpu";
 
+export const EXPLORER_RENDERER_OPTIONS: Array<{
+  id: ExplorerRendererId;
+  label: string;
+}> = [
+  { id: "cpu", label: "CPU Rendering" },
+  { id: "webgl", label: "WebGL Rendering" },
+  { id: "webgpu", label: "WebGPU Rendering" },
+];
+
 export interface ExplorerRendererSelection {
   requested: ExplorerRendererId;
   active: ExplorerRendererId;
@@ -28,8 +37,32 @@ export interface JuliaRenderParams {
 
 export interface ExplorerImageRenderer {
   id: ExplorerRendererId;
-  renderMandelbrot(params: MandelbrotRenderParams): ImageData;
-  renderJulia(params: JuliaRenderParams): ImageData;
+  renderMandelbrot(canvas: HTMLCanvasElement, params: MandelbrotRenderParams): void;
+  renderJulia(canvas: HTMLCanvasElement, params: JuliaRenderParams): void;
+}
+
+export function isExplorerRendererId(value: string): value is ExplorerRendererId {
+  return EXPLORER_RENDERER_OPTIONS.some((option) => option.id === value);
+}
+
+export function getExplorerRendererLabel(rendererId: ExplorerRendererId): string {
+  return EXPLORER_RENDERER_OPTIONS.find((option) => option.id === rendererId)?.label ?? rendererId;
+}
+
+export function detectAvailableExplorerRenderers(): ExplorerRendererId[] {
+  const availableRenderers: ExplorerRendererId[] = ["cpu"];
+
+  if (typeof document !== "undefined") {
+    const canvas = document.createElement("canvas");
+    const webglContext =
+      canvas.getContext("webgl", { preserveDrawingBuffer: true }) ??
+      canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
+    if (webglContext) {
+      availableRenderers.push("webgl");
+    }
+  }
+
+  return availableRenderers;
 }
 
 export function resolveExplorerRendererSelection(

@@ -159,22 +159,13 @@ export function MandelbrotOverviewCanvas(props: {
       return;
     }
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    context.putImageData(
-      (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderMandelbrot({
-        viewport,
-        width: MANDELBROT_WIDTH,
-        height: MANDELBROT_HEIGHT,
-        iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
-        palette: props.palette ?? "ember",
-      }),
-      0,
-      0,
-    );
+    (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderMandelbrot(canvas, {
+      viewport,
+      width: MANDELBROT_WIDTH,
+      height: MANDELBROT_HEIGHT,
+      iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
+      palette: props.palette ?? "ember",
+    });
   }, [props.iterations, props.palette, props.renderer, viewport]);
 
   useEffect(() => {
@@ -321,6 +312,7 @@ export function MandelbrotOverviewCanvas(props: {
     <div className="canvas-frame canvas-frame--mandelbrot">
       <div className="canvas-overlay">{formatComplex(overlayLabel)}</div>
       <canvas
+        key={`mandelbrot-image-${props.renderer?.id ?? "cpu"}`}
         ref={imageCanvasRef}
         className="canvas canvas--mandelbrot"
         width={MANDELBROT_WIDTH}

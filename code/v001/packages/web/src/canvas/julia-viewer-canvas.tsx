@@ -103,34 +103,29 @@ export function JuliaViewerCanvas(props: {
       return;
     }
 
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = getPaletteCssBackground(props.palette);
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
     if (!props.parameter) {
+      const context = canvas.getContext("2d");
+      if (!context) {
+        return;
+      }
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = getPaletteCssBackground(props.palette);
+      context.fillRect(0, 0, canvas.width, canvas.height);
       context.fillStyle = "#6c7b89";
       context.font = '16px "IBM Plex Sans", sans-serif';
       context.fillText("Select or hover a cell to render the Julia set.", 20, 40);
       return;
     }
 
-    context.putImageData(
-      (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderJulia({
-        parameter: props.parameter,
-        viewport,
-        width: VIEWER_SIZE,
-        height: VIEWER_SIZE,
-        iterations: props.iterations,
-        palette: props.palette,
-      }),
-      0,
-      0,
-    );
+    (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderJulia(canvas, {
+      parameter: props.parameter,
+      viewport,
+      width: VIEWER_SIZE,
+      height: VIEWER_SIZE,
+      iterations: props.iterations,
+      palette: props.palette,
+    });
   }, [props.iterations, props.palette, props.parameter, props.renderer, viewport]);
 
   useEffect(() => {
@@ -232,6 +227,7 @@ export function JuliaViewerCanvas(props: {
     <div className="canvas-frame">
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
       <canvas
+        key={`julia-image-${props.renderer?.id ?? "cpu"}`}
         ref={imageCanvasRef}
         className="canvas canvas--viewer"
         width={VIEWER_SIZE}

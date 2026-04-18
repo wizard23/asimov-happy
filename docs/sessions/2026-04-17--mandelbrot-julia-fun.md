@@ -510,5 +510,46 @@ and please create the checklist in ./docs/plans
   I did not change any app code. If you want, the next step is to turn Phase 1 of the checklist into an implementation patch.
 ```
 
-
 yes please do it.
+
+```
+• Phase 1 is implemented.
+
+  I introduced a renderer abstraction and CPU backend in code/v001/packages/web/src/canvas/explorer-renderer.ts and code/v001/
+  packages/web/src/canvas/explorer-cpu-renderer.ts. I also split fractal image rendering from explorer overlays by moving
+  axes/orbit/grid drawing into code/v001/packages/web/src/canvas/explorer-overlays.ts and updating both code/v001/packages/
+  web/src/canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx to use separate
+  base-image and overlay canvases. The explorer route now resolves an internal requested/active renderer state, but still uses
+  the CPU backend only, as intended for this phase.
+
+  I also added the overlay-canvas styling in code/v001/packages/web/src/styles/app.css. Verification passed with npm run build
+  and npm run lint from code/v001.
+
+  The next step is Phase 2: add the actual renderer dropdown, active-renderer status, and persisted requested-renderer state
+  to the explorer UI.
+```
+
+yes please.
+
+
+```
+• Phase 2 is implemented.
+
+  The /explorer controls now include a real Renderer dropdown with:
+
+  - CPU Rendering
+  - WebGL Rendering
+  - WebGPU Rendering
+
+  and an Active Renderer status line that reflects the resolved backend. The requested renderer now persists in local storage
+  under the explorer route state, and the internal renderer-selection model is used to resolve the active backend. Since only
+  the CPU backend exists so far, WebGL and WebGPU currently fall back to CPU as intended for this phase.
+
+  The main changes are in code/v001/packages/web/src/app/app.tsx and code/v001/packages/web/src/canvas/explorer-renderer.ts.
+
+  Verification passed with npm run build and npm run lint from code/v001.
+
+  The next step is Phase 5: implement the actual WebGL renderer and hook it into the existing renderer selection.
+```
+
+yes please continue.

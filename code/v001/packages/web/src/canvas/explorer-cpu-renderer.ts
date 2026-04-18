@@ -97,10 +97,18 @@ function renderJuliaImage({
 
 export const CPU_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
   id: "cpu",
-  renderMandelbrot(params) {
-    return renderMandelbrotImage(params);
+  renderMandelbrot(canvas, params) {
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("2D canvas context unavailable for CPU Mandelbrot rendering.");
+    }
+    context.putImageData(renderMandelbrotImage(params), 0, 0);
   },
-  renderJulia(params) {
-    return renderJuliaImage(params);
+  renderJulia(canvas, params) {
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("2D canvas context unavailable for CPU Julia rendering.");
+    }
+    context.putImageData(renderJuliaImage(params), 0, 0);
   },
 };

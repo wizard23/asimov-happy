@@ -26,7 +26,15 @@ import {
   type FractalPaletteId,
 } from "../canvas/fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-cpu-renderer.js";
-import { resolveExplorerRendererSelection } from "../canvas/explorer-renderer.js";
+import {
+  detectAvailableExplorerRenderers,
+  EXPLORER_RENDERER_OPTIONS,
+  getExplorerRendererLabel,
+  isExplorerRendererId,
+  resolveExplorerRendererSelection,
+  type ExplorerRendererId,
+} from "../canvas/explorer-renderer.js";
+import { WEBGL_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-renderer.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import {
   APP_THEME_STORAGE_KEY,
@@ -46,6 +54,7 @@ import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
 type AppRoute = "/" | "/explorer" | "/gui-settings";
+const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -127,6 +136,15 @@ function getInitialThemeId(): ThemeId {
   }
 
   return getStoredThemeId(window.localStorage.getItem(APP_THEME_STORAGE_KEY));
+}
+
+function getInitialExplorerRendererId(): ExplorerRendererId {
+  if (typeof window === "undefined") {
+    return "webgl";
+  }
+
+  const storedValue = window.localStorage.getItem(EXPLORER_RENDERER_STORAGE_KEY);
+  return storedValue && isExplorerRendererId(storedValue) ? storedValue : "webgl";
 }
 
 function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | null) {
@@ -239,7 +257,9 @@ function formatThreshold(threshold: number): string {
 function getImplementedExplorerImageRenderer(rendererId: "cpu" | "webgl" | "webgpu") {
   switch (rendererId) {
     case "cpu":
+      return CPU_EXPLORER_IMAGE_RENDERER;
     case "webgl":
+      return WEBGL_EXPLORER_IMAGE_RENDERER;
     case "webgpu":
     default:
       return CPU_EXPLORER_IMAGE_RENDERER;
@@ -428,6 +448,9 @@ function ExplorerWorkspace(props: {
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitSteps, setOrbitSteps] = useState(10);
+  const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
+    getInitialExplorerRendererId,
+  );
   const [palette, setPalette] = useState<FractalPaletteId>(() =>
     getThemeFractalPaletteId(props.themeId),
   );
@@ -435,13 +458,18 @@ function ExplorerWorkspace(props: {
   const [juliaIterations, setJuliaIterations] = useState(256);
 
   const palettes = getFractalPalettes();
+  const availableRenderers = useMemo(detectAvailableExplorerRenderers, []);
   const rendererSelection = useMemo(
-    () => resolveExplorerRendererSelection("webgl", [CPU_EXPLORER_IMAGE_RENDERER.id]),
-    [],
+    () => resolveExplorerRendererSelection(requestedRenderer, availableRenderers),
+    [availableRenderers, requestedRenderer],
   );
   const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
+
+  useEffect(() => {
+    window.localStorage.setItem(EXPLORER_RENDERER_STORAGE_KEY, requestedRenderer);
+  }, [requestedRenderer]);
 
   return (
     <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
@@ -457,6 +485,28 @@ function ExplorerWorkspace(props: {
 
         <section className="group">
           <h2>Display</h2>
+          <Field label="Renderer">
+            <select
+              className="field__input"
+              value={requestedRenderer}
+              onInput={(event) => {
+                const nextValue = event.currentTarget.value;
+                if (isExplorerRendererId(nextValue)) {
+                  setRequestedRenderer(nextValue);
+                }
+              }}
+            >
+              {EXPLORER_RENDERER_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <p className="detail">
+            Active Renderer: {getExplorerRendererLabel(rendererSelection.active)}
+            {rendererSelection.fallbackReason ? ` (${rendererSelection.fallbackReason})` : ""}
+          </p>
           <Field label="Palette">
             <select
               className="field__input"
@@ -571,7 +621,9 @@ function ExplorerWorkspace(props: {
             <p className="metric metric--large">
               {palettes.find((paletteDefinition) => paletteDefinition.id === palette)?.label ?? palette}
             </p>
-            <p className="detail">Both fractal views use the same palette mapping.</p>
+            <p className="detail">
+              Renderer: {getExplorerRendererLabel(rendererSelection.active)}
+            </p>
           </article>
           <article className="card">
             <p className="eyebrow">Interaction</p>
