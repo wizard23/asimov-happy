@@ -71,3 +71,6 @@ couple of things:
 
 if anything is unclear pleas ask
 You don'tr have to do it in one change. It's ok to spslit it up in smaller managable steps.
+
+
+why did you change the cursor for the highlighted and the live position? please use the old cursor.

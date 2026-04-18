@@ -375,6 +375,14 @@ a {
   pointer-events: none;
 }
 
+.mandelbrot-crosshair--selected {
+  filter: invert(33%) sepia(89%) saturate(2871%) hue-rotate(342deg) brightness(101%) contrast(105%);
+}
+
+.mandelbrot-crosshair--live {
+  filter: invert(52%) sepia(89%) saturate(1828%) hue-rotate(191deg) brightness(102%) contrast(102%);
+}
+
 .metric {
   margin: 8px 0 0;
   font-weight: 600;

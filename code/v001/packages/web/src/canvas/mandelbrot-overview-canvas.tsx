@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
+import crosshairUrl from "../assets/noun-crosshair-59595.svg";
 import {
   clampByte,
   getPaletteColor,
@@ -53,6 +54,18 @@ function mapToPixelPosition(
   return {
     left: normalizedX * MANDELBROT_WIDTH,
     top: normalizedY * MANDELBROT_HEIGHT,
+  };
+}
+
+function mapToRelativePosition(
+  parameter: ComplexParameter,
+  viewport: ComplexBounds,
+): { left: string; top: string } {
+  const pixelPosition = mapToPixelPosition(parameter, viewport);
+
+  return {
+    left: `${(pixelPosition.left / MANDELBROT_WIDTH) * 100}%`,
+    top: `${(pixelPosition.top / MANDELBROT_HEIGHT) * 100}%`,
   };
 }
 
@@ -281,25 +294,6 @@ function drawAxesOverlay(
   context.restore();
 }
 
-function drawPointMarker(
-  context: CanvasRenderingContext2D,
-  parameter: ComplexParameter,
-  viewport: ComplexBounds,
-  color: string,
-  radius: number,
-): void {
-  const point = mapToPixelPosition(parameter, viewport);
-  context.save();
-  context.strokeStyle = "rgba(255, 255, 255, 0.92)";
-  context.fillStyle = color;
-  context.lineWidth = 1.5;
-  context.beginPath();
-  context.arc(point.left, point.top, radius, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  context.restore();
-}
-
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -329,6 +323,22 @@ export function MandelbrotOverviewCanvas(props: {
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
 
   const selectedParameter = props.selectedParameter ?? props.parameter;
+  const selectedCrosshairPosition = useMemo(
+    () => (selectedParameter ? mapToRelativePosition(selectedParameter, viewport) : null),
+    [selectedParameter, viewport],
+  );
+  const liveCrosshairPosition = useMemo(() => {
+    if (
+      !props.parameter ||
+      (selectedParameter &&
+        props.parameter.real === selectedParameter.real &&
+        props.parameter.imaginary === selectedParameter.imaginary)
+    ) {
+      return null;
+    }
+
+    return mapToRelativePosition(props.parameter, viewport);
+  }, [props.parameter, selectedParameter, viewport]);
   const overlayLabel = hoveredParameter ?? props.parameter;
 
   useEffect(() => {
@@ -368,17 +378,6 @@ export function MandelbrotOverviewCanvas(props: {
     if (props.showOrbit && props.parameter) {
       drawOrbitOverlay(context, props.parameter, viewport, Math.max(1, props.orbitSteps ?? 10));
     }
-    if (selectedParameter) {
-      drawPointMarker(context, selectedParameter, viewport, "rgba(255, 72, 72, 0.95)", 4.5);
-    }
-    if (
-      props.parameter &&
-      (!selectedParameter ||
-        props.parameter.real !== selectedParameter.real ||
-        props.parameter.imaginary !== selectedParameter.imaginary)
-    ) {
-      drawPointMarker(context, props.parameter, viewport, "rgba(70, 147, 255, 0.95)", 4);
-    }
   }, [
     viewport,
     props.iterations,
@@ -390,7 +389,6 @@ export function MandelbrotOverviewCanvas(props: {
     props.showAxes,
     props.showOrbit,
     props.showSomGrid,
-    selectedParameter,
   ]);
 
   useEffect(() => {
@@ -505,6 +503,28 @@ export function MandelbrotOverviewCanvas(props: {
         height={MANDELBROT_HEIGHT}
         style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
       />
+      {selectedCrosshairPosition ? (
+        <img
+          className="mandelbrot-crosshair mandelbrot-crosshair--selected"
+          src={crosshairUrl}
+          alt="Selected Julia parameter on the Mandelbrot set"
+          style={{
+            left: selectedCrosshairPosition.left,
+            top: selectedCrosshairPosition.top,
+          }}
+        />
+      ) : null}
+      {liveCrosshairPosition ? (
+        <img
+          className="mandelbrot-crosshair mandelbrot-crosshair--live"
+          src={crosshairUrl}
+          alt="Live preview Julia parameter on the Mandelbrot set"
+          style={{
+            left: liveCrosshairPosition.left,
+            top: liveCrosshairPosition.top,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
