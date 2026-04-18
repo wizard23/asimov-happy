@@ -553,3 +553,198 @@ yes please.
 ```
 
 yes please continue.
+
+```
+• Phase 5 is in place: /explorer now has a real WebGL image renderer for both Mandelbrot and Julia.
+
+  I changed the renderer abstraction so backends paint directly into the image canvas instead of returning ImageData, which
+  allows WebGL to render natively. The CPU path was updated to match that interface, and I added a shader-based WebGL backend
+  in code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts. The explorer now detects WebGL availability at runtime and
+  uses it when WebGL Rendering is requested; WebGPU Rendering still falls back because that backend is not implemented yet.
+  The main integration points are code/v001/packages/web/src/canvas/explorer-renderer.ts, code/v001/packages/web/src/canvas/
+  mandelbrot-overview-canvas.tsx, code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx, and code/v001/packages/web/src/
+  app/app.tsx.
+
+  Verification passed with npm run build and npm run lint from code/v001.
+
+  The next step is WebGPU, or if you prefer, I can first harden the WebGL path with better failure reporting and more explicit
+  fallback messages in the UI.
+```
+
+
+We will continue later with the WebGPU renderer because the webgl mode is a little bit buggy:
+The coordinate system is messed up in the webgl mode as soon as I move around and zoom in or out. Please don't change anything but just analyze what is wrong with the coordinate system and give me a detailed tecnical report.
+
+```
+
+• Report
+
+  The primary coordinate-system bug in WebGL mode is a Y-axis inversion mismatch between:
+
+  - the WebGL fractal image renderer
+  - the overlay/input/viewport math used by the rest of the explorer
+
+  This is why the image looks “okay enough” at first, but becomes obviously wrong once you pan or zoom.
+
+  Primary Root Cause
+
+  In the WebGL shader, texture-style UV coordinates are generated from clip-space:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts:12 sets:
+    v_uv = (a_position + 1.0) * 0.5;
+
+  That means:
+
+  - left = 0
+  - right = 1
+  - bottom = 0
+  - top = 1
+
+  Then the fragment shader maps v_uv into the complex plane:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts:52
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts:54
+
+  It computes:
+
+  - real = mix(minReal, maxReal, v_uv.x)
+  - imag = mix(maxImag, minImag, v_uv.y)
+
+  Because v_uv.y = 0 at the bottom of the WebGL canvas, the bottom of the image is mapped to maxImag.
+  That is the opposite of the explorer’s CPU/input convention.
+
+  What the explorer expects
+
+  The rest of the explorer uses normal DOM/canvas coordinates:
+
+  - y = 0 is the top
+  - larger y means moving downward
+
+  You can see that in the Mandelbrot input mapping:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:63
+
+  It maps:
+
+  - real = minReal + width * normalizedX
+  - imag = maxImag - height * normalizedY
+
+  Same for Julia:
+
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:39
+
+  That is a top-left-origin mapping.
+
+  So:
+
+  - overlays
+  - mouse hover
+  - click selection
+  - zoom anchors
+  - pan behavior
+
+  all assume top-left-origin math,
+
+  while the WebGL fractal image is effectively rendered with a bottom-left-origin Y interpretation.
+
+  Why it becomes obvious only after moving/zooming
+
+  At the default Mandelbrot view, the image is close to vertically symmetric around the real axis, so a vertical flip is easy to miss.
+
+  Once you:
+
+  - pan away from the symmetric center, or
+  - zoom into an asymmetric region,
+
+  the mismatch becomes obvious because:
+
+  - the rendered fractal is vertically mirrored relative to the overlays and interaction math
+  - zoom anchors are computed from the mouse point in one coordinate system, but the image is rendered in the other
+  - vertical drag/pan behavior feels inconsistent with the rendered content
+
+  So the issue is not that zoom math itself is wrong. The zoom math is internally consistent in the CPU/input layer. The problem is that the WebGL image layer is using a different Y-axis convention than the explorer state layer.
+
+  Secondary Issue
+
+  There is also a smaller sampling mismatch:
+
+  - CPU rendering samples pixel centers
+  - WebGL rendering samples edge-based interpolated UVs
+
+  CPU Mandelbrot uses (x + 0.5) / width, (y + 0.5) / height:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:68
+
+  CPU Julia feature rendering also uses pixel centers:
+
+  - code/v001/packages/shared/src/julia/features.ts:16
+
+  The WebGL shader uses raw interpolated v_uv, not pixel-center-adjusted coordinates:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts:52
+
+  That produces a half-pixel-style offset compared with CPU behavior. This is not the main bug, but it can make:
+
+  - crosshair alignment
+  - axes alignment
+  - orbit alignment
+
+  look slightly off even after the major Y-flip issue is fixed.
+
+  Affected Features
+
+  Because overlays are separate 2D layers and use the non-WebGL coordinate model, the mismatch affects:
+
+  - Mandelbrot hover position
+  - click selection
+  - red selected marker
+  - blue live-preview marker
+  - orbit overlay
+  - axes overlay
+  - zoom anchor behavior
+  - vertical panning intuition
+
+  Julia is also affected because it uses the same WebGL renderer path and the same top-left-origin interaction math.
+
+  Bottom Line
+
+  The main bug is:
+
+  - WebGL image rendering uses bottom-left Y semantics
+  - Explorer interaction and overlays use top-left Y semantics
+
+  That split coordinate system is the root cause of the “messed up” behavior in WebGL mode.
+
+  The smaller secondary bug is:
+
+  - WebGL samples at UV edges, while CPU logic samples pixel centers
+
+  That causes additional but smaller alignment error.
+
+  If you want later, I can turn this into a concrete fix plan with exact code changes, but I have not changed anything here.
+```
+
+great analysis. please fix both errors,
+
+
+```
+```
+
+It gives an error on the js console in the browser:
+debug.js:115 Uncaught Error: ERROR: 0:74: 'normalized' : redefinition
+ERROR: 0:75: 'getPaletteColor' : no matching overloaded function found
+ERROR: 0:75: 'constructor' : not enough data provided for construction
+ 
+    at createShader (explorer-webgl-renderer.ts:127:11)
+    at createProgram (explorer-webgl-renderer.ts:135:26)
+    at getRendererState (explorer-webgl-renderer.ts:183:19)
+    at renderToCanvas (explorer-webgl-renderer.ts:242:17)
+    at Object.renderMandelbrot (explorer-webgl-renderer.ts:281:5)
+    at Object.__ (mandelbrot-overview-canvas.tsx:162:53)
+    at B (index.js:530:22)
+    at Array.some (<anonymous>)
+    at j (index.js:454:26)
+
+
+
+

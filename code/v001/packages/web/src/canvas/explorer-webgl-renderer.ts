@@ -6,10 +6,8 @@ import type {
 
 const VERTEX_SHADER_SOURCE = `
 attribute vec2 a_position;
-varying vec2 v_uv;
 
 void main() {
-  v_uv = (a_position + 1.0) * 0.5;
   gl_Position = vec4(a_position, 0.0, 1.0);
 }
 `;
@@ -17,10 +15,9 @@ void main() {
 const FRAGMENT_SHADER_SOURCE = `
 precision highp float;
 
-varying vec2 v_uv;
-
 uniform int u_mode;
 uniform int u_iterations;
+uniform vec2 u_resolution;
 uniform vec2 u_viewportMin;
 uniform vec2 u_viewportMax;
 uniform vec2 u_parameter;
@@ -49,9 +46,13 @@ vec3 getPaletteColor(float value) {
 }
 
 void main() {
+  vec2 normalized = vec2(
+    (gl_FragCoord.x - 0.5) / u_resolution.x,
+    1.0 - ((gl_FragCoord.y - 0.5) / u_resolution.y)
+  );
   vec2 coordinate = vec2(
-    mix(u_viewportMin.x, u_viewportMax.x, v_uv.x),
-    mix(u_viewportMax.y, u_viewportMin.y, v_uv.y)
+    mix(u_viewportMin.x, u_viewportMax.x, normalized.x),
+    mix(u_viewportMax.y, u_viewportMin.y, normalized.y)
   );
 
   vec2 z = u_mode == 0 ? vec2(0.0, 0.0) : coordinate;
@@ -96,6 +97,7 @@ interface WebGlRendererState {
   positionLocation: number;
   modeLocation: WebGLUniformLocation;
   iterationsLocation: WebGLUniformLocation;
+  resolutionLocation: WebGLUniformLocation;
   viewportMinLocation: WebGLUniformLocation;
   viewportMaxLocation: WebGLUniformLocation;
   parameterLocation: WebGLUniformLocation;
@@ -210,6 +212,7 @@ function getRendererState(canvas: HTMLCanvasElement): WebGlRendererState {
     positionLocation,
     modeLocation: getUniformLocation(context, program, "u_mode"),
     iterationsLocation: getUniformLocation(context, program, "u_iterations"),
+    resolutionLocation: getUniformLocation(context, program, "u_resolution"),
     viewportMinLocation: getUniformLocation(context, program, "u_viewportMin"),
     viewportMaxLocation: getUniformLocation(context, program, "u_viewportMax"),
     parameterLocation: getUniformLocation(context, program, "u_parameter"),
@@ -256,6 +259,7 @@ function renderToCanvas(
 
   context.uniform1i(state.modeLocation, options.mode);
   context.uniform1i(state.iterationsLocation, options.iterations);
+  context.uniform2f(state.resolutionLocation, canvas.width, canvas.height);
   context.uniform2f(state.viewportMinLocation, options.viewportMinReal, options.viewportMinImaginary);
   context.uniform2f(state.viewportMaxLocation, options.viewportMaxReal, options.viewportMaxImaginary);
   context.uniform2f(state.parameterLocation, options.parameterReal, options.parameterImaginary);
