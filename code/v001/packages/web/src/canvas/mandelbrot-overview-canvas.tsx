@@ -225,7 +225,7 @@ function drawOrbitOverlay(
   viewport: ComplexBounds,
   steps: number,
 ): void {
-  const orbitPoints: ComplexParameter[] = [{ real: 0, imaginary: 0 }];
+  const orbitPoints: ComplexParameter[] = [];
   let currentReal = 0;
   let currentImaginary = 0;
 
@@ -259,7 +259,7 @@ function drawOrbitOverlay(
   orbitPoints.forEach((point, index) => {
     const position = mapToPixelPosition(point, viewport);
     context.beginPath();
-    context.arc(position.left, position.top, index === 0 ? 3.5 : 2.25, 0, Math.PI * 2);
+    context.arc(position.left, position.top, index === 0 ? 3 : 2.25, 0, Math.PI * 2);
     context.fill();
   });
 

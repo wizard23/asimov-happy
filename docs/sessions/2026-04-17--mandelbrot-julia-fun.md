@@ -56,3 +56,18 @@ your suggestion is good. please make it so.
 please add a checkbox and a input field for a number (default 10) that draws lines in the mandelbrot set starting from the active point and going to the first n iterations. Does this make sense? How would you call teh checkbox and the input field?
 
 your suggestion is good. please make it so.
+
+
+Pleas don't include 0/0 in the orbit
+
+
+
+couple of things
+* please add a checkbox for drawing the real and imaginary axis on top of the mandelbrot and julia set
+* always highlight the last clicked point in the mandelbrot set please
+  * the last clicked point should be highlighted in red
+  * if live preview is active the live preview point should be blue
+* blease add palettes for the explorer based on the UI themes
+
+if anything is unclear pleas ask
+You don'tr have to do it in one change. It's ok to spslit it up in smaller managable steps.
