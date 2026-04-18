@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   JULIA_VIEWPORT,
-  renderJuliaFeatureVector,
   type ComplexParameter,
   type JuliaViewport,
 } from "@asimov/minimal-shared";
-import {
-  getPaletteColor,
-  getPaletteCssBackground,
-  type FractalPaletteId,
-} from "./fractal-palette.js";
+import { getPaletteCssBackground, type FractalPaletteId } from "./fractal-palette.js";
+import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
+import type { ExplorerImageRenderer } from "./explorer-renderer.js";
+import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
 
 const VIEWER_SIZE = 360;
 const MIN_VIEWPORT_SPAN = 0.02;
@@ -82,64 +80,25 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEven
   };
 }
 
-function drawAxesOverlay(
-  context: CanvasRenderingContext2D,
-  viewport: JuliaViewport,
-): void {
-  context.save();
-  context.strokeStyle = "rgba(255, 255, 255, 0.45)";
-  context.lineWidth = 1;
-  context.setLineDash([5, 4]);
-
-  if (viewport.minReal <= 0 && viewport.maxReal >= 0) {
-    const x = ((0 - viewport.minReal) / getViewportWidth(viewport)) * VIEWER_SIZE;
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, VIEWER_SIZE);
-    context.stroke();
-  }
-
-  if (viewport.minImaginary <= 0 && viewport.maxImaginary >= 0) {
-    const y = ((viewport.maxImaginary - 0) / getViewportHeight(viewport)) * VIEWER_SIZE;
-    context.beginPath();
-    context.moveTo(0, y);
-    context.lineTo(VIEWER_SIZE, y);
-    context.stroke();
-  }
-
-  context.restore();
-}
-
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
   iterations: number;
   palette: FractalPaletteId;
   showAxes?: boolean;
+  renderer?: ExplorerImageRenderer;
 }): preact.JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
-
-  const featureVector = useMemo(() => {
-    if (!props.parameter) {
-      return null;
-    }
-    return renderJuliaFeatureVector(
-      props.parameter,
-      VIEWER_SIZE,
-      VIEWER_SIZE,
-      props.iterations,
-      viewport,
-    );
-  }, [props.parameter, props.iterations, viewport]);
 
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = imageCanvasRef.current;
     if (!canvas) {
       return;
     }
@@ -153,32 +112,46 @@ export function JuliaViewerCanvas(props: {
     context.fillStyle = getPaletteCssBackground(props.palette);
     context.fillRect(0, 0, canvas.width, canvas.height);
 
-    if (!featureVector) {
+    if (!props.parameter) {
       context.fillStyle = "#6c7b89";
       context.font = '16px "IBM Plex Sans", sans-serif';
       context.fillText("Select or hover a cell to render the Julia set.", 20, 40);
       return;
     }
 
-    const imageData = context.createImageData(VIEWER_SIZE, VIEWER_SIZE);
-    for (let index = 0; index < featureVector.length; index += 1) {
-      const pixelIndex = index * 4;
-      const value = featureVector[index] ?? 0;
-      const color = getPaletteColor(props.palette, value);
-      imageData.data[pixelIndex] = color.red;
-      imageData.data[pixelIndex + 1] = color.green;
-      imageData.data[pixelIndex + 2] = color.blue;
-      imageData.data[pixelIndex + 3] = 255;
-    }
-
-    context.putImageData(imageData, 0, 0);
-    if (props.showAxes) {
-      drawAxesOverlay(context, viewport);
-    }
-  }, [featureVector, props.palette, props.showAxes, viewport]);
+    context.putImageData(
+      (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderJulia({
+        parameter: props.parameter,
+        viewport,
+        width: VIEWER_SIZE,
+        height: VIEWER_SIZE,
+        iterations: props.iterations,
+        palette: props.palette,
+      }),
+      0,
+      0,
+    );
+  }, [props.iterations, props.palette, props.parameter, props.renderer, viewport]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (props.showAxes) {
+      drawJuliaAxesOverlay(context, viewport, VIEWER_SIZE, VIEWER_SIZE);
+    }
+  }, [props.showAxes, viewport]);
+
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
     if (!canvas) {
       return;
     }
@@ -259,11 +232,17 @@ export function JuliaViewerCanvas(props: {
     <div className="canvas-frame">
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
       <canvas
-        ref={canvasRef}
+        ref={imageCanvasRef}
         className="canvas canvas--viewer"
         width={VIEWER_SIZE}
         height={VIEWER_SIZE}
         style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
+      />
+      <canvas
+        ref={overlayCanvasRef}
+        className="canvas canvas--viewer canvas--overlay"
+        width={VIEWER_SIZE}
+        height={VIEWER_SIZE}
       />
     </div>
   );

@@ -25,6 +25,8 @@ import {
   getThemeFractalPaletteId,
   type FractalPaletteId,
 } from "../canvas/fractal-palette.js";
+import { CPU_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-cpu-renderer.js";
+import { resolveExplorerRendererSelection } from "../canvas/explorer-renderer.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import {
   APP_THEME_STORAGE_KEY,
@@ -234,6 +236,16 @@ function formatThreshold(threshold: number): string {
   return threshold.toExponential(0);
 }
 
+function getImplementedExplorerImageRenderer(rendererId: "cpu" | "webgl" | "webgpu") {
+  switch (rendererId) {
+    case "cpu":
+    case "webgl":
+    case "webgpu":
+    default:
+      return CPU_EXPLORER_IMAGE_RENDERER;
+  }
+}
+
 function Field(props: {
   label: string;
   hint?: string;
@@ -423,6 +435,11 @@ function ExplorerWorkspace(props: {
   const [juliaIterations, setJuliaIterations] = useState(256);
 
   const palettes = getFractalPalettes();
+  const rendererSelection = useMemo(
+    () => resolveExplorerRendererSelection("webgl", [CPU_EXPLORER_IMAGE_RENDERER.id]),
+    [],
+  );
+  const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
 
@@ -583,6 +600,7 @@ function ExplorerWorkspace(props: {
               showOrbit={showOrbit}
               orbitSteps={orbitSteps}
               palette={palette}
+              renderer={activeImageRenderer}
             />
             <p className="detail">
               Hover to inspect coordinates, drag to pan, scroll to zoom, click to choose `c`.
@@ -597,6 +615,7 @@ function ExplorerWorkspace(props: {
               iterations={juliaIterations}
               palette={palette}
               showAxes={showAxes}
+              renderer={activeImageRenderer}
             />
             <p className="detail">
               {isLivePreviewEnabled

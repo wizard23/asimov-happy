@@ -499,3 +499,16 @@ yes please create the spec
 
 Yes please put the spec (with a timestamp in the filename) in ./docs/specs
 and please create the checklist in ./docs/plans
+
+
+```
+• Created the two docs:
+
+  - Spec: docs/specs/2026-04-18-10-20--explorer-renderer-backends-spec.md
+  - Plan/checklist: docs/plans/2026-04-18-10-20--explorer-renderer-backends-implementation-checklist.md
+
+  I did not change any app code. If you want, the next step is to turn Phase 1 of the checklist into an implementation patch.
+```
+
+
+yes please do it.
