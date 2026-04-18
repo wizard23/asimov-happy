@@ -46,13 +46,13 @@ vec3 getPaletteColor(float value) {
 }
 
 void main() {
-  vec2 normalized = vec2(
+  vec2 normalizedCoordinate = vec2(
     (gl_FragCoord.x - 0.5) / u_resolution.x,
     1.0 - ((gl_FragCoord.y - 0.5) / u_resolution.y)
   );
   vec2 coordinate = vec2(
-    mix(u_viewportMin.x, u_viewportMax.x, normalized.x),
-    mix(u_viewportMax.y, u_viewportMin.y, normalized.y)
+    mix(u_viewportMin.x, u_viewportMax.x, normalizedCoordinate.x),
+    mix(u_viewportMax.y, u_viewportMin.y, normalizedCoordinate.y)
   );
 
   vec2 z = u_mode == 0 ? vec2(0.0, 0.0) : coordinate;
@@ -85,8 +85,8 @@ void main() {
 
   float magnitudeSquared = max(dot(z, z), 4.0);
   float smoothedIteration = float(iteration) + 1.0 - log2(log2(magnitudeSquared));
-  float normalized = clamp(smoothedIteration / float(u_iterations), 0.0, 1.0);
-  gl_FragColor = vec4(getPaletteColor(normalized), 1.0);
+  float normalizedEscape = clamp(smoothedIteration / float(u_iterations), 0.0, 1.0);
+  gl_FragColor = vec4(getPaletteColor(normalizedEscape), 1.0);
 }
 `;
 
