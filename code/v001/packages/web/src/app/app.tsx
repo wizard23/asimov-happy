@@ -411,6 +411,8 @@ function ExplorerWorkspace(props: {
   });
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(false);
+  const [showOrbit, setShowOrbit] = useState(false);
+  const [orbitSteps, setOrbitSteps] = useState(10);
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
   const [juliaIterations, setJuliaIterations] = useState(256);
@@ -472,6 +474,21 @@ function ExplorerWorkspace(props: {
               onInput={(event) => setIsLivePreviewEnabled(event.currentTarget.checked)}
             />
           </Field>
+          <Field label="Show Orbit" hint="Draw the Mandelbrot iteration orbit for the active Julia constant.">
+            <input
+              type="checkbox"
+              checked={showOrbit}
+              onInput={(event) => setShowOrbit(event.currentTarget.checked)}
+            />
+          </Field>
+          <Field label="Orbit Steps">
+            <NumberInput
+              value={orbitSteps}
+              min={1}
+              max={256}
+              onChange={setOrbitSteps}
+            />
+          </Field>
         </section>
 
         <section className="group">
@@ -531,7 +548,12 @@ function ExplorerWorkspace(props: {
             <p className="eyebrow">Interaction</p>
             <h3>Mode</h3>
             <p className="metric metric--large">{isLivePreviewEnabled ? "Live Preview" : "Click Select"}</p>
-            <p className="detail">Mandelbrot: {mandelbrotIterations} iterations. Julia: {juliaIterations} iterations.</p>
+            <p className="detail">
+              Mandelbrot: {mandelbrotIterations} iterations. Julia: {juliaIterations} iterations.
+            </p>
+            <p className="detail">
+              Orbit: {showOrbit ? `${orbitSteps} steps` : "hidden"}
+            </p>
           </article>
         </section>
 
@@ -544,6 +566,8 @@ function ExplorerWorkspace(props: {
               onHoverParameter={setHoveredParameter}
               onSelectParameter={setSelectedParameter}
               iterations={mandelbrotIterations}
+              showOrbit={showOrbit}
+              orbitSteps={orbitSteps}
               palette={palette}
             />
             <p className="detail">
@@ -581,6 +605,7 @@ function ExplorerWorkspace(props: {
           <li>Mandelbrot and Julia iteration counts are fully independent here.</li>
           <li>The crosshair marks the active Mandelbrot parameter used for the Julia set.</li>
           <li>Live Preview uses hover as a temporary Julia parameter override.</li>
+          <li>Show Orbit draws the first configured Mandelbrot iteration steps starting from `z0 = 0`.</li>
           <li>Zen mode hides all controls and keeps only the two canvases fullscreen.</li>
         </ul>
       </section>

@@ -49,5 +49,10 @@ why is the mandelbrot canvas only 360x240 pixel? It should always adapt to the s
 i need  a checkbox for "always select current hover point" or "smooth mode" that automatically selects the current hover position in the mandelbrot viewer for the juli set. Now we have to click each position explicitly. Before you change anything: does this make sense? if it is unclear laet's fix the spec before we make changes.
 Also: I need a better name for this mode: please suggest one or two better names.
 
+your suggestion is good. please make it so.
+
+
+
+please add a checkbox and a input field for a number (default 10) that draws lines in the mandelbrot set starting from the active point and going to the first n iterations. Does this make sense? How would you call teh checkbox and the input field?
 
 your suggestion is good. please make it so.

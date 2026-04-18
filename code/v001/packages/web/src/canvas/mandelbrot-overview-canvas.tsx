@@ -219,6 +219,53 @@ function drawSomGridOverlay(
   context.restore();
 }
 
+function drawOrbitOverlay(
+  context: CanvasRenderingContext2D,
+  parameter: ComplexParameter,
+  viewport: ComplexBounds,
+  steps: number,
+): void {
+  const orbitPoints: ComplexParameter[] = [{ real: 0, imaginary: 0 }];
+  let currentReal = 0;
+  let currentImaginary = 0;
+
+  for (let step = 0; step < steps; step += 1) {
+    const nextReal = currentReal * currentReal - currentImaginary * currentImaginary + parameter.real;
+    const nextImaginary = 2 * currentReal * currentImaginary + parameter.imaginary;
+    currentReal = nextReal;
+    currentImaginary = nextImaginary;
+    orbitPoints.push({
+      real: currentReal,
+      imaginary: currentImaginary,
+    });
+  }
+
+  context.save();
+  context.strokeStyle = "rgba(255, 244, 197, 0.9)";
+  context.fillStyle = "rgba(255, 244, 197, 0.95)";
+  context.lineWidth = 1.5;
+
+  context.beginPath();
+  orbitPoints.forEach((point, index) => {
+    const position = mapToPixelPosition(point, viewport);
+    if (index === 0) {
+      context.moveTo(position.left, position.top);
+      return;
+    }
+    context.lineTo(position.left, position.top);
+  });
+  context.stroke();
+
+  orbitPoints.forEach((point, index) => {
+    const position = mapToPixelPosition(point, viewport);
+    context.beginPath();
+    context.arc(position.left, position.top, index === 0 ? 3.5 : 2.25, 0, Math.PI * 2);
+    context.fill();
+  });
+
+  context.restore();
+}
+
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
@@ -233,6 +280,8 @@ export function MandelbrotOverviewCanvas(props: {
   onSelectParameter?: (parameter: ComplexParameter) => void;
   result?: SomTrainingResult | null;
   showSomGrid?: boolean;
+  showOrbit?: boolean;
+  orbitSteps?: number;
   iterations?: number;
   palette?: FractalPaletteId;
 }): preact.JSX.Element {
@@ -280,7 +329,19 @@ export function MandelbrotOverviewCanvas(props: {
     if (props.showSomGrid && props.result) {
       drawSomGridOverlay(context, props.result, viewport);
     }
-  }, [viewport, props.iterations, props.palette, props.result, props.showSomGrid]);
+    if (props.showOrbit && props.parameter) {
+      drawOrbitOverlay(context, props.parameter, viewport, Math.max(1, props.orbitSteps ?? 10));
+    }
+  }, [
+    viewport,
+    props.iterations,
+    props.orbitSteps,
+    props.palette,
+    props.parameter,
+    props.result,
+    props.showOrbit,
+    props.showSomGrid,
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
