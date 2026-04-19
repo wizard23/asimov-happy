@@ -2253,3 +2253,142 @@ why can't i zoom in deeper? give me a technical report. No changes yet.
 
 
 Please make the possible zoom depth as deep as possible but ame sure to stop before the float precision is reached.
+
+
+```
+• Changed the explorer zoom limit from a fixed floor to a precision-aware floor.
+
+  Instead of stopping at 0.02, both Mandelbrot and Julia now keep zooming until the viewport span approaches the limit where JavaScript Number precision would stop giving meaningfully distinct coordinates at the current canvas size. The clamp now scales from Number.EPSILON, the viewport center magnitude, and the current display dimensions in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/
+  canvas/julia-viewer-canvas.tsx.
+
+  npm run build and npm run lint pass in code/v001.
+```
+
+when it switches from coarse rendering to fine rendering there is a blank screen for one  frame (I think). Please analyze to code to find out why this happens and please give me a technical report. Don't change anything yet.
+
+```
+• Technical Report
+
+  The blank frame is real, and it comes from how the explorer resizes canvases when switching from interactive to settled quality.
+
+  ## Root cause
+
+  When quality changes from coarse to fine:
+
+  - qualityScale changes from 0.2 to 1
+  - that changes canvasResolution.renderWidth and renderHeight
+  - the <canvas> width and height attributes change
+  - changing those attributes clears the canvas bitmap immediately
+
+  Relevant code:
+
+  - adaptive switch:
+      - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+      - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - dynamic resolution:
+      - code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts
+  - redraw helper:
+      - code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+
+  ## Why the blank frame appears
+
+  There are two separate clears happening.
+
+  ### 1. Canvas attributes change during render
+
+  Both canvases are rendered like this:
+
+  - Mandelbrot:
+      - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - Julia:
+      - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  with:
+
+  <canvas width={canvasResolution.renderWidth} height={canvasResolution.renderHeight} />
+
+  When those attributes change, the browser clears the canvas immediately.
+  That happens before the effect that redraws the fractal runs.
+
+  So there is a window where:
+
+  - the new larger canvas exists
+  - but no image has been drawn into it yet
+
+  That can show up as a blank frame.
+
+  ### 2. The render helper clears it again
+
+  Then the render effect runs and calls:
+
+  canvas.width = effectiveWidth;
+  canvas.height = effectiveHeight;
+
+  inside code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+
+  Setting canvas.width / canvas.height again also clears the bitmap.
+
+  So the sequence is effectively:
+
+  1. state changes to fine quality
+  2. DOM updates canvas width/height attributes
+  3. canvas bitmap is cleared
+  4. browser may paint this empty canvas
+  5. effect runs
+  6. helper sets canvas.width / canvas.height again
+  7. canvas is cleared again
+  8. renderer finally draws the fine image
+
+  That is why you see a flash.
+
+  ## Why it happens specifically on coarse -> fine
+
+  The adaptive-quality logic does this:
+
+  setQualityScale(0.2)
+  ...
+  setTimeout(() => setQualityScale(1), 160)
+
+  So after interaction settles, there is a deliberate render-size jump upward.
+  That jump changes the backing buffer size, and backing-buffer changes are destructive for canvas contents.
+
+  ## Overlay canvas also participates
+
+  The overlay canvas also changes width / height with the same render resolution.
+  That means:
+
+  - overlay bitmap is cleared too
+  - axes/orbit redraw happens in a separate effect afterward
+
+  So during the transition, both:
+
+  - base fractal image
+  - overlay layer
+
+  can be empty at the same time.
+
+  ## Why this is a lifecycle problem
+
+  The redraws are done in useEffect, not synchronously during layout.
+  useEffect runs after the DOM commit, which means the browser can present the cleared canvas before the redraw effect finishes.
+
+  So the blank frame is not primarily caused by fractal computation being too slow.
+  It is caused by:
+
+  - destructive canvas resize
+  - redraw deferred until effect timing
+
+  ## Bottom line
+
+  The blank frame happens because the coarse -> fine transition resizes the backing canvases, and canvas resize clears their contents immediately. Since redraw happens later in effects, the browser gets a chance to paint the cleared canvas for one frame.
+
+  The main technical causes are:
+
+  - canvas width / height attributes bound directly to adaptive render resolution
+  - renderExplorerImageWithFallback() setting canvas.width / canvas.height again
+  - redraw happening in useEffect after the clear already occurred
+
+  So yes: this is a real one-frame blank caused by the current adaptive-resolution pipeline.
+```
+
+Please propose a clean fix for this ux bug.
