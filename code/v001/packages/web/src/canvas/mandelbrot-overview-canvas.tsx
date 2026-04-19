@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
 import crosshairUrl from "../assets/noun-crosshair-59595.svg";
-import { getPaletteCssBackground, type FractalPaletteId } from "./fractal-palette.js";
+import {
+  getPaletteCssBackground,
+  type FractalPaletteId,
+  type PaletteMappingMode,
+} from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
 import {
@@ -124,6 +128,8 @@ export function MandelbrotOverviewCanvas(props: {
   orbitSteps?: number;
   iterations?: number;
   palette?: FractalPaletteId;
+  paletteMappingMode?: PaletteMappingMode;
+  paletteCycles?: number;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "width-driven" | "height-driven";
   frameStyle?: preact.JSX.CSSProperties;
@@ -247,6 +253,8 @@ export function MandelbrotOverviewCanvas(props: {
           height: effectiveHeight,
           iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
           palette: props.palette ?? "ember",
+          paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+          paletteCycles: props.paletteCycles ?? 6,
         });
       },
     );
@@ -255,6 +263,8 @@ export function MandelbrotOverviewCanvas(props: {
     canvasResolution.renderWidth,
     props.iterations,
     props.palette,
+    props.paletteCycles,
+    props.paletteMappingMode,
     props.renderer,
     viewport,
   ]);

@@ -2090,8 +2090,73 @@ please add a drop down box for palette mapping:
 * cyclic (modular)
 * cyclic (mirrored)
 
-is it clear what I mean with this? if anythong is unclear let's get the spec right before you make any code changes.
+is it clear what I mean with this? if anything is unclear let's get the spec right before you make any code changes.
 ready to start? or are there any questions?
+
+```
+• Mostly clear, but two spec points should be fixed before implementation.
+
+  What I think you want:
+
+  - A new explorer control: Palette Mapping
+  - It changes how the escape/iteration value is transformed before looking up the palette color
+  - Options:
+      - Binary
+      - Linear
+      - Logarithmic
+      - Cyclic
+      - Cyclic Mirrored
+
+  My reading of each mode:
+
+  - Binary: inside vs outside, or below/above a threshold, with only two colors from the selected palette
+  - Linear: direct normalized mapping from escape value to palette
+  - Logarithmic: compressed mapping to emphasize lower escape ranges; you want this as default
+  - Cyclic: wrap normalized escape repeatedly through the palette
+  - Cyclic Mirrored: ping-pong through the palette forward/backward
+
+  Two things need confirmation:
+
+  1. For Binary, which two colors should be used?
+     My recommendation:
+
+  - interior color for inside-set pixels
+  - palette endpoint color for escaped pixels
+
+  2. For Cyclic and Cyclic Mirrored, what should control the cycle frequency?
+     Without that, the effect may be too weak or too dense.
+     My recommendation for v1:
+
+  - add a numeric field Palette Cycles, default 6
+  - only used by the two cyclic modes
+
+  One more small point:
+
+  - Should this apply to both Mandelbrot and Julia in /explorer?
+    I assume yes.
+
+  Recommended v1 spec:
+
+  - New dropdown: Palette Mapping
+  - Options:
+      - Binary
+      - Linear
+      - Logarithmic
+      - Cyclic
+      - Cyclic Mirrored
+  - Default: Logarithmic
+  - Applies to both Mandelbrot and Julia explorer renders
+  - Binary uses:
+      - palette interior color for inside pixels
+      - palette final stop color for escaped pixels
+  - New numeric field: Palette Cycles
+      - default 6
+      - only active for Cyclic and Cyclic Mirrored
+
+  If that matches your intent, I’m ready to implement it.
+```
+
+yes your recommendation is good. Please make it so.
 
 
 

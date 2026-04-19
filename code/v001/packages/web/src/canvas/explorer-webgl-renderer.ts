@@ -17,10 +17,12 @@ precision highp float;
 
 uniform int u_mode;
 uniform int u_iterations;
+uniform int u_paletteMappingMode;
 uniform vec2 u_resolution;
 uniform vec2 u_viewportMin;
 uniform vec2 u_viewportMax;
 uniform vec2 u_parameter;
+uniform float u_paletteCycles;
 uniform vec3 u_interiorColor;
 uniform vec3 u_stopColors[4];
 uniform float u_stopPositions[4];
@@ -43,6 +45,38 @@ vec3 getPaletteColor(float value) {
   }
 
   return u_stopColors[3];
+}
+
+float applyPaletteMapping(float value) {
+  float normalizedValue = clamp(value, 0.0, 1.0);
+
+  if (u_paletteMappingMode == 0) {
+    return normalizedValue >= 0.5 ? 1.0 : 0.0;
+  }
+
+  if (u_paletteMappingMode == 1) {
+    return normalizedValue;
+  }
+
+  if (u_paletteMappingMode == 2) {
+    return log(1.0 + normalizedValue * 99.0) / log(100.0);
+  }
+
+  float cycleCount = max(1.0, u_paletteCycles);
+  if (u_paletteMappingMode == 3) {
+    return fract(normalizedValue * cycleCount);
+  }
+
+  float phase = mod(normalizedValue * cycleCount, 2.0);
+  return phase <= 1.0 ? phase : 2.0 - phase;
+}
+
+vec3 getMappedColor(float value) {
+  if (u_paletteMappingMode == 0) {
+    return applyPaletteMapping(value) >= 0.5 ? u_stopColors[3] : u_interiorColor;
+  }
+
+  return getPaletteColor(applyPaletteMapping(value));
 }
 
 void main() {
@@ -86,7 +120,7 @@ void main() {
   float magnitudeSquared = max(dot(z, z), 4.0);
   float smoothedIteration = float(iteration) + 1.0 - log2(log2(magnitudeSquared));
   float normalizedEscape = clamp(smoothedIteration / float(u_iterations), 0.0, 1.0);
-  gl_FragColor = vec4(getPaletteColor(normalizedEscape), 1.0);
+  gl_FragColor = vec4(getMappedColor(normalizedEscape), 1.0);
 }
 `;
 
@@ -97,10 +131,12 @@ interface WebGlRendererState {
   positionLocation: number;
   modeLocation: WebGLUniformLocation;
   iterationsLocation: WebGLUniformLocation;
+  paletteMappingModeLocation: WebGLUniformLocation;
   resolutionLocation: WebGLUniformLocation;
   viewportMinLocation: WebGLUniformLocation;
   viewportMaxLocation: WebGLUniformLocation;
   parameterLocation: WebGLUniformLocation;
+  paletteCyclesLocation: WebGLUniformLocation;
   interiorColorLocation: WebGLUniformLocation;
   stopColorsLocation: WebGLUniformLocation;
   stopPositionsLocation: WebGLUniformLocation;
@@ -212,10 +248,12 @@ function getRendererState(canvas: HTMLCanvasElement): WebGlRendererState {
     positionLocation,
     modeLocation: getUniformLocation(context, program, "u_mode"),
     iterationsLocation: getUniformLocation(context, program, "u_iterations"),
+    paletteMappingModeLocation: getUniformLocation(context, program, "u_paletteMappingMode"),
     resolutionLocation: getUniformLocation(context, program, "u_resolution"),
     viewportMinLocation: getUniformLocation(context, program, "u_viewportMin"),
     viewportMaxLocation: getUniformLocation(context, program, "u_viewportMax"),
     parameterLocation: getUniformLocation(context, program, "u_parameter"),
+    paletteCyclesLocation: getUniformLocation(context, program, "u_paletteCycles"),
     interiorColorLocation: getUniformLocation(context, program, "u_interiorColor"),
     stopColorsLocation: getUniformLocation(context, program, "u_stopColors"),
     stopPositionsLocation: getUniformLocation(context, program, "u_stopPositions"),
@@ -237,6 +275,8 @@ function renderToCanvas(
     parameterImaginary: number;
     iterations: number;
     paletteId: MandelbrotRenderParams["palette"];
+    paletteMappingMode: MandelbrotRenderParams["paletteMappingMode"];
+    paletteCycles: MandelbrotRenderParams["paletteCycles"];
   },
 ): void {
   const state = getRendererState(canvas);
@@ -259,10 +299,12 @@ function renderToCanvas(
 
   context.uniform1i(state.modeLocation, options.mode);
   context.uniform1i(state.iterationsLocation, options.iterations);
+  context.uniform1i(state.paletteMappingModeLocation, getPaletteMappingModeIndex(options.paletteMappingMode));
   context.uniform2f(state.resolutionLocation, canvas.width, canvas.height);
   context.uniform2f(state.viewportMinLocation, options.viewportMinReal, options.viewportMinImaginary);
   context.uniform2f(state.viewportMaxLocation, options.viewportMaxReal, options.viewportMaxImaginary);
   context.uniform2f(state.parameterLocation, options.parameterReal, options.parameterImaginary);
+  context.uniform1f(state.paletteCyclesLocation, options.paletteCycles);
   context.uniform3f(
     state.interiorColorLocation,
     palette.interior.red / 255,
@@ -273,6 +315,21 @@ function renderToCanvas(
   context.uniform1fv(state.stopPositionsLocation, new Float32Array(stopPositions));
 
   context.drawArrays(context.TRIANGLES, 0, 6);
+}
+
+function getPaletteMappingModeIndex(mode: MandelbrotRenderParams["paletteMappingMode"]): number {
+  switch (mode) {
+    case "binary":
+      return 0;
+    case "linear":
+      return 1;
+    case "logarithmic":
+      return 2;
+    case "cyclic":
+      return 3;
+    case "cyclic-mirrored":
+      return 4;
+  }
 }
 
 export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
@@ -288,6 +345,8 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       parameterImaginary: 0,
       iterations: params.iterations,
       paletteId: params.palette,
+      paletteMappingMode: params.paletteMappingMode,
+      paletteCycles: params.paletteCycles,
     });
   },
   renderJulia(canvas, params) {
@@ -301,6 +360,8 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       parameterImaginary: params.parameter.imaginary,
       iterations: params.iterations,
       paletteId: params.palette,
+      paletteMappingMode: params.paletteMappingMode,
+      paletteCycles: params.paletteCycles,
     });
   },
 };

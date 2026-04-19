@@ -5,6 +5,12 @@ import {
 } from "../app/themes.js";
 
 export type FractalPaletteId = string;
+export type PaletteMappingMode =
+  | "binary"
+  | "linear"
+  | "logarithmic"
+  | "cyclic"
+  | "cyclic-mirrored";
 
 interface RgbColor {
   red: number;
@@ -24,6 +30,17 @@ export interface FractalPaletteDefinition {
   interior: RgbColor;
   stops: PaletteStop[];
 }
+
+export const PALETTE_MAPPING_OPTIONS: Array<{
+  id: PaletteMappingMode;
+  label: string;
+}> = [
+  { id: "binary", label: "Binary" },
+  { id: "linear", label: "Linear" },
+  { id: "logarithmic", label: "Logarithmic" },
+  { id: "cyclic", label: "Cyclic" },
+  { id: "cyclic-mirrored", label: "Cyclic Mirrored" },
+];
 
 const CUSTOM_PALETTES: FractalPaletteDefinition[] = [
   {
@@ -65,6 +82,8 @@ const CUSTOM_PALETTES: FractalPaletteDefinition[] = [
 ];
 
 export const DEFAULT_FRACTAL_PALETTE_ID: FractalPaletteId = "ember";
+export const DEFAULT_PALETTE_MAPPING_MODE: PaletteMappingMode = "logarithmic";
+export const DEFAULT_PALETTE_CYCLES = 6;
 
 function clampChannel(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
@@ -177,6 +196,34 @@ export function getFractalPalette(paletteId: FractalPaletteId): FractalPaletteDe
   return FRACTAL_PALETTES.find((palette) => palette.id === paletteId) ?? FRACTAL_PALETTES[0]!;
 }
 
+export function getPaletteMappingLabel(mode: PaletteMappingMode): string {
+  return PALETTE_MAPPING_OPTIONS.find((option) => option.id === mode)?.label ?? mode;
+}
+
+export function mapPaletteValue(
+  value: number,
+  mode: PaletteMappingMode,
+  cycles = DEFAULT_PALETTE_CYCLES,
+): number {
+  const normalizedValue = Math.max(0, Math.min(1, value));
+  const safeCycles = Math.max(1, cycles);
+
+  switch (mode) {
+    case "binary":
+      return normalizedValue >= 0.5 ? 1 : 0;
+    case "linear":
+      return normalizedValue;
+    case "logarithmic":
+      return Math.log1p(normalizedValue * 99) / Math.log(100);
+    case "cyclic":
+      return (normalizedValue * safeCycles) % 1;
+    case "cyclic-mirrored": {
+      const phase = (normalizedValue * safeCycles) % 2;
+      return phase <= 1 ? phase : 2 - phase;
+    }
+  }
+}
+
 export function clampByte(value: number): number {
   return clampChannel(value);
 }
@@ -213,6 +260,33 @@ export function getPaletteColor(
     ),
     blue: clampChannel(interpolateChannel(lowerStop.color.blue, upperStop.color.blue, localRatio)),
   };
+}
+
+export function getMappedPaletteColor(
+  paletteId: FractalPaletteId,
+  value: number,
+  options?: {
+    isInterior?: boolean;
+    mappingMode?: PaletteMappingMode;
+    cycles?: number;
+  },
+): RgbColor {
+  const palette = getFractalPalette(paletteId);
+
+  if (options?.isInterior) {
+    return palette.interior;
+  }
+
+  if ((options?.mappingMode ?? DEFAULT_PALETTE_MAPPING_MODE) === "binary") {
+    return mapPaletteValue(value, "binary", options?.cycles) >= 0.5
+      ? palette.stops.at(-1)!.color
+      : palette.interior;
+  }
+
+  return getPaletteColor(
+    paletteId,
+    mapPaletteValue(value, options?.mappingMode ?? DEFAULT_PALETTE_MAPPING_MODE, options?.cycles),
+  );
 }
 
 export function getPaletteCssBackground(paletteId: FractalPaletteId): string {

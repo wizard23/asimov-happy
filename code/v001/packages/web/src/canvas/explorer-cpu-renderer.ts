@@ -1,5 +1,5 @@
 import { renderJuliaFeatureVector } from "@asimov/minimal-shared";
-import { clampByte, getPaletteColor } from "./fractal-palette.js";
+import { clampByte, getMappedPaletteColor } from "./fractal-palette.js";
 import type {
   ExplorerImageRenderer,
   JuliaRenderParams,
@@ -20,6 +20,8 @@ function renderMandelbrotImage({
   height,
   iterations,
   palette,
+  paletteMappingMode,
+  paletteCycles,
 }: MandelbrotRenderParams): ImageData {
   const imageData = new ImageData(width, height);
 
@@ -49,7 +51,11 @@ function renderMandelbrotImage({
 
       const pixelIndex = (y * width + x) * 4;
       if (!escaped) {
-        const color = getPaletteColor(palette, 0, { isInterior: true });
+        const color = getMappedPaletteColor(palette, 0, {
+          isInterior: true,
+          mappingMode: paletteMappingMode,
+          cycles: paletteCycles,
+        });
         imageData.data[pixelIndex] = color.red;
         imageData.data[pixelIndex + 1] = color.green;
         imageData.data[pixelIndex + 2] = color.blue;
@@ -60,7 +66,10 @@ function renderMandelbrotImage({
       const magnitudeSquared = real * real + imaginary * imaginary;
       const smoothedIteration = iteration + 1 - Math.log2(Math.log2(Math.max(magnitudeSquared, 4)));
       const normalized = Math.max(0, Math.min(1, smoothedIteration / iterations));
-      const color = getPaletteColor(palette, normalized);
+      const color = getMappedPaletteColor(palette, normalized, {
+        mappingMode: paletteMappingMode,
+        cycles: paletteCycles,
+      });
       imageData.data[pixelIndex] = clampByte(color.red);
       imageData.data[pixelIndex + 1] = clampByte(color.green);
       imageData.data[pixelIndex + 2] = clampByte(color.blue);
@@ -78,6 +87,8 @@ function renderJuliaImage({
   height,
   iterations,
   palette,
+  paletteMappingMode,
+  paletteCycles,
 }: JuliaRenderParams): ImageData {
   const featureVector = renderJuliaFeatureVector(parameter, width, height, iterations, viewport);
   const imageData = new ImageData(width, height);
@@ -85,7 +96,11 @@ function renderJuliaImage({
   for (let index = 0; index < featureVector.length; index += 1) {
     const pixelIndex = index * 4;
     const value = featureVector[index] ?? 0;
-    const color = getPaletteColor(palette, value);
+    const color = getMappedPaletteColor(palette, value, {
+      isInterior: value >= 1,
+      mappingMode: paletteMappingMode,
+      cycles: paletteCycles,
+    });
     imageData.data[pixelIndex] = color.red;
     imageData.data[pixelIndex + 1] = color.green;
     imageData.data[pixelIndex + 2] = color.blue;

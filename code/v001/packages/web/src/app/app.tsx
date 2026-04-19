@@ -20,10 +20,15 @@ import {
 import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
 import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
 import {
+  DEFAULT_PALETTE_CYCLES,
+  DEFAULT_PALETTE_MAPPING_MODE,
   DEFAULT_FRACTAL_PALETTE_ID,
   getFractalPalettes,
+  getPaletteMappingLabel,
   getThemeFractalPaletteId,
+  PALETTE_MAPPING_OPTIONS,
   type FractalPaletteId,
+  type PaletteMappingMode,
 } from "../canvas/fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-cpu-renderer.js";
 import {
@@ -289,6 +294,7 @@ function NumberInput(props: {
   min: number;
   max: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }): preact.JSX.Element {
   return (
     <input
@@ -297,6 +303,7 @@ function NumberInput(props: {
       value={props.value}
       min={props.min}
       max={props.max}
+      disabled={props.disabled}
       onInput={(event) => {
         const nextValue = Number(event.currentTarget.value);
         props.onChange(nextValue);
@@ -461,6 +468,9 @@ function ExplorerWorkspace(props: {
   const [palette, setPalette] = useState<FractalPaletteId>(() =>
     getThemeFractalPaletteId(props.themeId),
   );
+  const [paletteMappingMode, setPaletteMappingMode] =
+    useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
+  const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
   const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
   const [juliaIterations, setJuliaIterations] = useState(256);
   const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
@@ -608,6 +618,28 @@ function ExplorerWorkspace(props: {
               ))}
             </select>
           </Field>
+          <Field label="Palette Mapping">
+            <select
+              className="field__input"
+              value={paletteMappingMode}
+              onInput={(event) => setPaletteMappingMode(event.currentTarget.value as PaletteMappingMode)}
+            >
+              {PALETTE_MAPPING_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Palette Cycles">
+            <NumberInput
+              value={paletteCycles}
+              min={1}
+              max={32}
+              onChange={setPaletteCycles}
+              disabled={paletteMappingMode !== "cyclic" && paletteMappingMode !== "cyclic-mirrored"}
+            />
+          </Field>
           <Field label="Mandelbrot Iterations">
             <NumberInput
               value={mandelbrotIterations}
@@ -724,6 +756,12 @@ function ExplorerWorkspace(props: {
               {palettes.find((paletteDefinition) => paletteDefinition.id === palette)?.label ?? palette}
             </p>
             <p className="detail">
+              Mapping: {getPaletteMappingLabel(paletteMappingMode)}
+              {paletteMappingMode === "cyclic" || paletteMappingMode === "cyclic-mirrored"
+                ? ` (${paletteCycles} cycles)`
+                : ""}
+            </p>
+            <p className="detail">
               Renderer: {getExplorerRendererLabel(rendererSelection.active)}
             </p>
           </article>
@@ -762,6 +800,8 @@ function ExplorerWorkspace(props: {
               orbitSteps={orbitSteps}
               enableTwoQualityLevels={useTwoQualityLevels}
               palette={palette}
+              paletteMappingMode={paletteMappingMode}
+              paletteCycles={paletteCycles}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
             />
@@ -815,6 +855,8 @@ function ExplorerWorkspace(props: {
               parameter={activeParameter}
               iterations={juliaIterations}
               palette={palette}
+              paletteMappingMode={paletteMappingMode}
+              paletteCycles={paletteCycles}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}
               renderer={activeImageRenderer}
