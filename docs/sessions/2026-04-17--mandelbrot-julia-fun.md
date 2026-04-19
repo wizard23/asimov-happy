@@ -2642,3 +2642,56 @@ This last change of yours introduced a bug: Now nothing is rendered after the tr
 
 
 please fix it. Use the headless browser if needed.
+
+```
+• Both explorer image effects now branch correctly by renderer. I’m rebuilding and checking the WebGL zen route again in headless Chromium.
+
+• Ran npm run build
+  └
+    > build
+    … +14 lines
+    dist/assets/index-DArFJDap.js            97.88 kB │ gzip: 28.50 kB
+    ✓ built in 684ms
+
+• Ran npm run lint
+  └
+    > lint
+    > eslint . --cache
+
+
+• Waited for background terminal
+
+• Waited for background terminal
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Build and lint pass. I’m doing one more WebGL headless screenshot on the zen route to verify the fractals render again after the coarse-to-fine transition path change.
+
+• Ran chromium --headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1366,768 --screenshot=/tmp/explorer-webgl-direct-fixed.png --virtual-time-budget=5000 http://127.0.0.1:4177/explorer?zen=1
+  └ [1860829:1860829:0419/214004.420355:ERROR:chromium-146.0.7680.164/base/memory/shared_memory_switch.cc:289] Failed global descriptor lookup: 7
+    [1860780:1860811:0419/214007.988493:ERROR:chromium-146.0.7680.164/google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+    … +3 lines
+    [1860780:1860811:0419/214008.079310:ERROR:chromium-146.0.7680.164/google_apis/gcm/engine/mcs_client.cc:702] Failed to log in to GCM, resetting connection.
+    598052 bytes written to file /tmp/explorer-webgl-direct-fixed.png
+
+• Viewed Image
+  └ /tmp/explorer-webgl-direct-fixed.png
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Fixed the regression.
+
+  The bug was in the staged-swap presentation path for WebGL: copying from a WebGL staging canvas into a visible 2D canvas was not reliable in this app’s render path, and it could leave the final frame blank. I changed the explorer image pipeline so:
+
+  - CPU rendering still uses staged swap
+  - WebGL rendering goes back to direct same-canvas rendering
+  - image rendering now runs in layout timing, which reduces the coarse-to-fine flash without breaking the GPU path
+
+  The main changes are in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx, code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx, and code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts.
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+  - headless Chromium with WebGL now renders the zen explorer correctly again
+```
