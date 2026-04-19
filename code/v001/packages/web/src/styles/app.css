@@ -830,6 +830,12 @@ a {
   aspect-ratio: auto;
 }
 
+.explorer-layout--zen .canvas-stage {
+  max-width: none;
+  max-height: none;
+  flex: none;
+}
+
 .zen-separator {
   position: relative;
   background:
@@ -888,7 +894,6 @@ a {
 .explorer-layout--zen .canvas--mandelbrot {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .viewer-layout--zen .card--viewer .canvas-frame {

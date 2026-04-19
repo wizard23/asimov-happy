@@ -1898,6 +1898,178 @@ please fix it now.
   1 background terminal running · /ps to view · /stop to close
 ```
 
+No, it is still buggy. The clicked position is not correct. Please give me a full technical report after testing this with the headless browser.
+
+
+```
+• Technical Report
+
+  I tested the current zen Mandelbrot in headless Chromium and compared that against the current CSS and pointer-mapping code. The click bug is real, and the current fix is still using the wrong geometry model.
+
+  ## What I observed in headless Chromium
+
+  With the current code, the zen screenshot shows:
+
+  - the Mandelbrot now fills the pane height
+  - the Mandelbrot is visibly cropped horizontally, which is expected for this zen mode
+  - the current selected marker can still end up inconsistent with where a user would expect the clicked point to be
+
+  From the rendered DOM in headless Chromium:
+
+  - the Mandelbrot stage is still assigned an inline size around 1015.5 x 677
+  - the Mandelbrot pane itself is much narrower, around half the viewport width
+
+  That by itself suggests overflow/cropping, but the important detail is in the CSS.
+
+  ## Root Cause
+
+  The actual crop is not happening at the .canvas-stage level the way the current fix assumes.
+
+  It is happening because of this combination:
+
+  - code/v001/packages/web/src/styles/app.css
+      - .canvas-stage { max-width: 100%; max-height: 100%; }
+  - zen mode now sets:
+      - .explorer-layout--zen .canvas--viewer, .explorer-layout--zen .canvas--mandelbrot { width: 100%; height: 100%; object-fit: cover; }
+
+  So in zen mode:
+
+  1. The code computes a logical Mandelbrot display size like 1015.5 x 677.
+  2. That size is applied inline to .canvas-stage.
+  3. But .canvas-stage is constrained by max-width: 100%, so it cannot actually render wider than the pane.
+  4. That means the stage box collapses to the pane width.
+  5. The actual Mandelbrot crop is then performed by the canvas element itself via object-fit: cover.
+
+  That means the visible geometry is:
+
+  - stage box: pane-sized
+  - canvas content: larger intrinsic fractal image, cropped inside that box by object-fit: cover
+
+  ## Why the current fix is still wrong
+
+  The current pointer fix in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx assumes:
+
+  - the stage is still displayWidth x displayHeight
+  - the stage overflows the frame
+  - the frame is a cropped window into the larger stage
+  - so pointer coordinates can be corrected using a frame-to-stage inset
+
+  But that is not the actual rendered layout anymore.
+
+  Because of max-width: 100%, the stage does not remain wider than the frame in the rendered layout. Instead:
+
+  - the stage becomes pane-sized
+  - the canvas image content is what gets cropped by object-fit: cover
+
+  So the current mapping is correcting for the wrong crop layer.
+
+  ## Practical effect
+
+  Current code maps clicks as if this were true:
+
+  - visible pane coordinate -> larger logical stage coordinate
+
+  But the real browser layout is:
+
+  - visible pane coordinate -> pane-sized stage coordinate
+  - then canvas content inside that stage is cropped by object-fit: cover
+
+  So the missing correction is now:
+
+  - from visible stage box coordinates
+  - into the cropped canvas content coordinates
+
+  not from frame to stage.
+
+  That is why the clicked parameter is still wrong.
+
+  ## Secondary impact
+
+  This affects more than click selection:
+
+  - hover position
+  - live preview parameter
+  - zoom anchor
+  - drag behavior feel
+  - crosshair perceived alignment
+
+  Anything that assumes displayWidth/displayHeight directly match the visible pointer surface is unreliable in this zen mode.
+
+  ## Why this matches the browser evidence
+
+  The headless-browser screenshots show:
+
+  - the Mandelbrot filling height
+  - horizontal crop
+  - no obvious oversized overflowing stage visible outside the pane
+
+  That matches the CSS model above:
+
+  - pane-sized stage
+  - canvas content cropped internally by object-fit: cover
+
+  It does not match the model used by the current pointer fix:
+
+  - oversized stage centered in frame
+
+  ## Bottom line
+
+  The remaining bug is caused by a geometry mismatch:
+
+  - the code is correcting pointer input as if the stage is oversized and cropped
+  - the browser is actually rendering a pane-sized stage with the canvas content cropped by object-fit: cover
+
+  So the current fix is targeting the wrong layer.
+
+  ## Correct fix direction
+
+  The robust fix is one of these:
+
+  1. Remove object-fit: cover from the interactive canvas path and let the stage itself own the crop geometry.
+  2. Or keep object-fit: cover, but then compute pointer mapping against the canvas content crop rectangle inside the visible stage box.
+
+  I recommend 1 because it makes the geometry much easier to reason about and keeps:
+
+  - click
+  - hover
+  - marker placement
+  - pan
+  - zoom
+
+  all in one coordinate space.
+
+  So: the bug is understood, and the current implementation is still wrong for a precise CSS/layout reason.
+```
+
+I like your suggestion. Please make it so.
+
+```
+• Changed zen mode to use stage-owned cropping instead of object-fit: cover.
+
+  The key fix is in code/v001/packages/web/src/styles/app.css:
+
+  - zen .canvas-stage no longer gets clamped by max-width / max-height
+  - zen canvases no longer use object-fit: cover
+
+  That puts the visible crop back at the stage/frame boundary, which matches the coordinate model used by the interaction code in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+
+  I verified in headless Chromium that:
+
+  - the Mandelbrot still fills the zen pane height
+  - the crop is now stage-based again, not canvas-content-based
+
+  npm run build and npm run lint pass in code/v001.
+
+  One limitation: I could verify the rendered geometry in headless Chromium, but I did not fully script a real click-and-readback cycle because there isn’t local browser automation tooling set up here. So the remaining check is your browser retest of click accuracy in zen mode.
+
+```
+
+
+
+
+Document what you learned about headless debugging this app in a new technical details section in the README
+
+
 
 please add a drop down box for palette mapping:
 * binary (only two colors) 
