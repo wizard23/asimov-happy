@@ -77,11 +77,19 @@ function zoomViewport(
   };
 }
 
-function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
-  const rect = canvas.getBoundingClientRect();
+function getStagePoint(
+  frame: HTMLElement,
+  displayWidth: number,
+  displayHeight: number,
+  event: MouseEvent | WheelEvent,
+): { x: number; y: number } {
+  const rect = frame.getBoundingClientRect();
+  const horizontalInset = (rect.width - displayWidth) / 2;
+  const verticalInset = (rect.height - displayHeight) / 2;
+
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: Math.max(0, Math.min(displayWidth, event.clientX - rect.left - horizontalInset)),
+    y: Math.max(0, Math.min(displayHeight, event.clientY - rect.top - verticalInset)),
   };
 }
 
@@ -261,7 +269,17 @@ export function JuliaViewerCanvas(props: {
         return;
       }
 
-      const point = getCanvasPoint(activeCanvas, event);
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
       dragStateRef.current = {
         pointerStartX: point.x,
         pointerStartY: point.y,
@@ -277,7 +295,17 @@ export function JuliaViewerCanvas(props: {
         return;
       }
 
-      const point = getCanvasPoint(activeCanvas, event);
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
       const deltaX = point.x - dragState.pointerStartX;
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getViewportWidth(dragState.viewportAtStart);
@@ -305,7 +333,17 @@ export function JuliaViewerCanvas(props: {
       }
 
       event.preventDefault();
-      const point = getCanvasPoint(activeCanvas, event);
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
       const anchor = mapPointToCoordinate(
         point.x,
         point.y,

@@ -1741,27 +1741,174 @@ Do you understand what I mean with utilize the full available height now?
 Please fix it so that both fractals utilize the full available height.
 
 
+```
+• Fixed.
 
+  The issue was that zen mode was still fitting the Mandelbrot canvas with containment behavior, so the image only occupied a centered band instead of covering the full pane height. I changed the explorer zen path so it no longer uses the generic centered summary wrapper behavior, and the zen canvases now use cover-style fitting in code/v001/packages/web/src/app/app.tsx and code/v001/packages/web/src/styles/app.css.
 
+  I verified it in headless Chromium on /explorer?zen=1 with WebGL enabled. The Mandelbrot now fills the full available pane height like the Julia view. npm run build and npm run lint also pass.
 
+  1 background terminal running · /ps to view · /stop to close
+```
 
+the height is good now, but the clicked position is incorrect. Please first analyze the bug and give me a technical report before changing anything.
 
+```
+• Report
 
+  Yes. The clicked position is now wrong for a clear technical reason introduced by the zen-mode fix.
 
+  ## Root Cause
 
+  The explorer interaction math still assumes a 1:1 mapping between the visible canvas box and the complex-plane display area. That assumption stopped being true when zen mode switched from contain to cover.
 
+  Relevant code:
 
-why can't i zoom in deeper? give me a technical report. No changes yet.
+  - code/v001/packages/web/src/styles/app.css now sets zen explorer canvases to object-fit: cover
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx still computes clicks and hover from:
+      - getCanvasPoint(...) using the overlay canvas DOM rect
+      - mapPointToParameter(...) using displaySizeRef.current.width / height
 
+  That worked before because:
+
+  - the full rendered fractal was visible
+  - the visible box and the logical display size matched
+
+  After cover:
+
+  - the rendered Mandelbrot stage is larger than the visible pane in one dimension
+  - the browser crops part of the rendered image
+  - pointer coordinates come from the visible cropped box
+  - parameter mapping still interprets them as coordinates in the full uncropped logical image
+
+  So the click location is offset.
+
+  ## Why This Happens Specifically In Zen Mode
+
+  For wide zen mode:
+
+  - Mandelbrot uses height-driven
+  - display size becomes height * 3/2
+  - that stage is wider than the pane
+  - with object-fit: cover, the sides are cropped
+
+  Example from the rendered DOM I checked:
+
+  - Mandelbrot stage: about 1015.5 x 677
+  - visible pane width is much smaller than 1015.5
+  - so left and right portions are cut off
+
+  But click mapping still does:
+
+  normalizedX = x / displayWidth
+  real = minReal + viewportWidth * normalizedX
+
+  where:
+
+  - x is measured in the visible cropped box
+  - displayWidth is the full uncropped stage width
+
+  That means the code is missing the horizontal crop offset.
+  So every click is interpreted too far toward the center of the full stage.
+
+  ## Secondary Symptoms
+
+  This same bug affects more than clicks:
+
+  - hover coordinates
+  - red selected marker placement
+  - blue live-preview marker placement
+  - wheel zoom anchor
+  - drag pan intuition
+
+  Anything using the visible pointer position against displaySizeRef is now in the wrong coordinate space.
+
+  ## Precise Coordinate-System Mismatch
+
+  There are now three spaces in play:
+
+  1. Viewport space
+
+  - Mandelbrot complex-plane coordinates
+
+  2. Logical stage space
+
+  - canvasResolution.displayWidth/displayHeight
+  - the full fractal image size before cropping
+
+  3. Visible pane space
+
+  - the actual on-screen visible area after cover cropping
+
+  Current code maps:
+
+  - visible pane pointer coordinates -> logical stage space
+    as if they were identical
+
+  They are not identical anymore.
+
+  ## Why The Marker Also Becomes Wrong
+
+  Crosshair placement uses:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+
+  which returns percentages against the full stage.
+  With cropping, those percentages are still correct for the full rendered image, but the visible pane only shows a cropped window into that image. So the marker position can appear shifted relative to the user’s click.
+
+  ## Bottom Line
+
+  The bug is caused by switching zen canvases to object-fit: cover without updating interaction and overlay math to account for crop offsets.
+
+  Before:
+
+  - visible canvas area == logical fractal area
+
+  Now:
+
+  - visible canvas area is a cropped subset of the logical fractal area
+
+  But click/hover/marker math still uses the old assumption.
+
+  ## What The Fix Will Need
+
+  Not changing code yet, but the correct fix direction is:
+
+  - compute the visible crop rectangle of the covered fractal inside the pane
+  - transform pointer coordinates from visible pane space into logical stage space before calling mapPointToParameter
+  - do the inverse adjustment for marker/overlay placement if those stay in pane coordinates
+
+  Or structurally:
+
+  - stop relying on object-fit: cover for interaction surfaces and instead size/position the stage explicitly so visible-space and logical-space stay aligned
+
+  So this is not a random click bug. It is a direct geometry bug caused by the zen cover-mode change.
+```
+
+please fix it now.
+
+```
+• Fixed the zen-mode coordinate mapping.
+
+  The bug was that after making the fractals fill pane height, the visible pane became a cropped window into a larger logical stage, but click/hover/zoom math still used raw coordinates from the visible box as if no crop existed. I changed both explorer canvases to map pointer events from the visible canvas-frame into centered stage coordinates before converting to complex-plane coordinates. The main fixes are in code/v001/packages/web/src/
+  canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+
+  npm run build and npm run lint pass in code/v001.
+
+  1 background terminal running · /ps to view · /stop to close
+```
 
 
 please add a drop down box for palette mapping:
 * binary (only two colors) 
 * linear (i think that is how it is done atm)
 * logarithmic (default)
-* cyclic
+* cyclic (modular)
+* cyclic (mirrored)
 
 is it clear what I mean with this? if anythong is unclear let's get the spec right before you make any code changes.
 ready to start? or are there any questions?
 
 
+
+why can't i zoom in deeper? give me a technical report. No changes yet.
