@@ -2161,3 +2161,95 @@ yes your recommendation is good. Please make it so.
 
 
 why can't i zoom in deeper? give me a technical report. No changes yet.
+
+
+
+```
+• Technical Report
+
+  You can’t zoom in deeper because the explorer has a hard-coded minimum viewport span.
+
+  ## Root cause
+
+  Both explorer canvases clamp zoom to:
+
+  - MIN_VIEWPORT_SPAN = 0.02
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:33
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:20
+
+  And the actual clamp happens here:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:80
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:62
+
+  Specifically:
+
+  const minimumWidth = MIN_VIEWPORT_SPAN * aspectRatio;
+  const nextHeight = Math.max(viewportHeight * factor, MIN_VIEWPORT_SPAN);
+  const nextWidth = Math.max(viewportWidth * factor, minimumWidth);
+
+  So once the viewport height reaches 0.02, further zoom-in requests do nothing.
+
+  ## What that means numerically
+
+  For the Mandelbrot default viewport:
+
+  - width = 3.2
+  - height = 2.133333...
+
+  Minimum allowed viewport becomes:
+
+  - height floor = 0.02
+  - width floor = 0.02 * 1.5 = 0.03
+
+  So the maximum zoom is only about:
+
+  - 2.133333 / 0.02 ≈ 106.7x
+
+  That is very shallow for Mandelbrot exploration.
+
+  ## Why it feels especially restrictive
+
+  Your zoom step is also modest:
+
+  - ZOOM_IN_FACTOR = 0.85
+
+  So each wheel step only reduces the viewport by 15%, and then the hard floor stops it completely at about 107x.
+
+  ## What it is not
+
+  This is not currently limited by:
+
+  - CPU vs WebGL renderer
+  - canvas resolution
+  - floating-point precision
+  - browser wheel behavior
+
+  Those may matter later for ultra-deep zoom, but the current blocker is simply the explicit clamp.
+
+  ## Why this exists
+
+  This limit was likely added as a safety guard to avoid:
+
+  - excessive zoom where navigation becomes awkward
+  - pathological rendering/performance cases
+  - earlier aspect-ratio issues at the minimum zoom boundary
+
+  But as implemented now, it is the direct reason you cannot zoom deeper.
+
+  ## Bottom line
+
+  The explorer has an intentional zoom floor:
+
+  - minimum viewport height: 0.02
+  - minimum viewport width: 0.03 for the Mandelbrot view
+
+  So deep zoom is currently disabled by code, not by rendering capability.
+
+```
+
+
+Please make the possible zoom depth as deep as possible but ame sure to stop before the float precision is reached.

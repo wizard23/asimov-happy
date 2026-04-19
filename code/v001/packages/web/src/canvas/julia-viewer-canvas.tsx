@@ -17,7 +17,7 @@ import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolutio
 
 const VIEWER_FALLBACK_SIZE = 360;
 const VIEWER_MAX_RENDER_SIZE = 2048;
-const MIN_VIEWPORT_SPAN = 0.02;
+const VIEWPORT_PRECISION_SAFETY_FACTOR = 8;
 const ZOOM_IN_FACTOR = 0.85;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 
@@ -63,12 +63,22 @@ function zoomViewport(
   viewport: JuliaViewport,
   anchor: ComplexParameter,
   factor: number,
+  displayWidth: number,
+  displayHeight: number,
 ): JuliaViewport {
   const viewportWidth = getViewportWidth(viewport);
   const viewportHeight = getViewportHeight(viewport);
   const aspectRatio = viewportWidth / viewportHeight;
-  const minimumWidth = MIN_VIEWPORT_SPAN * aspectRatio;
-  const nextHeight = Math.max(viewportHeight * factor, MIN_VIEWPORT_SPAN);
+  const centerReal = (viewport.minReal + viewport.maxReal) / 2;
+  const centerImaginary = (viewport.minImaginary + viewport.maxImaginary) / 2;
+  const realUlp = Number.EPSILON * Math.max(1, Math.abs(centerReal));
+  const imaginaryUlp = Number.EPSILON * Math.max(1, Math.abs(centerImaginary));
+  const minimumWidth = Math.max(
+    realUlp * Math.max(1, displayWidth) * VIEWPORT_PRECISION_SAFETY_FACTOR,
+    imaginaryUlp * Math.max(1, displayHeight) * aspectRatio * VIEWPORT_PRECISION_SAFETY_FACTOR,
+  );
+  const minimumHeight = minimumWidth / aspectRatio;
+  const nextHeight = Math.max(viewportHeight * factor, minimumHeight);
   const nextWidth = Math.max(viewportWidth * factor, minimumWidth);
   const normalizedX = (anchor.real - viewport.minReal) / getViewportWidth(viewport);
   const normalizedY = (viewport.maxImaginary - anchor.imaginary) / getViewportHeight(viewport);
@@ -362,7 +372,13 @@ export function JuliaViewerCanvas(props: {
         viewportRef.current,
       );
       setViewport((current) =>
-        zoomViewport(current, anchor, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR),
+        zoomViewport(
+          current,
+          anchor,
+          event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+        ),
       );
       markInteractiveQuality();
     }
