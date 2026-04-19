@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   JULIA_VIEWPORT,
   type ComplexParameter,
@@ -96,21 +96,48 @@ export function JuliaViewerCanvas(props: {
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const displaySizeRef = useRef({
+    width: VIEWER_FALLBACK_SIZE,
+    height: VIEWER_FALLBACK_SIZE,
+  });
+  const enableTwoQualityLevelsRef = useRef(Boolean(props.enableTwoQualityLevels));
+  const parameterRef = useRef(props.parameter);
   const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
   const [qualityScale, setQualityScale] = useState(1);
-  const canvasResolution = useResponsiveCanvasResolution(frameRef, {
-    fallbackDisplayWidth: VIEWER_FALLBACK_SIZE,
-    fallbackDisplayHeight: VIEWER_FALLBACK_SIZE,
-    maxRenderWidth: VIEWER_MAX_RENDER_SIZE,
-    maxRenderHeight: VIEWER_MAX_RENDER_SIZE,
-    qualityScale,
-  });
+  const resolutionOptions = useMemo(
+    () => ({
+      fallbackDisplayWidth: VIEWER_FALLBACK_SIZE,
+      fallbackDisplayHeight: VIEWER_FALLBACK_SIZE,
+      maxRenderWidth: VIEWER_MAX_RENDER_SIZE,
+      maxRenderHeight: VIEWER_MAX_RENDER_SIZE,
+      qualityScale,
+      aspectRatio: 1,
+      sizingMode: "contain" as const,
+    }),
+    [qualityScale],
+  );
+  const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+
+  useEffect(() => {
+    parameterRef.current = props.parameter;
+  }, [props.parameter]);
+
+  useEffect(() => {
+    enableTwoQualityLevelsRef.current = Boolean(props.enableTwoQualityLevels);
+  }, [props.enableTwoQualityLevels]);
+
+  useEffect(() => {
+    displaySizeRef.current = {
+      width: canvasResolution.displayWidth,
+      height: canvasResolution.displayHeight,
+    };
+  }, [canvasResolution.displayHeight, canvasResolution.displayWidth]);
 
   useEffect(() => {
     return () => {
@@ -121,7 +148,7 @@ export function JuliaViewerCanvas(props: {
   }, []);
 
   function markInteractiveQuality(): void {
-    if (!props.enableTwoQualityLevels) {
+    if (!enableTwoQualityLevelsRef.current) {
       return;
     }
 
@@ -216,7 +243,7 @@ export function JuliaViewerCanvas(props: {
     const activeCanvas = canvas;
 
     function handleMouseDown(event: MouseEvent): void {
-      if (event.button !== 0 || !props.parameter) {
+      if (event.button !== 0 || !parameterRef.current) {
         return;
       }
 
@@ -241,8 +268,8 @@ export function JuliaViewerCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getViewportWidth(dragState.viewportAtStart);
       const viewportHeight = getViewportHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / canvasResolution.displayWidth) * viewportWidth;
-      const imaginaryShift = (deltaY / canvasResolution.displayHeight) * viewportHeight;
+      const realShift = (deltaX / displaySizeRef.current.width) * viewportWidth;
+      const imaginaryShift = (deltaY / displaySizeRef.current.height) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -255,11 +282,11 @@ export function JuliaViewerCanvas(props: {
 
     function handleMouseUp(): void {
       dragStateRef.current = null;
-      activeCanvas.style.cursor = props.parameter ? "grab" : "default";
+      activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
     }
 
     function handleWheel(event: WheelEvent): void {
-      if (!props.parameter) {
+      if (!parameterRef.current) {
         return;
       }
 
@@ -268,8 +295,8 @@ export function JuliaViewerCanvas(props: {
       const anchor = mapPointToCoordinate(
         point.x,
         point.y,
-        canvasResolution.displayWidth,
-        canvasResolution.displayHeight,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
         viewportRef.current,
       );
       setViewport((current) =>
@@ -278,7 +305,7 @@ export function JuliaViewerCanvas(props: {
       markInteractiveQuality();
     }
 
-    activeCanvas.style.cursor = props.parameter ? "grab" : "default";
+    activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
     activeCanvas.addEventListener("mousedown", handleMouseDown);
     activeCanvas.addEventListener("mousemove", handleMouseMove);
     activeCanvas.addEventListener("wheel", handleWheel, { passive: false });
@@ -292,30 +319,42 @@ export function JuliaViewerCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [
-    canvasResolution.renderHeight,
-    canvasResolution.renderWidth,
-    props.enableTwoQualityLevels,
-    props.parameter,
-  ]);
+  }, []);
+
+  useEffect(() => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas || dragStateRef.current) {
+      return;
+    }
+
+    canvas.style.cursor = props.parameter ? "grab" : "default";
+  }, [props.parameter]);
 
   return (
     <div ref={frameRef} className="canvas-frame canvas-frame--viewer">
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
-      <canvas
-        key={`julia-image-${props.renderer?.id ?? "cpu"}`}
-        ref={imageCanvasRef}
-        className="canvas canvas--viewer"
-        width={canvasResolution.renderWidth}
-        height={canvasResolution.renderHeight}
-        style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
-      />
-      <canvas
-        ref={overlayCanvasRef}
-        className="canvas canvas--viewer canvas--overlay"
-        width={canvasResolution.renderWidth}
-        height={canvasResolution.renderHeight}
-      />
+      <div
+        className="canvas-stage"
+        style={{
+          width: `${canvasResolution.displayWidth}px`,
+          height: `${canvasResolution.displayHeight}px`,
+        }}
+      >
+        <canvas
+          key={`julia-image-${props.renderer?.id ?? "cpu"}`}
+          ref={imageCanvasRef}
+          className="canvas canvas--viewer"
+          width={canvasResolution.renderWidth}
+          height={canvasResolution.renderHeight}
+          style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
+        />
+        <canvas
+          ref={overlayCanvasRef}
+          className="canvas canvas--viewer canvas--overlay"
+          width={canvasResolution.renderWidth}
+          height={canvasResolution.renderHeight}
+        />
+      </div>
     </div>
   );
 }

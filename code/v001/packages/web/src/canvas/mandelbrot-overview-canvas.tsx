@@ -121,19 +121,31 @@ export function MandelbrotOverviewCanvas(props: {
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const displaySizeRef = useRef({
+    width: MANDELBROT_FALLBACK_WIDTH,
+    height: MANDELBROT_FALLBACK_HEIGHT,
+  });
+  const enableTwoQualityLevelsRef = useRef(Boolean(props.enableTwoQualityLevels));
   const onHoverParameterRef = useRef(props.onHoverParameter);
+  const onSelectParameterRef = useRef(props.onSelectParameter);
   const viewportRef = useRef<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [qualityScale, setQualityScale] = useState(1);
-  const canvasResolution = useResponsiveCanvasResolution(frameRef, {
-    fallbackDisplayWidth: MANDELBROT_FALLBACK_WIDTH,
-    fallbackDisplayHeight: MANDELBROT_FALLBACK_HEIGHT,
-    maxRenderWidth: MANDELBROT_MAX_RENDER_WIDTH,
-    maxRenderHeight: MANDELBROT_MAX_RENDER_HEIGHT,
-    qualityScale,
-  });
+  const resolutionOptions = useMemo(
+    () => ({
+      fallbackDisplayWidth: MANDELBROT_FALLBACK_WIDTH,
+      fallbackDisplayHeight: MANDELBROT_FALLBACK_HEIGHT,
+      maxRenderWidth: MANDELBROT_MAX_RENDER_WIDTH,
+      maxRenderHeight: MANDELBROT_MAX_RENDER_HEIGHT,
+      qualityScale,
+      aspectRatio: 3 / 2,
+      sizingMode: "contain" as const,
+    }),
+    [qualityScale],
+  );
+  const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
   const selectedParameter = props.selectedParameter ?? props.parameter;
   const selectedCrosshairPosition = useMemo(
@@ -159,8 +171,23 @@ export function MandelbrotOverviewCanvas(props: {
   }, [props.onHoverParameter]);
 
   useEffect(() => {
+    onSelectParameterRef.current = props.onSelectParameter;
+  }, [props.onSelectParameter]);
+
+  useEffect(() => {
+    enableTwoQualityLevelsRef.current = Boolean(props.enableTwoQualityLevels);
+  }, [props.enableTwoQualityLevels]);
+
+  useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+
+  useEffect(() => {
+    displaySizeRef.current = {
+      width: canvasResolution.displayWidth,
+      height: canvasResolution.displayHeight,
+    };
+  }, [canvasResolution.displayHeight, canvasResolution.displayWidth]);
 
   useEffect(() => {
     return () => {
@@ -171,7 +198,7 @@ export function MandelbrotOverviewCanvas(props: {
   }, []);
 
   function markInteractiveQuality(): void {
-    if (!props.enableTwoQualityLevels) {
+    if (!enableTwoQualityLevelsRef.current) {
       return;
     }
 
@@ -281,8 +308,8 @@ export function MandelbrotOverviewCanvas(props: {
       const parameter = mapPointToParameter(
         point.x,
         point.y,
-        canvasResolution.displayWidth,
-        canvasResolution.displayHeight,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
         viewportRef.current,
       );
       updateHover(parameter);
@@ -296,8 +323,8 @@ export function MandelbrotOverviewCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getComplexBoundsWidth(dragState.viewportAtStart);
       const viewportHeight = getComplexBoundsHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / canvasResolution.displayWidth) * viewportWidth;
-      const imaginaryShift = (deltaY / canvasResolution.displayHeight) * viewportHeight;
+      const realShift = (deltaX / displaySizeRef.current.width) * viewportWidth;
+      const imaginaryShift = (deltaY / displaySizeRef.current.height) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -330,19 +357,19 @@ export function MandelbrotOverviewCanvas(props: {
     }
 
     function handleMouseUp(event: MouseEvent): void {
-      if (dragStateRef.current && props.onSelectParameter && activeCanvas.contains(event.target as Node)) {
+      if (dragStateRef.current && onSelectParameterRef.current && activeCanvas.contains(event.target as Node)) {
         const point = getCanvasPoint(activeCanvas, event);
         const deltaX = point.x - dragStateRef.current.pointerStartX;
         const deltaY = point.y - dragStateRef.current.pointerStartY;
         const movedDistance = Math.hypot(deltaX, deltaY);
 
         if (movedDistance <= CLICK_SELECTION_THRESHOLD) {
-          props.onSelectParameter(
+          onSelectParameterRef.current(
             mapPointToParameter(
               point.x,
               point.y,
-              canvasResolution.displayWidth,
-              canvasResolution.displayHeight,
+              displaySizeRef.current.width,
+              displaySizeRef.current.height,
               viewportRef.current,
             ),
           );
@@ -359,8 +386,8 @@ export function MandelbrotOverviewCanvas(props: {
       const anchor = mapPointToParameter(
         point.x,
         point.y,
-        canvasResolution.displayWidth,
-        canvasResolution.displayHeight,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
         viewportRef.current,
       );
       setViewport((current) =>
@@ -386,52 +413,55 @@ export function MandelbrotOverviewCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [
-    canvasResolution.renderHeight,
-    canvasResolution.renderWidth,
-    props.enableTwoQualityLevels,
-    props.onSelectParameter,
-  ]);
+  }, []);
 
   return (
     <div ref={frameRef} className="canvas-frame canvas-frame--mandelbrot">
       <div className="canvas-overlay">{formatComplex(overlayLabel)}</div>
-      <canvas
-        key={`mandelbrot-image-${props.renderer?.id ?? "cpu"}`}
-        ref={imageCanvasRef}
-        className="canvas canvas--mandelbrot"
-        width={canvasResolution.renderWidth}
-        height={canvasResolution.renderHeight}
-        style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
-      />
-      <canvas
-        ref={overlayCanvasRef}
-        className="canvas canvas--mandelbrot canvas--overlay"
-        width={canvasResolution.renderWidth}
-        height={canvasResolution.renderHeight}
-      />
-      {selectedCrosshairPosition ? (
-        <img
-          className="mandelbrot-crosshair mandelbrot-crosshair--selected"
-          src={crosshairUrl}
-          alt="Selected Julia parameter on the Mandelbrot set"
-          style={{
-            left: selectedCrosshairPosition.left,
-            top: selectedCrosshairPosition.top,
-          }}
+      <div
+        className="canvas-stage"
+        style={{
+          width: `${canvasResolution.displayWidth}px`,
+          height: `${canvasResolution.displayHeight}px`,
+        }}
+      >
+        <canvas
+          key={`mandelbrot-image-${props.renderer?.id ?? "cpu"}`}
+          ref={imageCanvasRef}
+          className="canvas canvas--mandelbrot"
+          width={canvasResolution.renderWidth}
+          height={canvasResolution.renderHeight}
+          style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
         />
-      ) : null}
-      {liveCrosshairPosition ? (
-        <img
-          className="mandelbrot-crosshair mandelbrot-crosshair--live"
-          src={crosshairUrl}
-          alt="Live preview Julia parameter on the Mandelbrot set"
-          style={{
-            left: liveCrosshairPosition.left,
-            top: liveCrosshairPosition.top,
-          }}
+        <canvas
+          ref={overlayCanvasRef}
+          className="canvas canvas--mandelbrot canvas--overlay"
+          width={canvasResolution.renderWidth}
+          height={canvasResolution.renderHeight}
         />
-      ) : null}
+        {selectedCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--selected"
+            src={crosshairUrl}
+            alt="Selected Julia parameter on the Mandelbrot set"
+            style={{
+              left: selectedCrosshairPosition.left,
+              top: selectedCrosshairPosition.top,
+            }}
+          />
+        ) : null}
+        {liveCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--live"
+            src={crosshairUrl}
+            alt="Live preview Julia parameter on the Mandelbrot set"
+            style={{
+              left: liveCrosshairPosition.left,
+              top: liveCrosshairPosition.top,
+            }}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

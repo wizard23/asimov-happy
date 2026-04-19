@@ -1106,3 +1106,264 @@ It looks great but I noticed two bugs:
 
 * panning does not work anymore
 * the aspect ratio of the mandelbrot is wrong. the julia set has the correct aspect ratio.
+
+
+```
+• Fixed both issues.
+
+  Panning was broken because the interaction math was using dynamic render-space coordinates, which change with adaptive quality. I switched pointer, drag, click, and zoom-anchor calculations back to stable display-space coordinates. The Mandelbrot aspect ratio drift was caused by the frame no longer enforcing 3:2, so I restored the aspect ratio at the frame level and did the same for Julia with 1:1 for consistency.
+
+  The main fixes are in:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  Verification passed with npm run build and npm run lint from code/v001.
+```
+
+
+I see that you made changes, but I tested it in the browser and the two bugs are still there. Please analyze the code according to my bug description and try to find the root cause. Then give me a full technical report about the possible sources of the bug. We are also in the middle of a larger plan. Did my bug report come too early? Should we just have finished the original plan? Please don't change any code for now.
+
+
+```
+• Findings
+
+  I went through the current code as it exists now. There are two strong root causes, one for each bug, and both are consistent with your report.
+
+  ## 1. Panning Broken
+
+  ### Primary root cause
+
+  The drag interaction is being reset during an active drag whenever adaptive quality changes.
+
+  In both fractal canvases, mouse interaction is attached inside an effect whose dependency list includes the current render resolution:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:389
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:295
+
+  Those effects currently depend on:
+
+  - canvasResolution.renderWidth
+  - canvasResolution.renderHeight
+
+  During a drag, handleMove() calls markInteractiveQuality():
+
+  - Mandelbrot: code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:308
+  - Julia: code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:253
+
+  That changes qualityScale from 1 to 0.2, which changes:
+
+  - renderWidth
+  - renderHeight
+
+  That causes the interaction effect to rerun immediately.
+  Its cleanup does this:
+
+  - Mandelbrot: code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:381
+  - Julia: code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:288
+
+  Specifically:
+
+  - dragStateRef.current = null
+
+  So the active drag is destroyed mid-gesture.
+
+  ### What that means in practice
+
+  The sequence is effectively:
+
+  1. mouse down starts drag
+  2. first mouse move updates viewport
+  3. first mouse move also drops quality to 0.2
+  4. render size changes
+  5. effect cleans up
+  6. dragStateRef.current is cleared
+  7. further mouse move events no longer have an active drag state
+
+  So panning either:
+
+  - stops after the first small move, or
+  - appears not to work reliably at all
+
+  That is the strongest root cause for the panning bug.
+
+  ### Secondary interaction bug
+
+  Even after the display-space correction, the interaction effect still does not depend on:
+
+  - canvasResolution.displayWidth
+  - canvasResolution.displayHeight
+
+  It depends only on render size.
+
+  So if display size changes while render size stays the same, the handlers can keep stale display dimensions in closure.
+
+  This can happen when:
+
+  - render size is capped
+  - zen mode changes layout
+  - a resize changes CSS box size but cap prevents render dimension change
+
+  That would create stale pointer mapping even if the drag reset bug is fixed.
+
+  ## 2. Mandelbrot Aspect Ratio Wrong
+
+  ### Primary root cause
+
+  There is no single authoritative layout model for the Mandelbrot canvas yet.
+
+  Right now the system relies on several different places to imply geometry:
+
+  - CSS frame aspect ratio:
+      - code/v001/packages/web/src/styles/app.css:370
+  - CSS canvas aspect ratio:
+      - code/v001/packages/web/src/styles/app.css:379
+  - measured frame size from ResizeObserver:
+      - code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts:85
+  - viewport math preserving complex-plane ratio:
+      - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:75
+
+  The current resolution hook simply trusts the observed frame size:
+
+  - code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts:96
+
+  It does not enforce Mandelbrot’s intended 3:2 geometry itself.
+  It just says:
+
+  - whatever width/height the DOM gives me, I will render to that
+
+  That means if the measured frame box is off-ratio for any reason, the render target becomes off-ratio too.
+
+  ### Why Julia looks okay
+
+  Julia is simpler because it is 1:1:
+
+  - square frame is easier for CSS/layout to preserve
+  - square display bugs are less visually obvious
+  - many layout systems naturally preserve square-looking panels better than a 3:2 panel inside a flexible card/grid setup
+
+  So Julia can look correct while Mandelbrot does not.
+
+  ### Why this is still likely wrong even though CSS sets aspect-ratio: 3 / 2
+
+  Because the code is still using the observed box as input to rendering, rather than using a proper layout resolver that says:
+
+  - Mandelbrot display geometry is 3:2
+  - height must be derived from width, or width from height, depending on layout mode
+
+  The current hook does not do that.
+  It measures post-layout geometry and feeds it back into render dimensions.
+
+  So the likely failure mode is:
+
+  - the frame or card layout becomes slightly or materially off-ratio
+  - the render target follows that distorted box
+  - the fractal image then renders stretched
+
+  ### Additional structural reason
+
+  We are currently in the middle of the larger plan, and the missing piece is exactly the one your later spec called out:
+
+  - explicit support for layout modes
+  - fixed ratio with fixed width or fixed height
+  - fill given area
+  - a real layout resolver rather than passive measurement only
+
+  Right now that phase is incomplete.
+
+  ## 3. Another important mismatch still present
+
+  The overlay and fractal image both use:
+
+  - renderWidth
+  - renderHeight
+
+  for drawing overlays, but interaction uses:
+
+  - displayWidth
+  - displayHeight
+
+  That split is correct in principle.
+  But because the render size can change dynamically during interaction, and the effect lifecycle also depends on render size, the system is not yet stable enough.
+
+  So there are still multiple geometry spaces active:
+
+  - viewport space
+  - display space
+  - render space
+  - CSS aspect-ratio space
+
+  That is manageable only if the layout model is finished and the interaction lifecycle is isolated from adaptive resolution changes.
+  Right now it is not.
+
+  ## Did the bug report come too early?
+
+  No, not too early.
+
+  Your bug report was valid and useful.
+  It exposed real architectural problems.
+
+  But it also shows that we are in the middle of the larger plan and tried to make part of it work before the layout model and interaction lifecycle were fully finished.
+
+  So the honest answer is:
+
+  - the bug report was timely
+  - but yes, these bugs are a consequence of stopping in the middle of the original plan
+
+  The specific missing pieces are:
+
+  - a stable layout-resolution model
+  - separation between interaction lifecycle and adaptive render-resolution changes
+  - explicit fixed-ratio handling rather than passive box measurement
+
+  ## Most likely root causes by priority
+
+  ### Panning
+
+  1. Interaction effect reruns when adaptive quality changes render size, clearing drag state mid-drag.
+  2. Interaction effect does not depend on display dimensions, so stale closures are possible after layout changes.
+
+  ### Mandelbrot aspect ratio
+
+  1. No authoritative fixed-ratio layout resolver yet; measured DOM size is trusted directly.
+  2. Multiple competing geometry sources exist:
+      - frame CSS aspect ratio
+      - canvas CSS aspect ratio
+      - measured frame size
+      - viewport math ratio
+  3. Mandelbrot’s 3:2 makes drift much more visible than Julia’s 1:1.
+
+  ## Recommendation
+
+  Do not treat these as isolated polish bugs.
+  They are symptoms of the unfinished responsive-resolution/layout work.
+
+  The better path is:
+
+  1. finish the layout/measurement model properly
+  2. decouple active interaction handlers from adaptive render-size changes
+  3. make one source of truth for display geometry
+  4. then re-verify panning, zooming, and aspect ratio together
+
+  So yes: the right move is probably to continue the original plan rather than keep patching these one by one.
+```
+
+ok, then please continue with the original plan.
+
+```
+• I continued the original responsive-canvas plan instead of patching the symptoms.
+
+  The explorer panels now use an explicit contained stage with measured display dimensions, so the Mandelbrot and Julia views have one authoritative display geometry. I also removed the interaction handlers’ dependency on adaptive render-size changes, which was the thing that could kill a drag as soon as quality dropped from 1.0 to 0.2. The main changes are in code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts, code/v001/packages/web/src/canvas/mandelbrot-overview-
+  canvas.tsx, code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx, and code/v001/packages/web/src/styles/app.css.
+
+  Concretely:
+
+  - the resolution hook now supports contain sizing and resolves fixed-ratio display size from the available frame
+  - both explorer canvases now render inside a sized .canvas-stage instead of assuming the full frame is the drawable surface
+  - pointer/drag/zoom math now reads stable display-space dimensions from refs, so adaptive quality no longer tears down panning mid-gesture
+
+  Verification passed with npm run build and npm run lint in code/v001.
+
+  I have not browser-tested this myself here, so the next useful step is for you to retest panning and Mandelbrot aspect ratio in normal and zen mode.
+```

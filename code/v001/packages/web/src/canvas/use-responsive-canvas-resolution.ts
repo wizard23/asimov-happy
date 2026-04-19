@@ -6,6 +6,8 @@ interface ResponsiveCanvasResolutionOptions {
   maxRenderWidth: number;
   maxRenderHeight: number;
   qualityScale: number;
+  aspectRatio: number;
+  sizingMode?: "contain" | "width-driven" | "height-driven";
 }
 
 interface CanvasResolution {
@@ -45,14 +47,63 @@ function getBoundedRenderSize(
   };
 }
 
+function resolveDisplaySize(
+  measuredWidth: number,
+  measuredHeight: number,
+  options: ResponsiveCanvasResolutionOptions,
+): { width: number; height: number } {
+  const sizingMode = options.sizingMode ?? "contain";
+
+  if (sizingMode === "contain") {
+    const maxWidth = measuredWidth > 0 ? measuredWidth : options.fallbackDisplayWidth;
+    const maxHeight = measuredHeight > 0 ? measuredHeight : options.fallbackDisplayHeight;
+
+    if (maxWidth / maxHeight > options.aspectRatio) {
+      const height = maxHeight;
+      return {
+        width: height * options.aspectRatio,
+        height,
+      };
+    }
+
+    const width = maxWidth;
+    return {
+      width,
+      height: width / options.aspectRatio,
+    };
+  }
+
+  if (sizingMode === "height-driven") {
+    const height = measuredHeight > 0 ? measuredHeight : options.fallbackDisplayHeight;
+    return {
+      width: height * options.aspectRatio,
+      height,
+    };
+  }
+
+  const width = measuredWidth > 0 ? measuredWidth : options.fallbackDisplayWidth;
+  return {
+    width,
+    height: width / options.aspectRatio,
+  };
+}
+
 export function useResponsiveCanvasResolution(
   frameRef: preact.RefObject<HTMLElement>,
   options: ResponsiveCanvasResolutionOptions,
 ): CanvasResolution {
-  const [displaySize, setDisplaySize] = useState({
-    width: options.fallbackDisplayWidth,
-    height: options.fallbackDisplayHeight,
-  });
+  const {
+    aspectRatio,
+    fallbackDisplayHeight,
+    fallbackDisplayWidth,
+    maxRenderHeight,
+    maxRenderWidth,
+    qualityScale,
+    sizingMode,
+  } = options;
+  const resolvedSizingMode = sizingMode ?? "contain";
+  const initialDisplaySize = resolveDisplaySize(fallbackDisplayWidth, fallbackDisplayHeight, options);
+  const [displaySize, setDisplaySize] = useState(initialDisplaySize);
   const devicePixelRatioRef = useRef(getDevicePixelRatio());
 
   useEffect(() => {
@@ -65,16 +116,32 @@ export function useResponsiveCanvasResolution(
 
       const rect = element.getBoundingClientRect();
       if (rect.width > 0 && rect.height > 0) {
-        setDisplaySize({
-          width: rect.width,
-          height: rect.height,
-        });
+        setDisplaySize(
+          resolveDisplaySize(rect.width, rect.height, {
+            aspectRatio,
+            fallbackDisplayHeight,
+            fallbackDisplayWidth,
+            maxRenderHeight,
+            maxRenderWidth,
+            qualityScale,
+            sizingMode: resolvedSizingMode,
+          }),
+        );
       }
     }
 
     window.addEventListener("resize", updateDevicePixelRatio);
     return () => window.removeEventListener("resize", updateDevicePixelRatio);
-  }, [frameRef]);
+  }, [
+    aspectRatio,
+    fallbackDisplayHeight,
+    fallbackDisplayWidth,
+    frameRef,
+    maxRenderHeight,
+    maxRenderWidth,
+    qualityScale,
+    resolvedSizingMode,
+  ]);
 
   useEffect(() => {
     const element = frameRef.current;
@@ -93,23 +160,39 @@ export function useResponsiveCanvasResolution(
         return;
       }
 
-      setDisplaySize({
-        width,
-        height,
-      });
+      setDisplaySize(
+        resolveDisplaySize(width, height, {
+          aspectRatio,
+          fallbackDisplayHeight,
+          fallbackDisplayWidth,
+          maxRenderHeight,
+          maxRenderWidth,
+          qualityScale,
+          sizingMode: resolvedSizingMode,
+        }),
+      );
     });
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [frameRef]);
+  }, [
+    aspectRatio,
+    fallbackDisplayHeight,
+    fallbackDisplayWidth,
+    frameRef,
+    maxRenderHeight,
+    maxRenderWidth,
+    qualityScale,
+    resolvedSizingMode,
+  ]);
 
   const { renderWidth, renderHeight } = getBoundedRenderSize(
     displaySize.width,
     displaySize.height,
     devicePixelRatioRef.current,
-    options.qualityScale,
-    options.maxRenderWidth,
-    options.maxRenderHeight,
+    qualityScale,
+    maxRenderWidth,
+    maxRenderHeight,
   );
 
   return {
