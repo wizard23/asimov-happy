@@ -9,6 +9,15 @@ The active implementation lives in `code/v001`. It is a deterministic frontend a
 - renders the trained map as square or hex cells
 - lets the user inspect representative Julia parameters and hover-interpolate across the map
 
+## Quick start
+```
+git clone git@github.com:wizard23/asimov-happy.git
+cd asimov-happy/code/v001
+npm install
+npm run dev:app
+```
+
+
 ## Current Status
 
 The implementation is primarily aligned with:
