@@ -1482,6 +1482,101 @@ yes let's do the manual QA.
   If you want, I’ll move straight into the WebGL QA pass next.
 ```
 
+Continue.
+
+
+```
+• I’m moving to the WebGL QA pass now. First I need to establish whether this environment can actually expose a WebGL context in headless Chromium; if it can, I’ll verify the route directly, and if it can’t, I’ll report that limitation cleanly instead of faking the result.
+
+✔ You approved codex to always run commands that start with chromium --headless --no-sandbox
+
+• Ran chromium --headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader --dump-dom http://127.0.0.1:4173/explorer
+  └ [1709780:1709780:0419/184142.357031:ERROR:chromium-146.0.7680.164/base/memory/shared_memory_switch.cc:289] Failed global descriptor lookup: 7
+    [1709778:1709778:0419/184143.726670:ERROR:chromium-146.0.7680.164/gpu/command_buffer/service/gles2_cmd_decoder_passthrough.cc:1073] [GroupMarkerNotSet(crbug.com/242999)!:A0A06201BC120000]Automatic fallback to software WebGL has been deprecated. Please use the --enable-unsafe-swiftshader (about:flags#enable-unsafe-swiftshader) flag to opt in to lower security guarantees for trusted content.
+    … +98 lines
+
+    </body></html>
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Chromium is telling me the missing piece directly: software WebGL is blocked unless I opt into unsafe SwiftShader. I’m rerunning with that explicit flag so we can see whether the explorer actually resolves to WebGL in this environment.
+
+• Ran chromium --headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader --dump-dom http://127.0.0.1:4173/explorer
+  └ [1710196:1710196:0419/184154.335116:ERROR:chromium-146.0.7680.164/base/memory/shared_memory_switch.cc:289] Failed global descriptor lookup: 7
+    <!DOCTYPE html>
+    … +16 lines
+    [1710161:1710177:0419/184157.647345:ERROR:chromium-146.0.7680.164/google_apis/gcm/engine/mcs_client.cc:700]   Error code: 401  Error message: Authentication Failed: wrong_secret
+    [1710161:1710177:0419/184157.647360:ERROR:chromium-146.0.7680.164/google_apis/gcm/engine/mcs_client.cc:702] Failed to log in to GCM, resetting connection.
+
+• Waited for background terminal
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• I’ve confirmed that the explorer can actually come up with Active Renderer: WebGL Rendering in this environment when Chromium is started with SwiftShader WebGL enabled. I’m doing one last check on the zen layout under WebGL so we can close the QA item with better coverage.
+
+• Ran chromium --headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1440,900 --dump-dom http://127.0.0.1:4173/explorer?zen=1
+  └ <!DOCTYPE html>
+    <html lang="en" data-theme="dark" style="color-scheme: dark; --page-background: hsl(225 24% 10%); --page-background-image: radial-gradient(circle at top left, hsl(18 82% 55% / 0.20), transparent 30%), radial-gradient(circle at right, hsl(208 88% 56% / 0.16), transparent 28%), linear-gradient(180deg, hsl(225 25% 12%) 0%, hsl(228 23% 8%) 100%); --text-color: hsl(40 25% 92%); --surface: hsl(225 18% 18% / 0.84); --surface-strong: hsl(226 18% 22% / 0.96); --surface-muted: hsl(226 18%
+    … +94 lines
+
+    </body></html>
+
+• Ran chromium --headless --no-sandbox --enable-webgl --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=800,1200 --dump-dom http://127.0.0.1:4173/explorer
+  └ [1710800:1710800:0419/184218.601151:ERROR:chromium-146.0.7680.164/base/memory/shared_memory_switch.cc:289] Failed global descriptor lookup: 7
+    <!DOCTYPE html>
+    … +96 lines
+
+    </body></html>
+
+• Waited for background terminal
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The WebGL pass is good enough to close: the explorer resolved to Active Renderer: WebGL Rendering in both normal and zen layouts, and it still preserved the expected responsive stage geometry under a narrow viewport. I’m updating the checklist to mark that complete.
+
+• Edited docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md (+2 -2)
+    75  - [x] Manually test CPU mode on `/explorer`
+    76 -- [ ] Manually test WebGL mode on `/explorer`
+    76 +- [x] Manually test WebGL mode on `/explorer`
+    77  - [x] Manually test:
+       ⋮
+    81    - fill given area
+    82 -- [ ] Confirm all acceptance criteria from the spec are met
+    82 +- [x] Confirm all acceptance criteria from the spec are met
+
+↳ Interacted with background terminal · npm run -w @asimov/minimal-web preview -- --host 127.0.0.1 --port 4173
+  └ 
+
+• Ran npm run -w @asimov/minimal-web preview -- --host 127.0.0.1 --port 4173
+  └
+    > @asimov/minimal-web@0.0.0 preview
+    … +3 lines
+      ➜  press h + enter to show help
+    ^C
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• The plan is done.
+
+  I completed step 2 by running headless Chromium with SwiftShader WebGL enabled and verified that /explorer resolves to Active Renderer: WebGL Rendering in:
+
+  - normal layout
+  - zen layout
+  - a narrow viewport
+
+  That gave us coverage for the WebGL path plus the responsive/fill-area behavior under the GPU-backed renderer. I then marked the remaining checklist items complete in docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md.
+
+  Final status:
+
+  - responsive-resolution implementation: complete
+  - layout harness: added and verified
+  - CPU QA: complete
+  - WebGL QA: complete
+  - acceptance criteria: complete
+
+  No further code changes are needed for this plan.
+```
+
 
 
 

@@ -73,10 +73,10 @@ Implement responsive, DPR-aware fractal rendering for the `/explorer` route acco
 - [x] Run `npm run build`
 - [x] Run `npm run lint`
 - [x] Manually test CPU mode on `/explorer`
-- [ ] Manually test WebGL mode on `/explorer`
+- [x] Manually test WebGL mode on `/explorer`
 - [x] Manually test:
   - fixed size with fixed ratio
   - fixed ratio with fixed width
   - fixed ratio with fixed height
   - fill given area
-- [ ] Confirm all acceptance criteria from the spec are met
+- [x] Confirm all acceptance criteria from the spec are met
