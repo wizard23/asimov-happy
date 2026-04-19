@@ -10,11 +10,13 @@ import {
   drawSomGridOverlay,
   getComplexBoundsHeight,
   getComplexBoundsWidth,
-  mapComplexToPixelPosition,
 } from "./explorer-overlays.js";
+import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
-const MANDELBROT_WIDTH = 360;
-const MANDELBROT_HEIGHT = 240;
+const MANDELBROT_FALLBACK_WIDTH = 360;
+const MANDELBROT_FALLBACK_HEIGHT = 240;
+const MANDELBROT_MAX_RENDER_WIDTH = 2048;
+const MANDELBROT_MAX_RENDER_HEIGHT = 1365;
 const MANDELBROT_MAX_ITERATIONS = 96;
 const CLICK_SELECTION_THRESHOLD = 5;
 const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
@@ -41,32 +43,28 @@ function formatComplex(parameter: ComplexParameter | null): string {
   return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
 }
 
-function mapToPixelPosition(
-  parameter: ComplexParameter,
-  viewport: ComplexBounds,
-): { left: number; top: number } {
-  return mapComplexToPixelPosition(parameter, viewport, MANDELBROT_WIDTH, MANDELBROT_HEIGHT);
-}
-
 function mapToRelativePosition(
   parameter: ComplexParameter,
   viewport: ComplexBounds,
 ): { left: string; top: string } {
-  const pixelPosition = mapToPixelPosition(parameter, viewport);
+  const normalizedX = (parameter.real - viewport.minReal) / getComplexBoundsWidth(viewport);
+  const normalizedY = (viewport.maxImaginary - parameter.imaginary) / getComplexBoundsHeight(viewport);
 
   return {
-    left: `${(pixelPosition.left / MANDELBROT_WIDTH) * 100}%`,
-    top: `${(pixelPosition.top / MANDELBROT_HEIGHT) * 100}%`,
+    left: `${normalizedX * 100}%`,
+    top: `${normalizedY * 100}%`,
   };
 }
 
 function mapPointToParameter(
   x: number,
   y: number,
+  width: number,
+  height: number,
   viewport: ComplexBounds,
 ): ComplexParameter {
-  const normalizedX = x / MANDELBROT_WIDTH;
-  const normalizedY = y / MANDELBROT_HEIGHT;
+  const normalizedX = x / width;
+  const normalizedY = y / height;
 
   return {
     real: viewport.minReal + getComplexBoundsWidth(viewport) * normalizedX,
@@ -113,18 +111,29 @@ export function MandelbrotOverviewCanvas(props: {
   showSomGrid?: boolean;
   showAxes?: boolean;
   showOrbit?: boolean;
+  enableTwoQualityLevels?: boolean;
   orbitSteps?: number;
   iterations?: number;
   palette?: FractalPaletteId;
   renderer?: ExplorerImageRenderer;
 }): preact.JSX.Element {
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const onHoverParameterRef = useRef(props.onHoverParameter);
   const viewportRef = useRef<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
+  const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
+  const [qualityScale, setQualityScale] = useState(1);
+  const canvasResolution = useResponsiveCanvasResolution(frameRef, {
+    fallbackDisplayWidth: MANDELBROT_FALLBACK_WIDTH,
+    fallbackDisplayHeight: MANDELBROT_FALLBACK_HEIGHT,
+    maxRenderWidth: MANDELBROT_MAX_RENDER_WIDTH,
+    maxRenderHeight: MANDELBROT_MAX_RENDER_HEIGHT,
+    qualityScale,
+  });
 
   const selectedParameter = props.selectedParameter ?? props.parameter;
   const selectedCrosshairPosition = useMemo(
@@ -154,6 +163,35 @@ export function MandelbrotOverviewCanvas(props: {
   }, [viewport]);
 
   useEffect(() => {
+    return () => {
+      if (settleQualityTimeoutRef.current !== null) {
+        window.clearTimeout(settleQualityTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function markInteractiveQuality(): void {
+    if (!props.enableTwoQualityLevels) {
+      return;
+    }
+
+    setQualityScale(0.2);
+    if (settleQualityTimeoutRef.current !== null) {
+      window.clearTimeout(settleQualityTimeoutRef.current);
+    }
+    settleQualityTimeoutRef.current = window.setTimeout(() => {
+      setQualityScale(1);
+      settleQualityTimeoutRef.current = null;
+    }, 160);
+  }
+
+  useEffect(() => {
+    if (!props.enableTwoQualityLevels) {
+      setQualityScale(1);
+    }
+  }, [props.enableTwoQualityLevels]);
+
+  useEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) {
       return;
@@ -161,12 +199,19 @@ export function MandelbrotOverviewCanvas(props: {
 
     (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderMandelbrot(canvas, {
       viewport,
-      width: MANDELBROT_WIDTH,
-      height: MANDELBROT_HEIGHT,
+      width: canvasResolution.renderWidth,
+      height: canvasResolution.renderHeight,
       iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
       palette: props.palette ?? "ember",
     });
-  }, [props.iterations, props.palette, props.renderer, viewport]);
+  }, [
+    canvasResolution.renderHeight,
+    canvasResolution.renderWidth,
+    props.iterations,
+    props.palette,
+    props.renderer,
+    viewport,
+  ]);
 
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
@@ -181,22 +226,35 @@ export function MandelbrotOverviewCanvas(props: {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (props.showAxes) {
-      drawMandelbrotAxesOverlay(context, viewport, MANDELBROT_WIDTH, MANDELBROT_HEIGHT);
+      drawMandelbrotAxesOverlay(
+        context,
+        viewport,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+      );
     }
     if (props.showSomGrid && props.result) {
-      drawSomGridOverlay(context, props.result, viewport, MANDELBROT_WIDTH, MANDELBROT_HEIGHT);
+      drawSomGridOverlay(
+        context,
+        props.result,
+        viewport,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+      );
     }
     if (props.showOrbit && props.parameter) {
       drawOrbitOverlay(
         context,
         props.parameter,
         viewport,
-        MANDELBROT_WIDTH,
-        MANDELBROT_HEIGHT,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
         Math.max(1, props.orbitSteps ?? 10),
       );
     }
   }, [
+    canvasResolution.renderHeight,
+    canvasResolution.renderWidth,
     viewport,
     props.orbitSteps,
     props.parameter,
@@ -220,7 +278,13 @@ export function MandelbrotOverviewCanvas(props: {
 
     function handleMove(event: MouseEvent): void {
       const point = getCanvasPoint(activeCanvas, event);
-      const parameter = mapPointToParameter(point.x, point.y, viewportRef.current);
+      const parameter = mapPointToParameter(
+        point.x,
+        point.y,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+        viewportRef.current,
+      );
       updateHover(parameter);
 
       const dragState = dragStateRef.current;
@@ -232,8 +296,8 @@ export function MandelbrotOverviewCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getComplexBoundsWidth(dragState.viewportAtStart);
       const viewportHeight = getComplexBoundsHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / MANDELBROT_WIDTH) * viewportWidth;
-      const imaginaryShift = (deltaY / MANDELBROT_HEIGHT) * viewportHeight;
+      const realShift = (deltaX / canvasResolution.renderWidth) * viewportWidth;
+      const imaginaryShift = (deltaY / canvasResolution.renderHeight) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -241,6 +305,7 @@ export function MandelbrotOverviewCanvas(props: {
         minImaginary: dragState.viewportAtStart.minImaginary + imaginaryShift,
         maxImaginary: dragState.viewportAtStart.maxImaginary + imaginaryShift,
       });
+      markInteractiveQuality();
     }
 
     function handleLeave(): void {
@@ -272,7 +337,15 @@ export function MandelbrotOverviewCanvas(props: {
         const movedDistance = Math.hypot(deltaX, deltaY);
 
         if (movedDistance <= CLICK_SELECTION_THRESHOLD) {
-          props.onSelectParameter(mapPointToParameter(point.x, point.y, viewportRef.current));
+          props.onSelectParameter(
+            mapPointToParameter(
+              point.x,
+              point.y,
+              canvasResolution.renderWidth,
+              canvasResolution.renderHeight,
+              viewportRef.current,
+            ),
+          );
         }
       }
 
@@ -283,11 +356,18 @@ export function MandelbrotOverviewCanvas(props: {
     function handleWheel(event: WheelEvent): void {
       event.preventDefault();
       const point = getCanvasPoint(activeCanvas, event);
-      const anchor = mapPointToParameter(point.x, point.y, viewportRef.current);
+      const anchor = mapPointToParameter(
+        point.x,
+        point.y,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+        viewportRef.current,
+      );
       setViewport((current) =>
         zoomViewport(current, anchor, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR),
       );
       updateHover(anchor);
+      markInteractiveQuality();
     }
 
     activeCanvas.style.cursor = "crosshair";
@@ -306,24 +386,29 @@ export function MandelbrotOverviewCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [props.onSelectParameter]);
+  }, [
+    canvasResolution.renderHeight,
+    canvasResolution.renderWidth,
+    props.enableTwoQualityLevels,
+    props.onSelectParameter,
+  ]);
 
   return (
-    <div className="canvas-frame canvas-frame--mandelbrot">
+    <div ref={frameRef} className="canvas-frame canvas-frame--mandelbrot">
       <div className="canvas-overlay">{formatComplex(overlayLabel)}</div>
       <canvas
         key={`mandelbrot-image-${props.renderer?.id ?? "cpu"}`}
         ref={imageCanvasRef}
         className="canvas canvas--mandelbrot"
-        width={MANDELBROT_WIDTH}
-        height={MANDELBROT_HEIGHT}
+        width={canvasResolution.renderWidth}
+        height={canvasResolution.renderHeight}
         style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
       />
       <canvas
         ref={overlayCanvasRef}
         className="canvas canvas--mandelbrot canvas--overlay"
-        width={MANDELBROT_WIDTH}
-        height={MANDELBROT_HEIGHT}
+        width={canvasResolution.renderWidth}
+        height={canvasResolution.renderHeight}
       />
       {selectedCrosshairPosition ? (
         <img

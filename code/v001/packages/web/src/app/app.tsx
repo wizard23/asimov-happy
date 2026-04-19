@@ -445,6 +445,7 @@ function ExplorerWorkspace(props: {
   });
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(false);
+  const [useTwoQualityLevels, setUseTwoQualityLevels] = useState(true);
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitSteps, setOrbitSteps] = useState(10);
@@ -546,6 +547,16 @@ function ExplorerWorkspace(props: {
               onInput={(event) => setIsLivePreviewEnabled(event.currentTarget.checked)}
             />
           </Field>
+          <Field
+            label="Two Quality Levels"
+            hint="When enabled, interaction renders at reduced quality first and settles back to full quality shortly after input stops."
+          >
+            <input
+              type="checkbox"
+              checked={useTwoQualityLevels}
+              onInput={(event) => setUseTwoQualityLevels(event.currentTarget.checked)}
+            />
+          </Field>
           <Field label="Show Orbit" hint="Draw the Mandelbrot iteration orbit for the active Julia constant.">
             <input
               type="checkbox"
@@ -635,6 +646,9 @@ function ExplorerWorkspace(props: {
             <p className="detail">
               Orbit: {showOrbit ? `${orbitSteps} steps` : "hidden"}
             </p>
+            <p className="detail">
+              Quality: {useTwoQualityLevels ? "Adaptive" : "Full Only"}
+            </p>
           </article>
         </section>
 
@@ -651,6 +665,7 @@ function ExplorerWorkspace(props: {
               showAxes={showAxes}
               showOrbit={showOrbit}
               orbitSteps={orbitSteps}
+              enableTwoQualityLevels={useTwoQualityLevels}
               palette={palette}
               renderer={activeImageRenderer}
             />
@@ -667,6 +682,7 @@ function ExplorerWorkspace(props: {
               iterations={juliaIterations}
               palette={palette}
               showAxes={showAxes}
+              enableTwoQualityLevels={useTwoQualityLevels}
               renderer={activeImageRenderer}
             />
             <p className="detail">

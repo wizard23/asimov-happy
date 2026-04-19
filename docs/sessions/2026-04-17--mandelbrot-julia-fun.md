@@ -1053,3 +1053,22 @@ Just to make sure: fractal canvases must support the following use cases:
 
   I did not change any app code.
 ```
+
+ready to start? or are there any questions?
+
+
+```
+• Ready to start.
+
+  One small implementation-level choice is still open, but I can make a reasonable default without blocking:
+
+  - For the fill given area mode, should the fractal image contain inside the area or cover it?
+    My default would be contain, because it preserves the full fractal viewport and avoids cropping.
+
+  If you’re fine with that default, I can start Phase 1.
+```
+
+yes thats fine. Please start.
+
+```
+```

@@ -8,8 +8,10 @@ import { getPaletteCssBackground, type FractalPaletteId } from "./fractal-palett
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
+import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
-const VIEWER_SIZE = 360;
+const VIEWER_FALLBACK_SIZE = 360;
+const VIEWER_MAX_RENDER_SIZE = 2048;
 const MIN_VIEWPORT_SPAN = 0.02;
 const ZOOM_IN_FACTOR = 0.85;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
@@ -39,10 +41,12 @@ function formatComplex(parameter: ComplexParameter | null): string {
 function mapPointToCoordinate(
   x: number,
   y: number,
+  width: number,
+  height: number,
   viewport: JuliaViewport,
 ): ComplexParameter {
-  const normalizedX = x / VIEWER_SIZE;
-  const normalizedY = y / VIEWER_SIZE;
+  const normalizedX = x / width;
+  const normalizedY = y / height;
 
   return {
     real: viewport.minReal + getViewportWidth(viewport) * normalizedX,
@@ -85,17 +89,63 @@ export function JuliaViewerCanvas(props: {
   iterations: number;
   palette: FractalPaletteId;
   showAxes?: boolean;
+  enableTwoQualityLevels?: boolean;
   renderer?: ExplorerImageRenderer;
 }): preact.JSX.Element {
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
+  const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
+  const [qualityScale, setQualityScale] = useState(1);
+  const canvasResolution = useResponsiveCanvasResolution(frameRef, {
+    fallbackDisplayWidth: VIEWER_FALLBACK_SIZE,
+    fallbackDisplayHeight: VIEWER_FALLBACK_SIZE,
+    maxRenderWidth: VIEWER_MAX_RENDER_SIZE,
+    maxRenderHeight: VIEWER_MAX_RENDER_SIZE,
+    qualityScale,
+  });
 
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+
+  useEffect(() => {
+    return () => {
+      if (settleQualityTimeoutRef.current !== null) {
+        window.clearTimeout(settleQualityTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function markInteractiveQuality(): void {
+    if (!props.enableTwoQualityLevels) {
+      return;
+    }
+
+    setQualityScale(0.2);
+    if (settleQualityTimeoutRef.current !== null) {
+      window.clearTimeout(settleQualityTimeoutRef.current);
+    }
+    settleQualityTimeoutRef.current = window.setTimeout(() => {
+      setQualityScale(1);
+      settleQualityTimeoutRef.current = null;
+    }, 160);
+  }
+
+  useEffect(() => {
+    if (!props.enableTwoQualityLevels) {
+      setQualityScale(1);
+    }
+  }, [props.enableTwoQualityLevels]);
+
+  useEffect(() => {
+    if (props.parameter) {
+      markInteractiveQuality();
+    }
+  }, [props.parameter]);
 
   useEffect(() => {
     const canvas = imageCanvasRef.current;
@@ -121,12 +171,20 @@ export function JuliaViewerCanvas(props: {
     (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderJulia(canvas, {
       parameter: props.parameter,
       viewport,
-      width: VIEWER_SIZE,
-      height: VIEWER_SIZE,
+      width: canvasResolution.renderWidth,
+      height: canvasResolution.renderHeight,
       iterations: props.iterations,
       palette: props.palette,
     });
-  }, [props.iterations, props.palette, props.parameter, props.renderer, viewport]);
+  }, [
+    canvasResolution.renderHeight,
+    canvasResolution.renderWidth,
+    props.iterations,
+    props.palette,
+    props.parameter,
+    props.renderer,
+    viewport,
+  ]);
 
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
@@ -141,9 +199,14 @@ export function JuliaViewerCanvas(props: {
 
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (props.showAxes) {
-      drawJuliaAxesOverlay(context, viewport, VIEWER_SIZE, VIEWER_SIZE);
+      drawJuliaAxesOverlay(
+        context,
+        viewport,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+      );
     }
-  }, [props.showAxes, viewport]);
+  }, [canvasResolution.renderHeight, canvasResolution.renderWidth, props.showAxes, viewport]);
 
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
@@ -178,8 +241,8 @@ export function JuliaViewerCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getViewportWidth(dragState.viewportAtStart);
       const viewportHeight = getViewportHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / VIEWER_SIZE) * viewportWidth;
-      const imaginaryShift = (deltaY / VIEWER_SIZE) * viewportHeight;
+      const realShift = (deltaX / canvasResolution.renderWidth) * viewportWidth;
+      const imaginaryShift = (deltaY / canvasResolution.renderHeight) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -187,6 +250,7 @@ export function JuliaViewerCanvas(props: {
         minImaginary: dragState.viewportAtStart.minImaginary + imaginaryShift,
         maxImaginary: dragState.viewportAtStart.maxImaginary + imaginaryShift,
       });
+      markInteractiveQuality();
     }
 
     function handleMouseUp(): void {
@@ -201,10 +265,17 @@ export function JuliaViewerCanvas(props: {
 
       event.preventDefault();
       const point = getCanvasPoint(activeCanvas, event);
-      const anchor = mapPointToCoordinate(point.x, point.y, viewportRef.current);
+      const anchor = mapPointToCoordinate(
+        point.x,
+        point.y,
+        canvasResolution.renderWidth,
+        canvasResolution.renderHeight,
+        viewportRef.current,
+      );
       setViewport((current) =>
         zoomViewport(current, anchor, event.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR),
       );
+      markInteractiveQuality();
     }
 
     activeCanvas.style.cursor = props.parameter ? "grab" : "default";
@@ -221,24 +292,29 @@ export function JuliaViewerCanvas(props: {
       activeCanvas.removeEventListener("wheel", handleWheel);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [props.parameter]);
+  }, [
+    canvasResolution.renderHeight,
+    canvasResolution.renderWidth,
+    props.enableTwoQualityLevels,
+    props.parameter,
+  ]);
 
   return (
-    <div className="canvas-frame">
+    <div ref={frameRef} className="canvas-frame">
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
       <canvas
         key={`julia-image-${props.renderer?.id ?? "cpu"}`}
         ref={imageCanvasRef}
         className="canvas canvas--viewer"
-        width={VIEWER_SIZE}
-        height={VIEWER_SIZE}
+        width={canvasResolution.renderWidth}
+        height={canvasResolution.renderHeight}
         style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
       />
       <canvas
         ref={overlayCanvasRef}
         className="canvas canvas--viewer canvas--overlay"
-        width={VIEWER_SIZE}
-        height={VIEWER_SIZE}
+        width={canvasResolution.renderWidth}
+        height={canvasResolution.renderHeight}
       />
     </div>
   );
