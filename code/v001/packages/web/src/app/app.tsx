@@ -683,7 +683,11 @@ function ExplorerWorkspace(props: {
         </section>
       </aside>
 
-      <main className={`panel panel--summary${props.isZenView ? " panel--summary-zen" : ""}`}>
+      <main
+        className={`panel panel--summary${
+          props.isZenView ? " panel--summary-zen panel--summary-zen-explorer" : ""
+        }`}
+      >
         <div className="panel__header">
           <div className={`panel__header-row${props.isZenView ? " panel__header-row--zen" : ""}`}>
             <div>

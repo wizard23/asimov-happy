@@ -703,6 +703,10 @@ a {
   justify-content: center;
 }
 
+.panel--summary-zen-explorer {
+  display: block;
+}
+
 .viewer-layout--zen {
   width: min(100vw, calc(100vh * 8 / 5));
   height: min(100vh, calc(100vw * 5 / 8));
@@ -821,6 +825,11 @@ a {
   justify-content: center;
 }
 
+.explorer-layout--zen .canvas-frame--mandelbrot,
+.explorer-layout--zen .canvas-frame--viewer {
+  aspect-ratio: auto;
+}
+
 .zen-separator {
   position: relative;
   background:
@@ -879,7 +888,7 @@ a {
 .explorer-layout--zen .canvas--mandelbrot {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .viewer-layout--zen .card--viewer .canvas-frame {
