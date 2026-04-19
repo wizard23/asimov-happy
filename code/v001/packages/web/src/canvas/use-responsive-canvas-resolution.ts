@@ -130,8 +130,18 @@ export function useResponsiveCanvasResolution(
       }
     }
 
+    const mediaQuery =
+      typeof window !== "undefined" && typeof window.matchMedia === "function"
+        ? window.matchMedia(`(resolution: ${devicePixelRatioRef.current}dppx)`)
+        : null;
+
+    updateDevicePixelRatio();
     window.addEventListener("resize", updateDevicePixelRatio);
-    return () => window.removeEventListener("resize", updateDevicePixelRatio);
+    mediaQuery?.addEventListener("change", updateDevicePixelRatio);
+    return () => {
+      window.removeEventListener("resize", updateDevicePixelRatio);
+      mediaQuery?.removeEventListener("change", updateDevicePixelRatio);
+    };
   }, [
     aspectRatio,
     fallbackDisplayHeight,

@@ -1367,3 +1367,82 @@ ok, then please continue with the original plan.
 
   I have not browser-tested this myself here, so the next useful step is for you to retest panning and Mandelbrot aspect ratio in normal and zen mode.
 ```
+
+
+looks good. is the plan done?
+
+```
+• Not fully.
+
+  The core implementation for the responsive-resolution plan is in place:
+
+  - dynamic display-size measurement
+  - DPR-aware backing resolution
+  - render caps
+  - Two Quality Levels with 0.2 interactive scale
+  - CPU and WebGL using dynamic dimensions
+  - fixed-ratio contained stage for the explorer panels
+  - build and lint passing
+
+  What is still not fully closed:
+
+  - the checklist doc itself is not updated yet
+  - manual verification remains:
+      - CPU mode in browser
+      - WebGL mode in browser
+      - normal layout and zen mode
+      - the full layout-mode matrix from the spec
+  - fallback-on-render-pressure is not implemented yet
+  - device-pixel-ratio change handling is only partial via resize-driven updates, not a more explicit dedicated mechanism
+
+  So the right status is: the main feature work is largely done, but the plan is not fully complete until the remaining verification/fallback items are finished.
+
+  If you want, I can do the next pass by:
+
+  1. updating the checklist with current status,
+  2. implementing the remaining fallback/hardening items,
+  3. then giving you a short “plan complete” closeout.
+```
+
+yes please.
+
+
+```
+• I finished the remaining implementation-side work for the responsive-resolution plan.
+
+  What changed:
+
+  - Added render-pressure fallback so Mandelbrot and Julia automatically retry at lower backing resolution instead of hard-failing when a full-size render blows up. That lives in code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts and is wired into code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+  - Added explicit device-pixel-ratio change handling in code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts, not just resize-driven updates.
+  - Updated the checklist in docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md to reflect what is actually complete.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+
+  So: the implementation plan is effectively done on the code side, but not fully closed overall. The remaining unchecked items are the browser-only manual verification steps:
+
+  - manual CPU /explorer test
+  - manual WebGL /explorer test
+  - manual layout-mode coverage from the spec
+  - final acceptance confirmation
+
+  If you want, the next step is a short manual QA pass and then I can mark the plan complete.
+
+```
+
+
+yes let's do the manual QA.
+
+
+
+
+
+us improvement for the zen mode in the
+
+
+please add a drop down box for palette mapping:
+* binary (only two colors) 
+* linear (i think that is how it is done atm)
+* logarithmic (default)
+* cyclic
+
+is it clear what I mean with this? if anythong is unclear let's get the spec right before you make any code changes.

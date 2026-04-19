@@ -8,6 +8,7 @@ import { getPaletteCssBackground, type FractalPaletteId } from "./fractal-palett
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
+import { renderExplorerImageWithFallback } from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const VIEWER_FALLBACK_SIZE = 360;
@@ -181,6 +182,8 @@ export function JuliaViewerCanvas(props: {
     }
 
     if (!props.parameter) {
+      canvas.width = canvasResolution.renderWidth;
+      canvas.height = canvasResolution.renderHeight;
       const context = canvas.getContext("2d");
       if (!context) {
         return;
@@ -195,14 +198,23 @@ export function JuliaViewerCanvas(props: {
       return;
     }
 
-    (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderJulia(canvas, {
-      parameter: props.parameter,
-      viewport,
-      width: canvasResolution.renderWidth,
-      height: canvasResolution.renderHeight,
-      iterations: props.iterations,
-      palette: props.palette,
-    });
+    const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+    const parameter = props.parameter;
+    renderExplorerImageWithFallback(
+      canvas,
+      canvasResolution.renderWidth,
+      canvasResolution.renderHeight,
+      (effectiveWidth, effectiveHeight) => {
+        renderer.renderJulia(canvas, {
+          parameter,
+          viewport,
+          width: effectiveWidth,
+          height: effectiveHeight,
+          iterations: props.iterations,
+          palette: props.palette,
+        });
+      },
+    );
   }, [
     canvasResolution.renderHeight,
     canvasResolution.renderWidth,

@@ -11,6 +11,7 @@ import {
   getComplexBoundsHeight,
   getComplexBoundsWidth,
 } from "./explorer-overlays.js";
+import { renderExplorerImageWithFallback } from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const MANDELBROT_FALLBACK_WIDTH = 360;
@@ -224,13 +225,21 @@ export function MandelbrotOverviewCanvas(props: {
       return;
     }
 
-    (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).renderMandelbrot(canvas, {
-      viewport,
-      width: canvasResolution.renderWidth,
-      height: canvasResolution.renderHeight,
-      iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
-      palette: props.palette ?? "ember",
-    });
+    const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+    renderExplorerImageWithFallback(
+      canvas,
+      canvasResolution.renderWidth,
+      canvasResolution.renderHeight,
+      (effectiveWidth, effectiveHeight) => {
+        renderer.renderMandelbrot(canvas, {
+          viewport,
+          width: effectiveWidth,
+          height: effectiveHeight,
+          iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
+          palette: props.palette ?? "ember",
+        });
+      },
+    );
   }, [
     canvasResolution.renderHeight,
     canvasResolution.renderWidth,
