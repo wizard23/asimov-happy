@@ -555,6 +555,10 @@ function ExplorerWorkspace(props: {
     };
   }
 
+  const zenCanvasSizingMode = props.isZenView
+    ? (isNarrowZenLayout ? "width-driven" : "height-driven")
+    : "contain";
+
   return (
     <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
       <aside className={`panel panel--controls${props.isZenView ? " panel--hidden" : ""}`}>
@@ -755,6 +759,7 @@ function ExplorerWorkspace(props: {
               enableTwoQualityLevels={useTwoQualityLevels}
               palette={palette}
               renderer={activeImageRenderer}
+              resolutionSizingMode={zenCanvasSizingMode}
             />
             <p className="detail">
               Hover to inspect coordinates, drag to pan, scroll to zoom, click to choose `c`.
@@ -809,6 +814,7 @@ function ExplorerWorkspace(props: {
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}
               renderer={activeImageRenderer}
+              resolutionSizingMode={zenCanvasSizingMode}
             />
             <p className="detail">
               {isLivePreviewEnabled
