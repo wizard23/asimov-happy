@@ -1433,10 +1433,60 @@ yes please.
 yes let's do the manual QA.
 
 
+```
+• Manual QA is partially done.
+
+  What I verified in headless Chromium against the built app:
+
+  - CPU mode on /explorer renders correctly.
+  - Normal layout renders responsive contained stages with the expected aspect ratios:
+      - Mandelbrot stayed at 3:2
+      - Julia stayed at 1:1
+  - Zen mode on /explorer?zen=1 also renders the contained fullscreen-style layout correctly at both wide and narrow viewport sizes.
+  - Narrow viewport layout still preserved the correct aspect ratios and resized the stages instead of stretching them.
+
+  I updated the checklist to mark CPU manual QA complete in docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md.
+
+  What is still not complete:
+
+  - WebGL manual QA is still open.
+  - The full layout-mode matrix is still not fully closed as a checklist item, because I verified responsive/fill-area behavior in practice, but not a dedicated explicit “fixed size with fixed ratio” harness.
+  - I could not truthfully mark final acceptance complete yet because WebGL remains unverified in this headless environment.
+
+  So the plan is close, but not fully closed. The remaining blocker is mainly WebGL QA. If you want, next I can either:
+
+  1. create a tiny explicit fixed-size test harness route/component and close the last layout-mode item, or
+  2. move to WebGL manual verification on a browser/GPU-capable setup.
+```
+
+1. and then 2. If you want to do it in two separate steps that's also ok.
+
+```
+• Step 1 is done.
+
+  I added a dedicated QA route at /explorer-layout-harness (http://127.0.0.1:4173/explorer-layout-harness) and made the explorer canvases support explicit sizing modes so the harness can exercise:
+
+  - fixed size with fixed ratio
+  - fixed ratio with fixed width
+  - fixed ratio with fixed height
+
+  The main changes are in code/v001/packages/web/src/app/app.tsx, code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx, code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx, and code/v001/packages/web/src/styles/app.css.
+
+  I also verified the harness route in headless Chromium and updated the checklist in docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md to mark the layout-mode manual test item complete. npm run build and npm run lint both pass.
+
+  What remains is step 2:
+
+  - manual WebGL QA on /explorer
+  - then final acceptance closeout if that passes
+
+  If you want, I’ll move straight into the WebGL QA pass next.
+```
 
 
 
-us improvement for the zen mode in the
+
+ux improvement for the zen mode: the two canvases should both cover the whole height and together cover the whole width. In between there is a user draggable separator.
+ready to start? or are there any questions?
 
 
 please add a drop down box for palette mapping:
@@ -1446,3 +1496,6 @@ please add a drop down box for palette mapping:
 * cyclic
 
 is it clear what I mean with this? if anythong is unclear let's get the spec right before you make any code changes.
+ready to start? or are there any questions?
+
+

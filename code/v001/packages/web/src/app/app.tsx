@@ -53,7 +53,7 @@ import {
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
-type AppRoute = "/" | "/explorer" | "/gui-settings";
+type AppRoute = "/" | "/explorer" | "/explorer-layout-harness" | "/gui-settings";
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
 
 interface TrainingSessionState {
@@ -83,6 +83,10 @@ function areFingerprintsEquivalent(
 function getAppRoute(pathname: string): AppRoute {
   if (pathname === "/explorer") {
     return "/explorer";
+  }
+
+  if (pathname === "/explorer-layout-harness") {
+    return "/explorer-layout-harness";
   }
 
   return pathname === "/gui-settings" ? "/gui-settings" : "/";
@@ -712,6 +716,122 @@ function ExplorerWorkspace(props: {
           <li>Show Axes overlays the real and imaginary axes on both fractal views.</li>
           <li>Zen mode hides all controls and keeps only the two canvases fullscreen.</li>
         </ul>
+      </section>
+    </div>
+  );
+}
+
+function ExplorerLayoutHarnessRoute(): preact.JSX.Element {
+  const parameter: ComplexParameter = {
+    real: -0.74543,
+    imaginary: 0.11301,
+  };
+
+  return (
+    <div className="route-shell">
+      <section className="panel">
+        <div className="panel__header">
+          <p className="eyebrow">QA Harness</p>
+          <h1>Explorer Layout Modes</h1>
+          <p className="panel__lede">
+            Explicit layout fixtures for responsive fractal-canvas verification. These use the same
+            Mandelbrot and Julia explorer canvases as the main route.
+          </p>
+        </div>
+      </section>
+
+      <section className="harness-grid" aria-label="Explorer layout harness">
+        <article className="card">
+          <p className="eyebrow">Case A</p>
+          <h3>Fixed Size With Fixed Ratio</h3>
+          <p className="detail">Mandelbrot 360x240 and Julia 320x320.</p>
+          <div className="harness-pair">
+            <MandelbrotOverviewCanvas
+              parameter={parameter}
+              selectedParameter={parameter}
+              onHoverParameter={() => undefined}
+              iterations={160}
+              palette={DEFAULT_FRACTAL_PALETTE_ID}
+              renderer={CPU_EXPLORER_IMAGE_RENDERER}
+              enableTwoQualityLevels={false}
+              frameStyle={{ width: "360px", height: "240px" }}
+              resolutionSizingMode="contain"
+            />
+            <JuliaViewerCanvas
+              parameter={parameter}
+              iterations={256}
+              palette={DEFAULT_FRACTAL_PALETTE_ID}
+              renderer={CPU_EXPLORER_IMAGE_RENDERER}
+              enableTwoQualityLevels={false}
+              frameStyle={{ width: "320px", height: "320px" }}
+              resolutionSizingMode="contain"
+            />
+          </div>
+        </article>
+
+        <article className="card">
+          <p className="eyebrow">Case B</p>
+          <h3>Fixed Ratio With Fixed Width</h3>
+          <p className="detail">Width is pinned, height is derived from the fractal aspect ratio.</p>
+          <div className="harness-pair">
+            <div className="harness-box harness-box--width">
+              <MandelbrotOverviewCanvas
+                parameter={parameter}
+                selectedParameter={parameter}
+                onHoverParameter={() => undefined}
+                iterations={160}
+                palette={DEFAULT_FRACTAL_PALETTE_ID}
+                renderer={CPU_EXPLORER_IMAGE_RENDERER}
+                enableTwoQualityLevels={false}
+                frameStyle={{ width: "100%" }}
+                resolutionSizingMode="width-driven"
+              />
+            </div>
+            <div className="harness-box harness-box--width-square">
+              <JuliaViewerCanvas
+                parameter={parameter}
+                iterations={256}
+                palette={DEFAULT_FRACTAL_PALETTE_ID}
+                renderer={CPU_EXPLORER_IMAGE_RENDERER}
+                enableTwoQualityLevels={false}
+                frameStyle={{ width: "100%" }}
+                resolutionSizingMode="width-driven"
+              />
+            </div>
+          </div>
+        </article>
+
+        <article className="card">
+          <p className="eyebrow">Case C</p>
+          <h3>Fixed Ratio With Fixed Height</h3>
+          <p className="detail">Height is pinned, width is derived from the fractal aspect ratio.</p>
+          <div className="harness-pair">
+            <div className="harness-box harness-box--height">
+              <MandelbrotOverviewCanvas
+                parameter={parameter}
+                selectedParameter={parameter}
+                onHoverParameter={() => undefined}
+                iterations={160}
+                palette={DEFAULT_FRACTAL_PALETTE_ID}
+                renderer={CPU_EXPLORER_IMAGE_RENDERER}
+                enableTwoQualityLevels={false}
+                frameStyle={{ height: "100%" }}
+                resolutionSizingMode="height-driven"
+              />
+            </div>
+            <div className="harness-box harness-box--height-square">
+              <JuliaViewerCanvas
+                parameter={parameter}
+                iterations={256}
+                palette={DEFAULT_FRACTAL_PALETTE_ID}
+                renderer={CPU_EXPLORER_IMAGE_RENDERER}
+                enableTwoQualityLevels={false}
+                frameStyle={{ height: "100%" }}
+                resolutionSizingMode="height-driven"
+              />
+            </div>
+          </div>
+        </article>
       </section>
     </div>
   );
@@ -1488,7 +1608,12 @@ function App(): preact.JSX.Element {
   }, [isZenView]);
 
   const activeTheme = useMemo(() => getThemeDefinition(themeId), [themeId]);
-  const routeTitle = route === "/explorer" ? "Julia Set Explorer" : "Julia Set Kohonen Map";
+  const routeTitle =
+    route === "/explorer"
+      ? "Julia Set Explorer"
+      : route === "/explorer-layout-harness"
+        ? "Explorer Layout Harness"
+        : "Julia Set Kohonen Map";
 
   return (
     <div className={isZenView ? "app-page app-page--zen" : "app-page"}>
@@ -1505,6 +1630,9 @@ function App(): preact.JSX.Element {
             </NavLink>
             <NavLink href="/explorer" currentRoute={route}>
               Explorer
+            </NavLink>
+            <NavLink href="/explorer-layout-harness" currentRoute={route}>
+              Layout Harness
             </NavLink>
             <NavLink href="/gui-settings" currentRoute={route}>
               GUI Settings
@@ -1524,6 +1652,9 @@ function App(): preact.JSX.Element {
           onToggleZenView={() => setIsZenView((current) => !current)}
           themeId={themeId}
         />
+      </div>
+      <div hidden={route !== "/explorer-layout-harness"}>
+        <ExplorerLayoutHarnessRoute />
       </div>
       <div hidden={route !== "/gui-settings"}>
         <GuiSettingsRoute selectedThemeId={themeId} onSelectTheme={setThemeId} />

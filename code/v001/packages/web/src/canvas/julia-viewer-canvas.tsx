@@ -92,6 +92,8 @@ export function JuliaViewerCanvas(props: {
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
   renderer?: ExplorerImageRenderer;
+  resolutionSizingMode?: "contain" | "width-driven" | "height-driven";
+  frameStyle?: preact.JSX.CSSProperties;
 }): preact.JSX.Element {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -115,9 +117,9 @@ export function JuliaViewerCanvas(props: {
       maxRenderHeight: VIEWER_MAX_RENDER_SIZE,
       qualityScale,
       aspectRatio: 1,
-      sizingMode: "contain" as const,
+      sizingMode: props.resolutionSizingMode ?? "contain",
     }),
-    [qualityScale],
+    [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
@@ -343,7 +345,11 @@ export function JuliaViewerCanvas(props: {
   }, [props.parameter]);
 
   return (
-    <div ref={frameRef} className="canvas-frame canvas-frame--viewer">
+    <div
+      ref={frameRef}
+      className="canvas-frame canvas-frame--viewer"
+      style={props.frameStyle}
+    >
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
       <div
         className="canvas-stage"

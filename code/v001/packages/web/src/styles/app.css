@@ -134,6 +134,48 @@ a {
   gap: 20px;
 }
 
+.harness-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.harness-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  gap: 20px;
+  align-items: start;
+}
+
+.harness-box {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  border-radius: 20px;
+  border: 1px dashed var(--border);
+  background: var(--surface-muted);
+  padding: 16px;
+}
+
+.harness-box--width {
+  width: 420px;
+}
+
+.harness-box--width-square {
+  width: 320px;
+}
+
+.harness-box--height {
+  width: 100%;
+  min-height: 260px;
+  height: 260px;
+}
+
+.harness-box--height-square {
+  width: 100%;
+  min-height: 320px;
+  height: 320px;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(360px, 1fr) minmax(260px, 320px);
@@ -843,6 +885,15 @@ a {
   .viewer-stack {
     display: grid;
     gap: 16px;
+  }
+
+  .harness-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .harness-box--width,
+  .harness-box--width-square {
+    width: 100%;
   }
 
   .viewer-stack--zen {

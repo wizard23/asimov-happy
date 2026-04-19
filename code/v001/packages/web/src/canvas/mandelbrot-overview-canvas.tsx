@@ -117,6 +117,8 @@ export function MandelbrotOverviewCanvas(props: {
   iterations?: number;
   palette?: FractalPaletteId;
   renderer?: ExplorerImageRenderer;
+  resolutionSizingMode?: "contain" | "width-driven" | "height-driven";
+  frameStyle?: preact.JSX.CSSProperties;
 }): preact.JSX.Element {
   const frameRef = useRef<HTMLDivElement | null>(null);
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -142,9 +144,9 @@ export function MandelbrotOverviewCanvas(props: {
       maxRenderHeight: MANDELBROT_MAX_RENDER_HEIGHT,
       qualityScale,
       aspectRatio: 3 / 2,
-      sizingMode: "contain" as const,
+      sizingMode: props.resolutionSizingMode ?? "contain",
     }),
-    [qualityScale],
+    [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
@@ -425,7 +427,11 @@ export function MandelbrotOverviewCanvas(props: {
   }, []);
 
   return (
-    <div ref={frameRef} className="canvas-frame canvas-frame--mandelbrot">
+    <div
+      ref={frameRef}
+      className="canvas-frame canvas-frame--mandelbrot"
+      style={props.frameStyle}
+    >
       <div className="canvas-overlay">{formatComplex(overlayLabel)}</div>
       <div
         className="canvas-stage"
