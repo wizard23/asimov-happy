@@ -748,3 +748,308 @@ ERROR: 0:75: 'constructor' : not enough data provided for construction
 
 
 
+```
+
+```
+
+why is the mandelbrot so pixelated? I would  don't change anything yet nit give me a technical report
+
+
+
+```
+• Report
+
+  The Mandelbrot looks pixelated because the explorer is rendering a very small fixed-resolution image and then scaling it up in CSS.
+
+  Primary Cause
+
+  The Mandelbrot image is rendered at a hard-coded internal size:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx: MANDELBROT_WIDTH = 360, MANDELBROT_HEIGHT = 240
+
+  That means the fractal image is only:
+
+  - 360 x 240 = 86,400 pixels
+
+  Then the canvas is displayed responsively:
+
+  - code/v001/packages/web/src/styles/app.css: .canvas { width: 100%; height: auto; }
+  - code/v001/packages/web/src/styles/app.css: .canvas--mandelbrot { aspect-ratio: 3 / 2; }
+
+  So on a large monitor, that 360x240 bitmap is stretched to a much larger on-screen size. The browser has to upscale it, which makes it look coarse.
+
+  Why it is more noticeable in WebGL mode
+
+  WebGL renders exactly to the canvas backing resolution:
+
+  - the WebGL viewport uses canvas.width and canvas.height
+  - in this code that is still only 360 x 240
+
+  So even though WebGL is faster, it is still drawing a low-resolution image. GPU rendering does not automatically increase detail if the backing buffer stays small.
+
+  Why zooming makes it feel even more pixelated
+
+  When you zoom in, the code still renders into the same fixed 360x240 grid. That means:
+
+  - the complex-plane area gets smaller
+  - but the number of rendered samples stays the same
+  - each pixel covers a larger visible portion of the zoomed structure
+
+  So detail does not increase with zoom; you just magnify the same sparse sampling.
+
+  Secondary Cause
+
+  The explorer currently does not render at device-pixel-ratio resolution.
+
+  There is no logic that scales the backing canvas size by window.devicePixelRatio, and there is no resize-driven resolution update. So on high-DPI displays:
+
+  - the browser may display the canvas at many more physical pixels
+  - but the fractal is still computed at the low logical backing resolution
+
+  That further increases perceived softness/pixelation.
+
+  Not the Cause
+
+  This is not mainly caused by:
+
+  - palette choice
+  - overlay layers
+  - WebGL itself
+  - the coordinate-system bug you found earlier
+
+  Those can affect appearance or alignment, but the blocky look is primarily a resolution problem.
+
+  Bottom Line
+
+  The Mandelbrot is pixelated because it is rendered into a fixed low-resolution buffer (360x240) and then scaled up on screen. WebGL speeds up rendering, but it does not fix image quality unless the backing render resolution is increased.
+
+  If you want later, I can propose a spec and implementation plan for:
+
+  - responsive backing resolution
+  - device-pixel-ratio rendering
+  - optional quality/performance presets
+  - adaptive resolution while dragging vs idle rendering
+```
+
+Sounds good. yes please propose a spec for this 
+
+```
+• Responsive Mandelbrot Quality Spec
+
+  Goal
+  Reduce visible pixelation in the explorer by making fractal rendering resolution track the actual displayed canvas size and device pixel ratio, while keeping interaction responsive.
+
+  Scope
+  Applies to /explorer only:
+
+  - Mandelbrot panel
+  - Julia panel
+
+  Does not apply yet to:
+
+  - SOM workspace
+  - SOM map canvas
+  - training pipeline
+
+  Problem Statement
+  Current explorer rendering uses fixed backing resolutions:
+
+  - Mandelbrot: 360x240
+  - Julia: 360x360
+
+  These are then scaled up in CSS, which causes:
+
+  - blocky Mandelbrot output
+  - underutilization of high-DPI displays
+  - no increase in detail when zooming
+
+  Requirements
+
+  1. Responsive Backing Resolution
+     Each fractal image canvas must render using the panel’s displayed size, not a fixed hard-coded size.
+
+  Rules:
+
+  - measure the rendered canvas container size in CSS pixels
+  - compute backing width/height from that size
+  - use those backing dimensions for CPU/WebGL/WebGPU image rendering
+  - preserve the existing aspect ratio:
+      - Mandelbrot: 3:2
+      - Julia: 1:1
+
+  2. Device Pixel Ratio Support
+     Backing resolution must scale by window.devicePixelRatio.
+
+  Rules:
+
+  - backingWidth = round(displayWidth * devicePixelRatio)
+  - backingHeight = round(displayHeight * devicePixelRatio)
+  - cap DPR-scaled size with a performance limit
+
+  3. Resolution Caps
+     To avoid runaway GPU/CPU cost, apply configurable maximum dimensions.
+
+  Initial recommended caps:
+
+  - Mandelbrot max backing width: 2048
+  - Mandelbrot max backing height: 1365
+  - Julia max backing width/height: 2048
+
+  Cap must apply after DPR scaling.
+
+  4. Interaction Responsiveness
+     Rendering must remain responsive while:
+
+  - panning
+  - zooming
+  - live preview
+
+  Use two quality levels:
+
+  - interactive quality
+  - settled quality
+
+  Behavior:
+
+  - while dragging / wheel-zooming / rapid hover updates, render at reduced scale
+  - after a short idle delay, rerender at full quality
+
+  Recommended initial scales:
+
+  - interactive scale: 0.5
+  - settled scale: 1.0
+
+  Recommended idle delay:
+
+  - 120ms to 200ms
+
+  5. Backend Independence
+     The resolution system must work consistently for:
+
+  - CPU renderer
+  - WebGL renderer
+  - future WebGPU renderer
+
+  The renderer API should consume dynamic width/height values rather than fixed constants.
+
+  6. Overlay Alignment
+     Overlay layers must stay aligned with the rendered fractal image at all sizes.
+
+  Applies to:
+
+  - axes
+  - orbit
+  - red selected marker
+  - blue live-preview marker
+  - coordinate badge positioning
+
+  Overlay coordinates must derive from the same current backing/display geometry as the fractal image.
+
+  7. Resize Handling
+     Explorer canvases must rerender when:
+
+  - window size changes
+  - layout changes change panel size
+  - zen mode toggles
+  - device pixel ratio changes
+
+  Preferred implementation:
+
+  - ResizeObserver on the canvas frame or image container
+  - recompute display size and backing resolution from the observed box
+
+  8. Quality Controls
+     No user-facing quality controls are required in v1.
+
+  Optional later feature:
+
+  - Auto / Balanced / Sharp quality selector
+
+  For now, quality should be automatic.
+
+  Rendering Model
+
+  Each explorer fractal panel should have:
+
+  - measured display size in CSS pixels
+  - derived backing resolution in device pixels
+  - renderer invoked with backing width/height
+  - overlay layer sized to the same displayed box
+
+  The image canvas should:
+
+  - set canvas.width and canvas.height to backing resolution
+  - keep CSS size equal to display size
+
+  Behavioral Requirements
+
+  1. Mandelbrot no longer appears obviously blocky on large screens.
+  2. Julia also benefits from DPR-aware rendering.
+  3. Panning/zooming remains responsive.
+  4. Final image sharpens after interaction stops.
+  5. WebGL and CPU modes both use the same sizing policy.
+  6. Overlays remain correctly aligned during interaction and after rerender.
+
+  Failure / Fallback Behavior
+  If measured size is unavailable or zero:
+
+  - skip render for that frame
+  - retry on next layout/resize/update event
+
+  If full-resolution render fails due to resource constraints:
+
+  - fall back to lower backing resolution
+  - do not crash the explorer
+
+  Acceptance Criteria
+
+  1. Explorer no longer uses fixed 360x240 / 360x360 backing resolution for displayed fractal output.
+  2. Backing resolution follows actual display size and DPR.
+  3. Mandelbrot looks visibly sharper on high-resolution displays.
+  4. Interaction remains smooth during drag/zoom/live preview.
+  5. A higher-quality rerender occurs after interaction settles.
+  6. Overlays remain aligned with the fractal image.
+  7. CPU and WebGL backends both support the sizing system.
+
+  Recommended Implementation Plan
+
+  1. Add measured display-size state via ResizeObserver.
+  2. Replace fixed fractal render sizes with dynamic backing dimensions.
+  3. Update renderer interfaces to consume dynamic dimensions everywhere.
+  4. Add DPR scaling and max caps.
+  5. Add interactive-vs-settled quality scaling.
+  6. Verify overlay alignment in CPU and WebGL modes.
+  7. Later extend the same system to WebGPU.
+
+  If you want, I can next write this into a timestamped spec file in docs/specs and a checklist in docs/plans, matching the earlier renderer docs.
+```
+
+Yes please create the specs and checklist as you suggested with these small tweaks
+
+* interactive scale: 0.2
+* Devices with a good GPU won't need the two quality levels (interactive quality vs settled quality) so please add a checkbox for this in the spec. Default is active (meaning two quaity levels optimization is active)
+
+Just to make sure: fractal canvases must support the following use cases:
+* fixed size with fixed ratio
+* fixed ratio with either fixed width or fixed height
+* fill given area (for fullscreen for example)
+
+
+
+```
+• Created both docs with your tweaks:
+
+  - Spec: docs/specs/2026-04-19-11-34--explorer-responsive-fractal-resolution-spec.md
+  - Checklist: docs/plans/2026-04-19-11-34--explorer-responsive-fractal-resolution-checklist.md
+
+  They include:
+
+  - interactive scale: 0.2
+  - a Two Quality Levels checkbox in the spec, default enabled
+  - the three required canvas layout modes:
+      - fixed size with fixed ratio
+      - fixed ratio with fixed width or fixed height
+      - fill given area
+
+  I did not change any app code.
+```
