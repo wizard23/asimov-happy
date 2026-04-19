@@ -2392,3 +2392,113 @@ when it switches from coarse rendering to fine rendering there is a blank screen
 ```
 
 Please propose a clean fix for this ux bug.
+
+```
+• A clean fix is: double-buffer the fractal image and only swap once the new resolution is fully rendered.
+
+  ## Recommended fix
+
+  Keep two layers conceptually:
+
+  - visible canvas
+  - work canvas
+
+  Flow:
+
+  1. User interacts at coarse quality.
+  2. Settled render starts on an offscreen canvas or detached in-memory canvas.
+  3. When the fine render is complete, copy/swap it into the visible canvas in one step.
+  4. Visible canvas never gets resized/cleared before replacement is ready.
+
+  That removes the flash because the user keeps seeing the coarse image until the fine image is ready.
+
+  ## Why this is the best fix
+
+  It addresses the real problem:
+
+  - destructive resize of the visible canvas
+
+  instead of trying to hide it with timing tricks.
+
+  It also works for:
+
+  - CPU renderer
+  - WebGL renderer
+  - future WebGPU renderer
+
+  ## Concrete implementation shape
+
+  ### 1. Stop binding adaptive render size directly to the visible image canvas
+
+  The visible image canvas should keep a stable displayed surface.
+  Do not let React/Preact resize it during the transition.
+
+  ### 2. Render into a staging canvas
+
+  For CPU:
+
+  - use document.createElement("canvas") or OffscreenCanvas if available
+
+  For WebGL:
+
+  - use a separate hidden WebGL canvas as the render target
+
+  ### 3. Promote when ready
+
+  After rendering:
+
+  - resize visible canvas once
+  - blit/copy the staged image into it immediately
+
+  For CPU:
+
+  - drawImage(stagingCanvas, 0, 0)
+
+  For WebGL:
+
+  - either draw the staging canvas into a 2D visible canvas
+  - or keep the visible surface as WebGL and copy at the end
+
+  ### 4. Do the same for overlays or decouple them
+
+  Best option:
+
+  - overlays stay at stable display resolution
+  - only the fractal image is adaptively re-rendered
+
+  That avoids overlay flicker too.
+
+  ## Secondary cleanup
+
+  Even if you do the staging fix, also remove the redundant double-clear:
+
+  - right now the canvas is resized by JSX attributes
+  - and then resized again in renderExplorerImageWithFallback()
+
+  The render pipeline should have exactly one place that owns backing-buffer size.
+
+  ## What I would implement
+
+  For this codebase, I would do:
+
+  1. Keep the existing visible image canvas in the DOM.
+  2. Add a staging render helper that renders to an offscreen/detached canvas.
+  3. When render completes, copy the staged result into the visible canvas.
+  4. Leave overlay canvases tied to stable display geometry, not adaptive render geometry.
+
+  That is the cleanest UX fix and the most maintainable architecture.
+
+  ## What I would not do
+
+  I would avoid:
+
+  - trying to fix it with requestAnimationFrame timing only
+  - delaying resize without staging
+  - keeping the old code and just hoping the effect runs fast enough
+
+  Those reduce symptoms but do not solve the underlying destructive-resize problem.
+
+  If you want, I can implement this as a proper staged-render swap for the explorer canvases.
+```
+
+Yes, please make it so.

@@ -12,7 +12,7 @@ import {
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
-import { renderExplorerImageWithFallback } from "./render-explorer-image-with-fallback.js";
+import { renderExplorerImageWithSwap } from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const VIEWER_FALLBACK_SIZE = 360;
@@ -133,6 +133,10 @@ export function JuliaViewerCanvas(props: {
   const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
   const [qualityScale, setQualityScale] = useState(1);
+  const [presentedRenderSize, setPresentedRenderSize] = useState(() => ({
+    width: VIEWER_FALLBACK_SIZE,
+    height: VIEWER_FALLBACK_SIZE,
+  }));
   const resolutionOptions = useMemo(
     () => ({
       fallbackDisplayWidth: VIEWER_FALLBACK_SIZE,
@@ -226,12 +230,12 @@ export function JuliaViewerCanvas(props: {
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
     const parameter = props.parameter;
-    renderExplorerImageWithFallback(
+    const nextPresentedSize = renderExplorerImageWithSwap(
       canvas,
       canvasResolution.renderWidth,
       canvasResolution.renderHeight,
-      (effectiveWidth, effectiveHeight) => {
-        renderer.renderJulia(canvas, {
+      (renderTarget, effectiveWidth, effectiveHeight) => {
+        renderer.renderJulia(renderTarget, {
           parameter,
           viewport,
           width: effectiveWidth,
@@ -243,6 +247,10 @@ export function JuliaViewerCanvas(props: {
         });
       },
     );
+    setPresentedRenderSize({
+      width: nextPresentedSize.effectiveWidth,
+      height: nextPresentedSize.effectiveHeight,
+    });
   }, [
     canvasResolution.renderHeight,
     canvasResolution.renderWidth,
@@ -423,11 +431,10 @@ export function JuliaViewerCanvas(props: {
         }}
       >
         <canvas
-          key={`julia-image-${props.renderer?.id ?? "cpu"}`}
           ref={imageCanvasRef}
           className="canvas canvas--viewer"
-          width={canvasResolution.renderWidth}
-          height={canvasResolution.renderHeight}
+          width={presentedRenderSize.width}
+          height={presentedRenderSize.height}
           style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
         />
         <canvas

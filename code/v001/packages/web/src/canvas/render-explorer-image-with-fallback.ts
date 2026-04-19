@@ -3,7 +3,7 @@ export function renderExplorerImageWithFallback(
   width: number,
   height: number,
   render: (effectiveWidth: number, effectiveHeight: number) => void,
-): void {
+): { effectiveWidth: number; effectiveHeight: number } {
   let effectiveWidth = Math.max(1, width);
   let effectiveHeight = Math.max(1, height);
   let lastError: unknown = null;
@@ -14,7 +14,7 @@ export function renderExplorerImageWithFallback(
 
     try {
       render(effectiveWidth, effectiveHeight);
-      return;
+      return { effectiveWidth, effectiveHeight };
     } catch (error) {
       lastError = error;
       const nextWidth = Math.max(1, Math.floor(effectiveWidth / 2));
@@ -28,4 +28,32 @@ export function renderExplorerImageWithFallback(
       effectiveHeight = nextHeight;
     }
   }
+}
+
+export function renderExplorerImageWithSwap(
+  visibleCanvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+  render: (renderTarget: HTMLCanvasElement, effectiveWidth: number, effectiveHeight: number) => void,
+): { effectiveWidth: number; effectiveHeight: number } {
+  const stagingCanvas = document.createElement("canvas");
+  const { effectiveWidth, effectiveHeight } = renderExplorerImageWithFallback(
+    stagingCanvas,
+    width,
+    height,
+    (nextWidth, nextHeight) => {
+      render(stagingCanvas, nextWidth, nextHeight);
+    },
+  );
+
+  visibleCanvas.width = effectiveWidth;
+  visibleCanvas.height = effectiveHeight;
+  const context = visibleCanvas.getContext("2d");
+  if (!context) {
+    throw new Error("2D canvas context unavailable for explorer image presentation.");
+  }
+
+  context.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
+  context.drawImage(stagingCanvas, 0, 0);
+  return { effectiveWidth, effectiveHeight };
 }

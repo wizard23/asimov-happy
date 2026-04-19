@@ -15,7 +15,7 @@ import {
   getComplexBoundsHeight,
   getComplexBoundsWidth,
 } from "./explorer-overlays.js";
-import { renderExplorerImageWithFallback } from "./render-explorer-image-with-fallback.js";
+import { renderExplorerImageWithSwap } from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const MANDELBROT_FALLBACK_WIDTH = 360;
@@ -160,6 +160,10 @@ export function MandelbrotOverviewCanvas(props: {
   const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [qualityScale, setQualityScale] = useState(1);
+  const [presentedRenderSize, setPresentedRenderSize] = useState(() => ({
+    width: MANDELBROT_FALLBACK_WIDTH,
+    height: MANDELBROT_FALLBACK_HEIGHT,
+  }));
   const resolutionOptions = useMemo(
     () => ({
       fallbackDisplayWidth: MANDELBROT_FALLBACK_WIDTH,
@@ -252,12 +256,12 @@ export function MandelbrotOverviewCanvas(props: {
     }
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
-    renderExplorerImageWithFallback(
+    const nextPresentedSize = renderExplorerImageWithSwap(
       canvas,
       canvasResolution.renderWidth,
       canvasResolution.renderHeight,
-      (effectiveWidth, effectiveHeight) => {
-        renderer.renderMandelbrot(canvas, {
+      (renderTarget, effectiveWidth, effectiveHeight) => {
+        renderer.renderMandelbrot(renderTarget, {
           viewport,
           width: effectiveWidth,
           height: effectiveHeight,
@@ -268,6 +272,10 @@ export function MandelbrotOverviewCanvas(props: {
         });
       },
     );
+    setPresentedRenderSize({
+      width: nextPresentedSize.effectiveWidth,
+      height: nextPresentedSize.effectiveHeight,
+    });
   }, [
     canvasResolution.renderHeight,
     canvasResolution.renderWidth,
@@ -517,11 +525,10 @@ export function MandelbrotOverviewCanvas(props: {
         }}
       >
         <canvas
-          key={`mandelbrot-image-${props.renderer?.id ?? "cpu"}`}
           ref={imageCanvasRef}
           className="canvas canvas--mandelbrot"
-          width={canvasResolution.renderWidth}
-          height={canvasResolution.renderHeight}
+          width={presentedRenderSize.width}
+          height={presentedRenderSize.height}
           style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
         />
         <canvas
