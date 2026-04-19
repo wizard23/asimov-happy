@@ -2502,3 +2502,143 @@ Please propose a clean fix for this ux bug.
 ```
 
 Yes, please make it so.
+
+
+```
+
+This last change of yours introduced a bug: Now nothing is rendered after the transition from coarse to fine rendering. Please analyze toe code to see if you find where this happens. Don't change anything yet please.
+
+```
+• I’m tracing the staged-swap path itself now. The likely failure is in the handoff between the offscreen render and the visible canvas, not in the adaptive-quality timer.
+
+• Explored
+  └ Read render-explorer-image-with-fallback.ts, explorer-webgl-renderer.ts, explorer-cpu-renderer.ts, mandelbrot-overview-canvas.tsx, julia-viewer-canvas.tsx
+
+─ Worked for 1m 05s ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Technical Report
+
+  The most likely cause is in the new staged-swap presentation path, especially for the WebGL renderer.
+
+  ## Primary likely root cause
+
+  The new helper presents the offscreen render like this:
+
+  - code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+
+  const stagingCanvas = document.createElement("canvas");
+  ...
+  render(stagingCanvas, nextWidth, nextHeight);
+  ...
+  context.drawImage(stagingCanvas, 0, 0);
+
+  That is fine for the CPU renderer.
+
+  But for the WebGL renderer, render(stagingCanvas, ...) eventually does:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts
+
+  context.drawArrays(context.TRIANGLES, 0, 6);
+
+  and then returns immediately.
+
+  There is no explicit synchronization before the 2D visible canvas copies from the WebGL staging canvas.
+
+  So the sequence is:
+
+  1. render fine frame into detached WebGL staging canvas
+  2. return immediately after drawArrays
+  3. immediately call visible2d.drawImage(stagingCanvas, 0, 0)
+
+  The problem is that WebGL work is asynchronous. The GPU may not have finished populating the staging canvas when drawImage(...) reads from it.
+
+  That means the visible canvas can receive:
+
+  - an empty frame
+  - a partially ready frame
+  - inconsistent output
+
+  This would show up especially on the fine transition, because the fine render is more expensive and more likely not to have completed by the time drawImage(...) happens.
+
+  That matches your symptom very well:
+
+  - coarse render appears
+  - transition happens
+  - fine presentation replaces it with blank
+
+  ## Why this is more likely than the old blank-frame bug
+
+  Before, the bug was caused by destructive resize of the visible canvas.
+
+  Now the visible canvas is intentionally protected by staging. So if the result becomes permanently blank after the transition, the stronger suspect is:
+
+  - the staged image itself is blank when copied
+
+  For CPU rendering, the staged image is produced synchronously with putImageData, so this problem is much less likely.
+  For WebGL, it is a real risk.
+
+  ## Secondary likely source
+
+  There is also a secondary risk in the image-canvas state flow:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  The effect:
+
+  1. calls renderExplorerImageWithSwap(...)
+  2. then calls setPresentedRenderSize(...)
+
+  And the JSX still binds:
+
+  <canvas width={presentedRenderSize.width} height={presentedRenderSize.height} />
+
+  Changing canvas width or height clears it.
+
+  So if the framework commit reapplies those attributes after presentation, the visible canvas can be cleared again.
+
+  I consider this a secondary risk because:
+
+  - the helper already set the same width/height imperatively
+  - if the values are identical, many DOM paths are effectively no-op
+
+  So this is possible, but less convincing than the WebGL async-copy problem.
+
+  ## Why the bug likely appears on the coarse -> fine transition specifically
+
+  The fine transition is when:
+
+  - the render target becomes much larger
+  - WebGL work takes longer
+  - the race between drawArrays(...) and drawImage(...) becomes visible
+
+  So the staged swap likely works “by accident” more often at coarse resolution and fails at fine resolution.
+
+  ## Supporting detail from the code
+
+  The new swap path always presents through a 2D visible canvas:
+
+  - code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+
+  const context = visibleCanvas.getContext("2d");
+  ...
+  context.drawImage(stagingCanvas, 0, 0);
+
+  So even in WebGL mode, the final visible image is now a WebGL-to-2D copy.
+  That is exactly the kind of boundary where async GPU completion issues can show up.
+
+  ## Bottom line
+
+  The most likely bug is:
+
+  - the new staged swap copies from the WebGL staging canvas before the WebGL render is actually finished
+
+  The secondary possible issue is:
+
+  - the visible canvas may still be cleared by later width/height attribute application after the swap
+
+  If I were fixing this, I would first treat the WebGL presentation path as the primary problem.
+```
+
+
+please fix it. Use the headless browser if needed.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ComplexBounds, ComplexParameter, SomTrainingResult } from "@asimov/minimal-shared";
 import crosshairUrl from "../assets/noun-crosshair-59595.svg";
 import {
@@ -15,7 +15,10 @@ import {
   getComplexBoundsHeight,
   getComplexBoundsWidth,
 } from "./explorer-overlays.js";
-import { renderExplorerImageWithSwap } from "./render-explorer-image-with-fallback.js";
+import {
+  renderExplorerImageWithFallback,
+  renderExplorerImageWithSwap,
+} from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const MANDELBROT_FALLBACK_WIDTH = 360;
@@ -249,29 +252,47 @@ export function MandelbrotOverviewCanvas(props: {
     }
   }, [props.enableTwoQualityLevels]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) {
       return;
     }
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
-    const nextPresentedSize = renderExplorerImageWithSwap(
-      canvas,
-      canvasResolution.renderWidth,
-      canvasResolution.renderHeight,
-      (renderTarget, effectiveWidth, effectiveHeight) => {
-        renderer.renderMandelbrot(renderTarget, {
-          viewport,
-          width: effectiveWidth,
-          height: effectiveHeight,
-          iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
-          palette: props.palette ?? "ember",
-          paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
-          paletteCycles: props.paletteCycles ?? 6,
-        });
-      },
-    );
+    const nextPresentedSize =
+      renderer.id === "webgl"
+        ? renderExplorerImageWithFallback(
+            canvas,
+            canvasResolution.renderWidth,
+            canvasResolution.renderHeight,
+            (effectiveWidth, effectiveHeight) => {
+              renderer.renderMandelbrot(canvas, {
+                viewport,
+                width: effectiveWidth,
+                height: effectiveHeight,
+                iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
+                palette: props.palette ?? "ember",
+                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                paletteCycles: props.paletteCycles ?? 6,
+              });
+            },
+          )
+        : renderExplorerImageWithSwap(
+            canvas,
+            canvasResolution.renderWidth,
+            canvasResolution.renderHeight,
+            (renderTarget, effectiveWidth, effectiveHeight) => {
+              renderer.renderMandelbrot(renderTarget, {
+                viewport,
+                width: effectiveWidth,
+                height: effectiveHeight,
+                iterations: props.iterations ?? MANDELBROT_MAX_ITERATIONS,
+                palette: props.palette ?? "ember",
+                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                paletteCycles: props.paletteCycles ?? 6,
+              });
+            },
+          );
     setPresentedRenderSize({
       width: nextPresentedSize.effectiveWidth,
       height: nextPresentedSize.effectiveHeight,

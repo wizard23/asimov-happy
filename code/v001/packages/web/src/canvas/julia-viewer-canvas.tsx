@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   JULIA_VIEWPORT,
   type ComplexParameter,
@@ -12,7 +12,10 @@ import {
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
-import { renderExplorerImageWithSwap } from "./render-explorer-image-with-fallback.js";
+import {
+  renderExplorerImageWithFallback,
+  renderExplorerImageWithSwap,
+} from "./render-explorer-image-with-fallback.js";
 import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolution.js";
 
 const VIEWER_FALLBACK_SIZE = 360;
@@ -205,7 +208,7 @@ export function JuliaViewerCanvas(props: {
     }
   }, [props.parameter]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) {
       return;
@@ -230,23 +233,42 @@ export function JuliaViewerCanvas(props: {
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
     const parameter = props.parameter;
-    const nextPresentedSize = renderExplorerImageWithSwap(
-      canvas,
-      canvasResolution.renderWidth,
-      canvasResolution.renderHeight,
-      (renderTarget, effectiveWidth, effectiveHeight) => {
-        renderer.renderJulia(renderTarget, {
-          parameter,
-          viewport,
-          width: effectiveWidth,
-          height: effectiveHeight,
-          iterations: props.iterations,
-          palette: props.palette,
-          paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
-          paletteCycles: props.paletteCycles ?? 6,
-        });
-      },
-    );
+    const nextPresentedSize =
+      renderer.id === "webgl"
+        ? renderExplorerImageWithFallback(
+            canvas,
+            canvasResolution.renderWidth,
+            canvasResolution.renderHeight,
+            (effectiveWidth, effectiveHeight) => {
+              renderer.renderJulia(canvas, {
+                parameter,
+                viewport,
+                width: effectiveWidth,
+                height: effectiveHeight,
+                iterations: props.iterations,
+                palette: props.palette,
+                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                paletteCycles: props.paletteCycles ?? 6,
+              });
+            },
+          )
+        : renderExplorerImageWithSwap(
+            canvas,
+            canvasResolution.renderWidth,
+            canvasResolution.renderHeight,
+            (renderTarget, effectiveWidth, effectiveHeight) => {
+              renderer.renderJulia(renderTarget, {
+                parameter,
+                viewport,
+                width: effectiveWidth,
+                height: effectiveHeight,
+                iterations: props.iterations,
+                palette: props.palette,
+                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                paletteCycles: props.paletteCycles ?? 6,
+              });
+            },
+          );
     setPresentedRenderSize({
       width: nextPresentedSize.effectiveWidth,
       height: nextPresentedSize.effectiveHeight,

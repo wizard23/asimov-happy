@@ -45,6 +45,12 @@ export function renderExplorerImageWithSwap(
       render(stagingCanvas, nextWidth, nextHeight);
     },
   );
+  const webglContext =
+    stagingCanvas.getContext("webgl", { preserveDrawingBuffer: true }) ??
+    stagingCanvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
+  if (webglContext && "finish" in webglContext && typeof webglContext.finish === "function") {
+    webglContext.finish();
+  }
 
   visibleCanvas.width = effectiveWidth;
   visibleCanvas.height = effectiveHeight;
