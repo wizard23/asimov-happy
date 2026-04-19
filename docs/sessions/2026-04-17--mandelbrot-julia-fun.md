@@ -1,19 +1,21 @@
 do you understand the code?
 
+```
+[explanation skipped] yes
+```
 
 
-
-Please make a new route for just a Mandelbrot and Julia Set explorer (no kohonen net here) that allows the user to select points on the complex plane in the mandelbrot set and visualizes the julia set for this point.  The options for this page are:
+Please make a new route for just a Mandelbrot and Julia Set explorer (no Kohonen net here) that allows the user to select points on the complex plane in the mandelbrot set and visualizes the julia set for this point.  The options for this page are:
 * palette
 * iterations for mandelbrot
-* iterations for juli set
+* iterations for Julia set
 * zen mode (just the mandelbrot and the julia set in fullscreen)
 
 
-[is this clear? if anything is unclear please dont change any code and lets get the specs right first.]
+[is this clear? if anything is unclear please don;t change any code and lets get the specs right first.]
 
 
-There is a weird bug: when I zoom in to the maximal level it changes apsect ratio. why? please analyze the root cause.
+There is a weird bug: when I zoom in to the maximal level it changes aspect ratio. why? please analyze the root cause.
 
 ```
 • Yes. The root cause is the zoom clamp logic, not the renderer.
@@ -1579,9 +1581,29 @@ Continue.
 
 
 
-
 ux improvement for the zen mode: the two canvases should both cover the whole height and together cover the whole width. In between there is a user draggable separator.
 ready to start? or are there any questions?
+
+
+```
+• Ready to start.
+
+  One spec point should be fixed first: on narrow screens, do you want the zen layout to still use a side-by-side split with a vertical draggable separator, or switch to a stacked layout with a horizontal separator?
+
+  My default recommendation:
+
+  - desktop/tablet landscape: side-by-side, vertical separator
+  - narrow/mobile: stacked, horizontal separator
+
+  If that matches what you want, I can implement it.
+```
+
+yes, that's a great suggestion. Please make it so.
+
+
+
+why can't i zoom in deeper? give me a technical report. No changes yet.
+
 
 
 please add a drop down box for palette mapping:

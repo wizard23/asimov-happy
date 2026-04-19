@@ -443,6 +443,8 @@ function ExplorerWorkspace(props: {
   onToggleZenView: () => void;
   themeId: ThemeId;
 }): preact.JSX.Element {
+  const zenLayoutRef = useRef<HTMLElement | null>(null);
+  const zenDragAxisRef = useRef<"horizontal" | "vertical" | null>(null);
   const [selectedParameter, setSelectedParameter] = useState<ComplexParameter>({
     real: -0.74543,
     imaginary: 0.11301,
@@ -461,6 +463,8 @@ function ExplorerWorkspace(props: {
   );
   const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
   const [juliaIterations, setJuliaIterations] = useState(256);
+  const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
+  const [isNarrowZenLayout, setIsNarrowZenLayout] = useState(false);
 
   const palettes = getFractalPalettes();
   const availableRenderers = useMemo(detectAvailableExplorerRenderers, []);
@@ -475,6 +479,81 @@ function ExplorerWorkspace(props: {
   useEffect(() => {
     window.localStorage.setItem(EXPLORER_RENDERER_STORAGE_KEY, requestedRenderer);
   }, [requestedRenderer]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 1100px)");
+    const updateLayoutMode = (): void => setIsNarrowZenLayout(mediaQuery.matches);
+    updateLayoutMode();
+    mediaQuery.addEventListener("change", updateLayoutMode);
+    return () => mediaQuery.removeEventListener("change", updateLayoutMode);
+  }, []);
+
+  useEffect(() => {
+    if (!props.isZenView) {
+      zenDragAxisRef.current = null;
+      return;
+    }
+
+    function handlePointerMove(event: PointerEvent): void {
+      const axis = zenDragAxisRef.current;
+      const layout = zenLayoutRef.current;
+      if (!axis || !layout) {
+        return;
+      }
+
+      const bounds = layout.getBoundingClientRect();
+      if (axis === "vertical") {
+        const nextRatio = (event.clientX - bounds.left) / bounds.width;
+        setZenSplitRatio(Math.max(0.2, Math.min(0.8, nextRatio)));
+        return;
+      }
+
+      const nextRatio = (event.clientY - bounds.top) / bounds.height;
+      setZenSplitRatio(Math.max(0.2, Math.min(0.8, nextRatio)));
+    }
+
+    function handlePointerUp(): void {
+      zenDragAxisRef.current = null;
+      document.body.classList.remove("is-resizing");
+    }
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      zenDragAxisRef.current = null;
+      document.body.classList.remove("is-resizing");
+    };
+  }, [props.isZenView]);
+
+  function updateZenSplitFromKeyboard(direction: -1 | 1): void {
+    setZenSplitRatio((current) => Math.max(0.2, Math.min(0.8, current + direction * 0.05)));
+  }
+
+  function getZenLayoutStyle(): preact.JSX.CSSProperties | undefined {
+    if (!props.isZenView) {
+      return undefined;
+    }
+
+    const primaryPercent = `${(zenSplitRatio * 100).toFixed(2)}%`;
+    const secondaryPercent = `${((1 - zenSplitRatio) * 100).toFixed(2)}%`;
+    if (isNarrowZenLayout) {
+      return {
+        gridTemplateColumns: "minmax(0, 1fr)",
+        gridTemplateRows: `minmax(0, ${primaryPercent}) 12px minmax(0, ${secondaryPercent})`,
+      };
+    }
+
+    return {
+      gridTemplateColumns: `minmax(0, ${primaryPercent}) 12px minmax(0, ${secondaryPercent})`,
+      gridTemplateRows: "minmax(0, 1fr)",
+    };
+  }
 
   return (
     <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
@@ -656,8 +735,12 @@ function ExplorerWorkspace(props: {
           </article>
         </section>
 
-        <section className={props.isZenView ? "explorer-layout explorer-layout--zen" : "explorer-layout"}>
-          <article className="card card--viewer">
+        <section
+          ref={zenLayoutRef}
+          className={props.isZenView ? "explorer-layout explorer-layout--zen" : "explorer-layout"}
+          style={getZenLayoutStyle()}
+        >
+          <article className={`card card--viewer${props.isZenView ? " card--viewer-zen-pane" : ""}`}>
             <p className="eyebrow">Parameter Plane</p>
             <h3>Mandelbrot Explorer</h3>
             <MandelbrotOverviewCanvas
@@ -677,8 +760,46 @@ function ExplorerWorkspace(props: {
               Hover to inspect coordinates, drag to pan, scroll to zoom, click to choose `c`.
             </p>
           </article>
+          {props.isZenView ? (
+            <div
+              className={`zen-separator${isNarrowZenLayout ? " zen-separator--horizontal" : ""}`}
+              role="separator"
+              aria-label="Resize zen canvases"
+              aria-orientation={isNarrowZenLayout ? "horizontal" : "vertical"}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              aria-valuenow={Math.round(zenSplitRatio * 100)}
+              tabIndex={0}
+              onPointerDown={() => {
+                zenDragAxisRef.current = isNarrowZenLayout ? "horizontal" : "vertical";
+                document.body.classList.add("is-resizing");
+              }}
+              onKeyDown={(event) => {
+                if (isNarrowZenLayout) {
+                  if (event.key === "ArrowUp") {
+                    updateZenSplitFromKeyboard(-1);
+                    event.preventDefault();
+                  } else if (event.key === "ArrowDown") {
+                    updateZenSplitFromKeyboard(1);
+                    event.preventDefault();
+                  }
+                  return;
+                }
 
-          <article className="card card--viewer">
+                if (event.key === "ArrowLeft") {
+                  updateZenSplitFromKeyboard(-1);
+                  event.preventDefault();
+                } else if (event.key === "ArrowRight") {
+                  updateZenSplitFromKeyboard(1);
+                  event.preventDefault();
+                }
+              }}
+            >
+              <span className="zen-separator__handle" aria-hidden="true" />
+            </div>
+          ) : null}
+
+          <article className={`card card--viewer${props.isZenView ? " card--viewer-zen-pane" : ""}`}>
             <p className="eyebrow">Result</p>
             <h3>Julia Set</h3>
             <JuliaViewerCanvas

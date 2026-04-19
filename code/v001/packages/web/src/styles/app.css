@@ -46,6 +46,10 @@ select {
   font: inherit;
 }
 
+body.is-resizing {
+  user-select: none;
+}
+
 a {
   color: inherit;
 }
@@ -711,9 +715,9 @@ a {
 }
 
 .explorer-layout--zen {
-  width: min(100vw, calc(100vh * 2));
-  height: min(100vh, calc(100vw / 2));
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100vw;
+  height: 100vh;
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
   align-items: stretch;
   min-height: 0;
   min-width: 0;
@@ -771,8 +775,8 @@ a {
   box-shadow: none;
 }
 
-.explorer-layout--zen .card + .card {
-  border-left: 1px solid var(--border);
+.card--viewer-zen-pane {
+  overflow: hidden;
 }
 
 .viewer-layout--zen .card--viewer + .card--viewer {
@@ -815,6 +819,47 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.zen-separator {
+  position: relative;
+  background:
+    linear-gradient(180deg, hsl(0 0% 100% / 0.06), hsl(0 0% 100% / 0.02)),
+    var(--surface-strong);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.zen-separator--horizontal {
+  border-left: 0;
+  border-right: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  cursor: row-resize;
+}
+
+.zen-separator:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 2;
+}
+
+.zen-separator__handle {
+  width: 4px;
+  height: 68px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  opacity: 0.8;
+}
+
+.zen-separator--horizontal .zen-separator__handle {
+  width: 68px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
 }
 
 .viewer-layout--zen .canvas-frame--map {
@@ -877,9 +922,9 @@ a {
 
   .explorer-layout--zen {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: minmax(0, 1fr) 12px minmax(0, 1fr);
     width: 100%;
-    height: auto;
+    height: 100vh;
   }
 
   .viewer-stack {
@@ -909,7 +954,7 @@ a {
     min-height: 50vh;
   }
 
-  .explorer-layout--zen .card--viewer {
+  .explorer-layout--zen .card--viewer-zen-pane {
     min-height: 50vh;
   }
 
