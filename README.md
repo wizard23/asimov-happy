@@ -162,6 +162,85 @@ Rules:
 
 This is the expected verification method for future agents working in this repo.
 
+## Technical Details
+
+### Headless Browser Debugging
+
+For explorer and canvas-layout bugs, build/lint is not enough. Use a real browser render pass in headless Chromium.
+
+Typical workflow:
+
+1. Start a preview server from `code/v001`:
+
+```bash
+npm run -w @asimov/minimal-web preview -- --host 127.0.0.1 --port 4173
+```
+
+2. Inspect the rendered DOM:
+
+```bash
+chromium --headless --no-sandbox --window-size=1366,768 --dump-dom \
+  http://127.0.0.1:4173/explorer?zen=1
+```
+
+3. Capture an actual screenshot:
+
+```bash
+chromium --headless --no-sandbox --window-size=1366,768 \
+  --screenshot=/tmp/explorer.png \
+  http://127.0.0.1:4173/explorer?zen=1
+```
+
+4. For WebGL-specific checks, use SwiftShader explicitly:
+
+```bash
+chromium --headless --no-sandbox \
+  --enable-webgl \
+  --ignore-gpu-blocklist \
+  --use-angle=swiftshader \
+  --enable-unsafe-swiftshader \
+  --window-size=1366,768 \
+  --screenshot=/tmp/explorer-webgl.png \
+  http://127.0.0.1:4173/explorer?zen=1
+```
+
+What this debugging work taught us:
+
+- `--dump-dom` is useful for inline sizes, active renderer text, and route state, but it is not sufficient by itself for canvas bugs.
+- For fractal views, always compare DOM geometry with a screenshot. The DOM can say a stage is larger than the pane while the visible crop is actually happening deeper in the rendering stack.
+- In zen mode, a bug can live in the difference between:
+  - the outer pane size
+  - the `.canvas-stage` size
+  - the actual canvas content fitting behavior
+- If `object-fit: cover` is applied to the canvas element, pointer math can become wrong even when the stage dimensions look correct in the DOM.
+- For interactive fractal canvases, it is safer when the stage owns the crop geometry and the canvas simply fills the stage. That keeps click, hover, marker, pan, and zoom math in one coordinate model.
+
+### Explorer Zen Geometry
+
+The explorer zen route is especially sensitive to coordinate-space mistakes.
+
+Important rules:
+
+- Do not assume that fullscreen pane coverage means the fractal image itself is using the full visible pane in the intended way.
+- The Mandelbrot and Julia panes can be visually correct at the layout level while click mapping is still wrong.
+- If zen mode uses cover-style behavior, verify where the crop actually happens:
+  - stage-level crop is workable
+  - canvas-content crop via `object-fit: cover` is dangerous for pointer mapping
+- When investigating click bugs, check all of these together:
+  - visible pane size
+  - stage size
+  - canvas intrinsic width/height
+  - canvas CSS fitting rules
+  - pointer-to-complex-plane mapping code
+
+This matters because explorer interaction depends on exact alignment between:
+
+- visible pixels
+- logical stage coordinates
+- complex-plane coordinates
+
+If those diverge, the first visible symptom is usually incorrect click selection in the Mandelbrot pane.
+
 ## How To Implement Features
 
 Use this workflow when adding or changing functionality:
