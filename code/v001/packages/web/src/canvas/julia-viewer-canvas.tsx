@@ -79,8 +79,8 @@ function zoomViewport(
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
-    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
   };
 }
 
@@ -241,8 +241,8 @@ export function JuliaViewerCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getViewportWidth(dragState.viewportAtStart);
       const viewportHeight = getViewportHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / canvasResolution.renderWidth) * viewportWidth;
-      const imaginaryShift = (deltaY / canvasResolution.renderHeight) * viewportHeight;
+      const realShift = (deltaX / canvasResolution.displayWidth) * viewportWidth;
+      const imaginaryShift = (deltaY / canvasResolution.displayHeight) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -268,8 +268,8 @@ export function JuliaViewerCanvas(props: {
       const anchor = mapPointToCoordinate(
         point.x,
         point.y,
-        canvasResolution.renderWidth,
-        canvasResolution.renderHeight,
+        canvasResolution.displayWidth,
+        canvasResolution.displayHeight,
         viewportRef.current,
       );
       setViewport((current) =>
@@ -300,7 +300,7 @@ export function JuliaViewerCanvas(props: {
   ]);
 
   return (
-    <div ref={frameRef} className="canvas-frame">
+    <div ref={frameRef} className="canvas-frame canvas-frame--viewer">
       <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
       <canvas
         key={`julia-image-${props.renderer?.id ?? "cpu"}`}

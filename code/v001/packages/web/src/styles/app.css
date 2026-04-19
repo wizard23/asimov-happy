@@ -369,6 +369,11 @@ a {
 
 .canvas-frame--mandelbrot {
   background: var(--canvas-mandelbrot);
+  aspect-ratio: 3 / 2;
+}
+
+.canvas-frame--viewer {
+  aspect-ratio: 1 / 1;
 }
 
 .canvas--mandelbrot {

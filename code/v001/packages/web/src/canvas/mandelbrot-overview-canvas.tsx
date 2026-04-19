@@ -97,8 +97,8 @@ function zoomViewport(
 function getCanvasPoint(canvas: HTMLCanvasElement, event: MouseEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
   return {
-    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
   };
 }
 
@@ -281,8 +281,8 @@ export function MandelbrotOverviewCanvas(props: {
       const parameter = mapPointToParameter(
         point.x,
         point.y,
-        canvasResolution.renderWidth,
-        canvasResolution.renderHeight,
+        canvasResolution.displayWidth,
+        canvasResolution.displayHeight,
         viewportRef.current,
       );
       updateHover(parameter);
@@ -296,8 +296,8 @@ export function MandelbrotOverviewCanvas(props: {
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getComplexBoundsWidth(dragState.viewportAtStart);
       const viewportHeight = getComplexBoundsHeight(dragState.viewportAtStart);
-      const realShift = (deltaX / canvasResolution.renderWidth) * viewportWidth;
-      const imaginaryShift = (deltaY / canvasResolution.renderHeight) * viewportHeight;
+      const realShift = (deltaX / canvasResolution.displayWidth) * viewportWidth;
+      const imaginaryShift = (deltaY / canvasResolution.displayHeight) * viewportHeight;
 
       setViewport({
         minReal: dragState.viewportAtStart.minReal - realShift,
@@ -341,8 +341,8 @@ export function MandelbrotOverviewCanvas(props: {
             mapPointToParameter(
               point.x,
               point.y,
-              canvasResolution.renderWidth,
-              canvasResolution.renderHeight,
+              canvasResolution.displayWidth,
+              canvasResolution.displayHeight,
               viewportRef.current,
             ),
           );
@@ -359,8 +359,8 @@ export function MandelbrotOverviewCanvas(props: {
       const anchor = mapPointToParameter(
         point.x,
         point.y,
-        canvasResolution.renderWidth,
-        canvasResolution.renderHeight,
+        canvasResolution.displayWidth,
+        canvasResolution.displayHeight,
         viewportRef.current,
       );
       setViewport((current) =>

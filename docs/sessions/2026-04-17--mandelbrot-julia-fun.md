@@ -1071,4 +1071,38 @@ ready to start? or are there any questions?
 yes thats fine. Please start.
 
 ```
+• Started implementation and completed the first substantial pass.
+
+  What’s in now:
+
+  - explorer fractal canvases no longer use fixed 360x240 / 360x360 backing resolution
+  - Mandelbrot and Julia now measure their displayed size with ResizeObserver
+  - backing resolution scales with devicePixelRatio
+  - backing resolution is capped
+  - added the Two Quality Levels checkbox to /explorer, default enabled
+  - interactive rendering now uses a reduced quality scale of 0.2, then settles back to full quality shortly after interaction stops
+  - this is wired through both CPU and WebGL explorer rendering paths
+
+  The main changes are in:
+
+  - code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - code/v001/packages/web/src/app/app.tsx
+
+  Verification passed with npm run build and npm run lint from code/v001.
+
+  Next I’d recommend testing the explorer manually in:
+
+  - CPU mode
+  - WebGL mode
+  - normal layout
+  - zen mode
+
+  After that, I can continue with the next phase: hardening layout-mode support and tightening overlay alignment across all sizing modes.
 ```
+
+It looks great but I noticed two bugs:
+
+* panning does not work anymore
+* the aspect ratio of the mandelbrot is wrong. the julia set has the correct aspect ratio.

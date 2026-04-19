@@ -1,1 +1,1 @@
-Please give me a report about all hardcoded values, "magic constatnts" and any other configuration/setting that is currently hardcoded. Don't change anything yet. Just report please.
+Please give me a report about all hardcoded values, "magic constants" and any other configuration/setting that is currently hardcoded. Don't change anything yet. Just report please.
