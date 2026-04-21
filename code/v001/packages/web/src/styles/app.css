@@ -133,6 +133,20 @@ a {
   border-color: transparent;
 }
 
+.nav-link--external {
+  gap: 8px;
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.nav-link--external:hover,
+.nav-link--external:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .route-shell {
   display: grid;
   gap: 20px;

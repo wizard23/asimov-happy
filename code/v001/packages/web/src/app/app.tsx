@@ -1829,12 +1829,12 @@ function App(): preact.JSX.Element {
               GUI Settings
             </NavLink>
             <a
-              className="nav-link"
+              className="nav-link nav-link--external"
               href="https://github.com/wizard23/asimov-happy"
               target="_blank"
               rel="noreferrer"
             >
-              GitHub
+              GitHub ↗
             </a>
           </nav>
         </header>
