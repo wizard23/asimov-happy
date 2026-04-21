@@ -461,7 +461,7 @@ function ExplorerWorkspace(props: {
     imaginary: 0.11301,
   });
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
-  const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(false);
+  const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(true);
   const [useTwoQualityLevels, setUseTwoQualityLevels] = useState(true);
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);

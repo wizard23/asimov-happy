@@ -2780,7 +2780,71 @@ Please use these default settings
 * default route (for me now: http://localhost:8888/) should redirect to: http://localhost:8888/explorer?zen=1
   * the kohenen stuff will need a new route for that to work i guess
 
-Does this make sense? If anything is uinclear let's get the specs right before we change any code please.
+Does this make sense? If anything is unclear let's get the specs right before we change any code please.
+
+```
+• Yes, it makes sense.
+
+  Current routing already separates:
+
+  - pathname-based route selection
+  - zen=1 query handling
+
+  So redirecting / to /explorer?zen=1 is straightforward.
+
+  Recommended spec:
+
+  - Explorer defaults:
+      - Mandelbrot Iterations = 1000
+      - Julia Iterations = 1000
+      - Orbit Steps = 100
+      - Show Orbit = false
+  - Routing:
+      - / should immediately redirect to /explorer?zen=1
+      - current SOM/Kohonen workspace should move from / to /workspace
+  - Navigation:
+      - update the top nav so Workspace points to /workspace
+      - keep Explorer pointing to /explorer
+  - Redirect behavior:
+      - use history.replaceState for the / -> /explorer?zen=1 redirect so / does not remain in browser history
+  - Zen behavior:
+      - /explorer?zen=1 should open directly in explorer zen mode
+      - /explorer without the query should still open explorer in normal mode
+
+  One implementation detail worth fixing explicitly:
+
+  - route title for /workspace should stay Julia Set Kohonen Map
+  - route title for / will effectively no longer be used, since it redirects immediately
+
+  My recommendation for the new SOM route name is /workspace. It matches the existing nav label and is cleaner than /kohonen.
+
+  If that spec matches what you want, I can implement it.
+```
+
+Your recommendation is good but please use /som (for self organizing map) instead of /workspace
+
+
+```
+• Implemented.
+
+  Explorer defaults are now:
+
+  - Mandelbrot Iterations = 1000
+  - Julia Iterations = 1000
+  - Orbit Steps = 100
+  - Show Orbit = off
+
+  Routing is now:
+
+  - / redirects to /explorer?zen=1
+  - the Kohonen workspace moved to /som
+
+  I also updated the top nav so Workspace now points to /som. The main changes are in code/v001/packages/web/src/app/app.tsx.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+please make live preview the default
 
 
 
