@@ -2847,6 +2847,184 @@ Your recommendation is good but please use /som (for self organizing map) instea
 please make live preview the default
 
 
+in zen mode: when i move the separator to make the julia set or the mandelbrot as big as possible they don't fill the entire area they would have available. Before changing any code please give me a technical report about the bug.
+
+```
+• Technical Report
+
+  Yes, there is a real zen-mode sizing bug, and it comes from the current sizing policy rather than from the separator itself.
+
+  ## Primary root cause
+
+  In zen mode, the explorer chooses one fixed sizing mode for both canvases based only on overall layout orientation:
+
+  - wide layout: height-driven
+  - narrow layout: width-driven
+
+  That is set here in code/v001/packages/web/src/app/app.tsx:548:
+
+  const zenCanvasSizingMode = props.isZenView
+    ? (isNarrowZenLayout ? "width-driven" : "height-driven")
+    : "contain";
+
+  And the actual size resolution is here in code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts:45:
+
+  - height-driven means:
+      - use full measured height
+      - derive width from height * aspectRatio
+  - width-driven means:
+      - use full measured width
+      - derive height from width / aspectRatio
+
+  So once zen mode is active, each pane uses only one dimension as the driver.
+
+  ## Why this breaks at separator extremes
+
+  When you drag the separator, the pane aspect ratio changes a lot.
+
+  But the canvas sizing mode does not adapt to the new pane shape.
+
+  ### Wide zen layout
+
+  On desktop/wide screens, both panes are always height-driven.
+
+  That means:
+
+  - Julia is always rendered as a square with width = paneHeight
+  - Mandelbrot is always rendered as width = paneHeight * 1.5
+
+  If you drag the separator so one pane becomes very wide:
+
+  - the stage still only grows from height
+  - extra horizontal space is left unused
+  - the frame centers the stage instead of filling that extra width
+
+  That centering comes from code/v001/packages/web/src/styles/app.css:807:
+
+  .explorer-layout--zen .canvas-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  So the canvas does not stretch into the now-wider pane. It stays at its derived size and sits centered inside leftover space.
+
+  ### Narrow zen layout
+
+  On narrow/mobile screens, both panes are always width-driven.
+
+  That means:
+
+  - stage height is derived from width
+  - if a pane becomes very tall, extra vertical space is left unused
+
+  So the same bug exists in the other axis.
+
+  ## Why this matches what you’re seeing
+
+  Your phrasing was:
+
+  > when i move the separator to make the julia set or the mandelbrot as big as possible they don't fill the entire area they would have available
+
+  That is exactly what the current code does:
+
+  - it gives each pane more available space
+  - but the fractal stage keeps using only one driving dimension
+  - the extra space in the other dimension is ignored
+
+  So the pane grows, but the fractal stage does not fully exploit that growth.
+
+  ## Secondary contributing factor
+
+  The separator ratio is clamped to 0.2 .. 0.8 in code/v001/packages/web/src/app/app.tsx:526 and code/v001/packages/web/src/app/app.tsx:541:
+
+  Math.max(0.2, Math.min(0.8, nextRatio))
+
+  That means you cannot truly maximize one pane to nearly the whole screen.
+
+  This is a secondary limitation, but it is not the main bug you described. Even inside the allowed 20/80 range, the enlarged pane can still visibly underfill.
+
+  ## CSS/layout details that confirm this
+
+  Zen explorer layout:
+
+  - full-screen grid in code/v001/packages/web/src/styles/app.css:717
+
+  Zen frame behavior:
+
+  - frame is full width/height of its pane
+  - stage is centered inside it
+  - stage is not flex-grown to consume extra leftover axis
+
+  Relevant pieces:
+
+  - code/v001/packages/web/src/styles/app.css:717 .explorer-layout--zen
+  - code/v001/packages/web/src/styles/app.css:807 .explorer-layout--zen .canvas-frame
+  - code/v001/packages/web/src/styles/app.css:823 .explorer-layout--zen .canvas-stage
+
+  The key point is that .canvas-stage has an explicit resolved size from JS and is then centered; it is not recalculated to “fill whichever axis is now more constraining”.
+
+  ## Bottom line
+
+  The root cause is:
+
+  - zen mode uses a static sizing strategy (height-driven or width-driven) based only on overall screen orientation
+  - but the draggable separator changes each pane’s aspect ratio independently
+  - the fractal stage does not adapt to those per-pane aspect ratio changes
+  - so at separator extremes, one axis fills and the other axis can leave unused space
+
+  Secondary issue:
+
+  - the separator is also artificially capped at 20% / 80%
+
+  So no, this is not just a visual glitch. It is a structural mismatch between:
+
+  - per-pane resizable layout
+  - fixed global sizing mode
+
+  If you want, the next step is to define the correct zen fill policy before changing code:
+
+  - cover the pane as much as possible while preserving aspect ratio, per pane
+  - or dynamically choose width-driven vs height-driven based on each pane’s measured aspect ratio.
+```
+
+do you understand what I want? Don't change anything yet.
+
+```
+• Yes.
+
+  You want this behavior in zen mode:
+
+  - whichever side I enlarge with the separator should use all available pane space it can use
+  - the fractal should not stay artificially constrained by a fixed global sizing mode
+  - sizing should respond to the actual current pane geometry, not just “wide screen vs narrow screen”
+
+  Concretely:
+
+  - if a pane becomes wider, the fractal should expand accordingly
+  - if a pane becomes taller, the fractal should expand accordingly
+  - the stage should preserve aspect ratio, but should not leave avoidable unused space
+
+  So the correct mental model is:
+
+  - sizing should be decided per pane, from the pane’s current dimensions
+  - not once globally from isNarrowZenLayout
+
+  I understand the request.
+```
+
+please make it so.
+
+```
+• Fixed.
+
+  Zen mode now uses per-pane cover sizing instead of the old global height-driven/width-driven choice. That means each Mandelbrot/Julia pane decides from its own
+  current dimensions whether width or height should drive the stage, so dragging the separator no longer leaves avoidable unused space. The changes are in code/
+  v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts, code/v001/packages/web/src/app/app.tsx, code/v001/packages/web/src/canvas/mandelbrot-overview-
+  canvas.tsx, and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
 
 
 please add quality presets:

@@ -7,7 +7,7 @@ interface ResponsiveCanvasResolutionOptions {
   maxRenderHeight: number;
   qualityScale: number;
   aspectRatio: number;
-  sizingMode?: "contain" | "width-driven" | "height-driven";
+  sizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
 }
 
 interface CanvasResolution {
@@ -70,6 +70,24 @@ function resolveDisplaySize(
     return {
       width,
       height: width / options.aspectRatio,
+    };
+  }
+
+  if (sizingMode === "cover") {
+    const availableWidth = measuredWidth > 0 ? measuredWidth : options.fallbackDisplayWidth;
+    const availableHeight = measuredHeight > 0 ? measuredHeight : options.fallbackDisplayHeight;
+    const availableAspectRatio = availableWidth / availableHeight;
+
+    if (availableAspectRatio > options.aspectRatio) {
+      return {
+        width: availableWidth,
+        height: availableWidth / options.aspectRatio,
+      };
+    }
+
+    return {
+      width: availableHeight * options.aspectRatio,
+      height: availableHeight,
     };
   }
 

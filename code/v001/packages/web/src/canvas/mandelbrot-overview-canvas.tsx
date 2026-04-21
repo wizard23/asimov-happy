@@ -150,7 +150,7 @@ export function MandelbrotOverviewCanvas(props: {
   paletteMappingMode?: PaletteMappingMode;
   paletteCycles?: number;
   renderer?: ExplorerImageRenderer;
-  resolutionSizingMode?: "contain" | "width-driven" | "height-driven";
+  resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
   frameStyle?: preact.JSX.CSSProperties;
 }): preact.JSX.Element {
   const frameRef = useRef<HTMLDivElement | null>(null);

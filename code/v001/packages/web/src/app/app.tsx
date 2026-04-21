@@ -569,9 +569,7 @@ function ExplorerWorkspace(props: {
     };
   }
 
-  const zenCanvasSizingMode = props.isZenView
-    ? (isNarrowZenLayout ? "width-driven" : "height-driven")
-    : "contain";
+  const zenCanvasSizingMode = props.isZenView ? "cover" : "contain";
 
   return (
     <div className={props.isZenView ? "app-shell app-shell--zen" : "app-shell app-shell--explorer"}>
