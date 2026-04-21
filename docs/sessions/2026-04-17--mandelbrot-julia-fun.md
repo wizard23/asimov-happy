@@ -2755,6 +2755,35 @@ Please make ure we plan this before changing anything.
 
 yes, please make it so.
 
+```
+• Planned and implemented.
+
+  Zoom level is still derived from each canvas viewport, not stored separately. Concretely:
+
+  - Mandelbrot zoom = default Mandelbrot viewport height / current Mandelbrot viewport height
+  - Julia zoom = default Julia viewport height / current Julia viewport height
+
+  I added that next to the complex coordinate in the top-left overlay on both canvases. I also mirrored the Mandelbrot red/blue selection markers into the Julia view:
+
+  - red = last clicked Mandelbrot point
+  - blue = live preview point when it differs from the clicked point
+  - if the point is outside the current Julia viewport, the marker is hidden
+
+  Changes are in code/v001/packages/web/src/app/app.tsx, code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx, and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+Please use these default settings
+* iterations 1000 for both
+* 100 orbital steps (but show orbit should remain off in default)
+* default route (for me now: http://localhost:8888/) should redirect to: http://localhost:8888/explorer?zen=1
+  * the kohenen stuff will need a new route for that to work i guess
+
+Does this make sense? If anything is uinclear let's get the specs right before we change any code please.
+
+
+
 
 please add quality presets:
 

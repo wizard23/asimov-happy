@@ -58,7 +58,7 @@ import {
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
-type AppRoute = "/" | "/explorer" | "/explorer-layout-harness" | "/gui-settings";
+type AppRoute = "/" | "/som" | "/explorer" | "/explorer-layout-harness" | "/gui-settings";
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
 
 interface TrainingSessionState {
@@ -86,6 +86,10 @@ function areFingerprintsEquivalent(
 }
 
 function getAppRoute(pathname: string): AppRoute {
+  if (pathname === "/som") {
+    return "/som";
+  }
+
   if (pathname === "/explorer") {
     return "/explorer";
   }
@@ -461,7 +465,7 @@ function ExplorerWorkspace(props: {
   const [useTwoQualityLevels, setUseTwoQualityLevels] = useState(true);
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
-  const [orbitSteps, setOrbitSteps] = useState(10);
+  const [orbitSteps, setOrbitSteps] = useState(100);
   const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
     getInitialExplorerRendererId,
   );
@@ -471,8 +475,8 @@ function ExplorerWorkspace(props: {
   const [paletteMappingMode, setPaletteMappingMode] =
     useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
   const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
-  const [mandelbrotIterations, setMandelbrotIterations] = useState(160);
-  const [juliaIterations, setJuliaIterations] = useState(256);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(1000);
+  const [juliaIterations, setJuliaIterations] = useState(1000);
   const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
   const [isNarrowZenLayout, setIsNarrowZenLayout] = useState(false);
 
@@ -1758,6 +1762,19 @@ function App(): preact.JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (route !== "/") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.pathname = "/explorer";
+    url.searchParams.set("zen", "1");
+    window.history.replaceState(window.history.state, "", url);
+    setRoute("/explorer");
+    setIsZenView(true);
+  }, [route]);
+
+  useEffect(() => {
     applyTheme(themeId);
     window.localStorage.setItem(APP_THEME_STORAGE_KEY, themeId);
   }, [themeId]);
@@ -1785,6 +1802,8 @@ function App(): preact.JSX.Element {
   const routeTitle =
     route === "/explorer"
       ? "Julia Set Explorer"
+      : route === "/som"
+        ? "Julia Set Kohonen Map"
       : route === "/explorer-layout-harness"
         ? "Explorer Layout Harness"
         : "Julia Set Kohonen Map";
@@ -1799,7 +1818,7 @@ function App(): preact.JSX.Element {
             <p className="detail">Theme: {activeTheme.label}</p>
           </div>
           <nav className="topbar__nav" aria-label="Primary">
-            <NavLink href="/" currentRoute={route}>
+            <NavLink href="/som" currentRoute={route}>
               Workspace
             </NavLink>
             <NavLink href="/explorer" currentRoute={route}>
@@ -1814,7 +1833,7 @@ function App(): preact.JSX.Element {
           </nav>
         </header>
       ) : null}
-      <div hidden={route !== "/"}>
+      <div hidden={route !== "/som"}>
         <MainWorkspace
           isZenView={isZenView}
           onToggleZenView={() => setIsZenView((current) => !current)}
