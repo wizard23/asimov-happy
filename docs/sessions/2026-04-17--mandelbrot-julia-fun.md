@@ -3026,6 +3026,94 @@ please make it so.
   Verification passed with npm run build and npm run lint in code/v001.
 ```
 
+please add palettes that are just 2 colors alternating (using red as an example): red, black, red, black, ...
+for all basic colors (sample from hsluv rainbow use bright pastel colors for good contrast)
+Does this make sense? If anything is unclear let's get the specs right before we change any code please.
+
+
+```
+• Yes, it makes sense.
+
+  My reading:
+
+  - You want additional explorer palettes whose stops alternate between one bright color and black.
+  - Example:
+      - red, black, red, black, ...
+  - One such palette for each basic hue across a rainbow.
+  - The hues should come from an HSLuv-style rainbow, but with bright pastel colors rather than fully saturated harsh colors.
+
+  A few spec points should be fixed before implementation:
+
+  1. Where these palettes apply
+     My assumption:
+
+  - they should be available anywhere the current fractal palette dropdown is used, including /explorer
+
+  2. How many colors
+     I recommend:
+
+  - 8 palettes:
+      - red
+      - orange
+      - yellow
+      - lime
+      - green
+      - cyan
+      - blue
+      - magenta
+
+  That is enough variety without cluttering the palette list.
+
+  3. Exact pattern
+     I recommend:
+
+  - 6 stops per palette:
+      - color, black, color, black, color, black
+
+  That gives a clear striped effect for linear/log/cyclic mappings.
+
+  4. Black vs near-black
+     I recommend:
+
+  - use true black #000
+    for maximum contrast unless you want theme-aware dark alternation instead.
+
+  5. Naming
+     I recommend labels like:
+
+  - Candy Red
+  - Candy Orange
+  - Candy Yellow
+  - Candy Lime
+  - Candy Green
+  - Candy Cyan
+  - Candy Blue
+  - Candy Magenta
+
+  If you want more literal naming:
+
+  - Red / Black
+  - Orange / Black
+  - etc.
+
+  My recommendation:
+
+  - use 8 palettes
+  - true black alternating stops
+  - labels as Red / Black, Orange / Black, etc.
+
+  If that matches what you want, I can implement it.
+```
+
+
+your recommendation is excellent. please make it so.
+
+
+
+
+--
+
+can i haz high precision? double instead of float? what limits us from moar zoom?
 
 please add quality presets:
 

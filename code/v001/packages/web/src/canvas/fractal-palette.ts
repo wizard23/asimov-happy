@@ -81,6 +81,21 @@ const CUSTOM_PALETTES: FractalPaletteDefinition[] = [
   },
 ];
 
+const ALTERNATING_BLACK_PALETTE_COLORS: Array<{
+  id: string;
+  label: string;
+  color: RgbColor;
+}> = [
+  { id: "red-black", label: "Red / Black", color: { red: 255, green: 122, blue: 161 } },
+  { id: "orange-black", label: "Orange / Black", color: { red: 255, green: 140, blue: 0 } },
+  { id: "yellow-black", label: "Yellow / Black", color: { red: 255, green: 255, blue: 0 } },
+  { id: "lime-black", label: "Lime / Black", color: { red: 200, green: 255, blue: 0 } },
+  { id: "green-black", label: "Green / Black", color: { red: 122, green: 230, blue: 171 } },
+  { id: "cyan-black", label: "Cyan / Black", color: { red: 0, green: 227, blue: 233 } },
+  { id: "blue-black", label: "Blue / Black", color: { red: 10, green: 80, blue: 255 } },
+  { id: "magenta-black", label: "Magenta / Black", color: { red: 232, green: 0, blue: 255 } },
+];
+
 export const DEFAULT_FRACTAL_PALETTE_ID: FractalPaletteId = "ember";
 export const DEFAULT_PALETTE_MAPPING_MODE: PaletteMappingMode = "logarithmic";
 export const DEFAULT_PALETTE_CYCLES = 6;
@@ -179,8 +194,29 @@ function createThemePalette(theme: ThemeDefinition): FractalPaletteDefinition {
   };
 }
 
+function createAlternatingBlackPalette(id: string, label: string, color: RgbColor): FractalPaletteDefinition {
+  const black = { red: 0, green: 0, blue: 0 };
+  return {
+    id,
+    label,
+    background: black,
+    interior: black,
+    stops: [
+      { position: 0, color },
+      { position: 0.2, color: black },
+      { position: 0.4, color },
+      { position: 0.6, color: black },
+      { position: 0.8, color },
+      { position: 1, color: black },
+    ],
+  };
+}
+
 const FRACTAL_PALETTES: FractalPaletteDefinition[] = [
   ...CUSTOM_PALETTES,
+  ...ALTERNATING_BLACK_PALETTE_COLORS.map((palette) =>
+    createAlternatingBlackPalette(palette.id, palette.label, palette.color),
+  ),
   ...THEME_DEFINITIONS.map((theme) => createThemePalette(theme)),
 ];
 
