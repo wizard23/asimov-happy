@@ -1828,6 +1828,14 @@ function App(): preact.JSX.Element {
             <NavLink href="/gui-settings" currentRoute={route}>
               GUI Settings
             </NavLink>
+            <a
+              className="nav-link"
+              href="https://github.com/wizard23/asimov-happy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
           </nav>
         </header>
       ) : null}
