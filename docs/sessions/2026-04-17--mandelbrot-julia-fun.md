@@ -2695,3 +2695,68 @@ please fix it. Use the headless browser if needed.
   - npm run lint passed
   - headless Chromium with WebGL now renders the zen explorer correctly again
 ```
+
+Some improvements:
+Next to the complex coordinate in the top left corner ther should also be the zoom level. How is the zoom level stored? 
+The selected point in the mandelbrot should alo be shown in the julia set. So please show the red or blue marking there as well
+Please make ure we plan this before changing anything.
+
+```
+• Yes, this is clear enough to plan.
+
+  Current state:
+
+  - Zoom level is not stored as its own number anywhere.
+  - Each canvas stores a local viewport:
+      - Mandelbrot: ComplexBounds in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+      - Julia: JuliaViewport in code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - So “zoom level” is derived from the current viewport span versus the default viewport span. It is not persisted separately.
+
+  Recommended spec:
+
+  - Show zoom level in the top-left overlay on both canvases, next to the complex coordinate.
+  - Format: <complex coordinate> · <zoom>x
+  - Zoom computation:
+      - Mandelbrot: defaultViewportHeight / currentViewportHeight
+      - Julia: defaultViewportHeight / currentViewportHeight
+  - This is the cleanest because both canvases already preserve aspect ratio, so width- or height-based zoom are equivalent.
+
+  Julia marker behavior:
+
+  - Keep current Mandelbrot marker behavior:
+      - red = last clicked point
+      - blue = live preview point when active differs from clicked point
+  - Add the same marker logic to the Julia canvas.
+  - The marker position in Julia should use the same complex coordinate value as the Mandelbrot selection/live point, mapped into the Julia viewport.
+  - If the point is outside the current Julia viewport, do not render the marker.
+  - If live preview is off, only show the red selected marker.
+  - If live preview is on and hover differs from selected:
+      - red marker = selected point
+      - blue marker = active hover point
+
+  Implementation plan:
+
+  1. Add a small zoom formatter helper in each canvas, derived from local viewport state.
+  2. Update the existing top-left overlay text in both canvases to include zoom.
+  3. Add Julia-side relative-position mapping for selected and active points, parallel to Mandelbrot.
+  4. Render red/blue crosshair markers on the Julia canvas the same way Mandelbrot does, but clipped to the Julia viewport.
+  5. Verify:
+
+  - normal mode
+  - zen mode
+  - live preview on/off
+  - Julia panned away so marker goes out of view
+
+  One small assumption I’m making:
+
+  - zoom should be shown on both canvases, not just Mandelbrot.
+    That matches the current UI structure best. If that’s what you want, I can implement it.
+```
+
+yes, please make it so.
+
+
+please add quality presets:
+
+low:
+iterations for mandelbrot and julia: 200

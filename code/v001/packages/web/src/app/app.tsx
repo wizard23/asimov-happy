@@ -853,6 +853,7 @@ function ExplorerWorkspace(props: {
             <h3>Julia Set</h3>
             <JuliaViewerCanvas
               parameter={activeParameter}
+              selectedParameter={selectedParameter}
               iterations={juliaIterations}
               palette={palette}
               paletteMappingMode={paletteMappingMode}

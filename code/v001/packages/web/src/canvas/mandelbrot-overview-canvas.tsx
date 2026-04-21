@@ -51,6 +51,12 @@ function formatComplex(parameter: ComplexParameter | null): string {
   return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
 }
 
+function formatZoomLevel(viewport: ComplexBounds): string {
+  const zoom = getComplexBoundsHeight(DEFAULT_MANDELBROT_VIEWPORT) / getComplexBoundsHeight(viewport);
+  const digits = zoom >= 100 ? 0 : zoom >= 10 ? 1 : 2;
+  return `${zoom.toFixed(digits)}x`;
+}
+
 function mapToRelativePosition(
   parameter: ComplexParameter,
   viewport: ComplexBounds,
@@ -199,6 +205,7 @@ export function MandelbrotOverviewCanvas(props: {
     return mapToRelativePosition(props.parameter, viewport);
   }, [props.parameter, selectedParameter, viewport]);
   const overlayLabel = hoveredParameter ?? props.parameter;
+  const overlayText = `${formatComplex(overlayLabel)} \u00b7 ${formatZoomLevel(viewport)}`;
 
   useEffect(() => {
     onHoverParameterRef.current = props.onHoverParameter;
@@ -537,7 +544,7 @@ export function MandelbrotOverviewCanvas(props: {
       className="canvas-frame canvas-frame--mandelbrot"
       style={props.frameStyle}
     >
-      <div className="canvas-overlay">{formatComplex(overlayLabel)}</div>
+      <div className="canvas-overlay">{overlayText}</div>
       <div
         className="canvas-stage"
         style={{

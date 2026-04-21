@@ -4,6 +4,7 @@ import {
   type ComplexParameter,
   type JuliaViewport,
 } from "@asimov/minimal-shared";
+import crosshairUrl from "../assets/noun-crosshair-59595.svg";
 import {
   getPaletteCssBackground,
   type FractalPaletteId,
@@ -44,6 +45,29 @@ function formatComplex(parameter: ComplexParameter | null): string {
   }
 
   return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
+}
+
+function formatZoomLevel(viewport: JuliaViewport): string {
+  const zoom = getViewportHeight(JULIA_VIEWPORT) / getViewportHeight(viewport);
+  const digits = zoom >= 100 ? 0 : zoom >= 10 ? 1 : 2;
+  return `${zoom.toFixed(digits)}x`;
+}
+
+function mapToRelativePosition(
+  parameter: ComplexParameter,
+  viewport: JuliaViewport,
+): { left: string; top: string } | null {
+  const normalizedX = (parameter.real - viewport.minReal) / getViewportWidth(viewport);
+  const normalizedY = (viewport.maxImaginary - parameter.imaginary) / getViewportHeight(viewport);
+
+  if (normalizedX < 0 || normalizedX > 1 || normalizedY < 0 || normalizedY > 1) {
+    return null;
+  }
+
+  return {
+    left: `${normalizedX * 100}%`,
+    top: `${normalizedY * 100}%`,
+  };
 }
 
 function mapPointToCoordinate(
@@ -112,6 +136,7 @@ function getStagePoint(
 
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
+  selectedParameter?: ComplexParameter | null;
   iterations: number;
   palette: FractalPaletteId;
   paletteMappingMode?: PaletteMappingMode;
@@ -153,6 +178,24 @@ export function JuliaViewerCanvas(props: {
     [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
+  const selectedParameter = props.selectedParameter ?? props.parameter;
+  const selectedCrosshairPosition = useMemo(
+    () => (selectedParameter ? mapToRelativePosition(selectedParameter, viewport) : null),
+    [selectedParameter, viewport],
+  );
+  const liveCrosshairPosition = useMemo(() => {
+    if (
+      !props.parameter ||
+      (selectedParameter &&
+        props.parameter.real === selectedParameter.real &&
+        props.parameter.imaginary === selectedParameter.imaginary)
+    ) {
+      return null;
+    }
+
+    return mapToRelativePosition(props.parameter, viewport);
+  }, [props.parameter, selectedParameter, viewport]);
+  const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}`;
 
   useEffect(() => {
     viewportRef.current = viewport;
@@ -444,7 +487,7 @@ export function JuliaViewerCanvas(props: {
       className="canvas-frame canvas-frame--viewer"
       style={props.frameStyle}
     >
-      <div className="canvas-overlay">{formatComplex(props.parameter)}</div>
+      <div className="canvas-overlay">{overlayText}</div>
       <div
         className="canvas-stage"
         style={{
@@ -465,6 +508,28 @@ export function JuliaViewerCanvas(props: {
           width={canvasResolution.renderWidth}
           height={canvasResolution.renderHeight}
         />
+        {selectedCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--selected"
+            src={crosshairUrl}
+            alt="Selected Julia parameter in the Julia set"
+            style={{
+              left: selectedCrosshairPosition.left,
+              top: selectedCrosshairPosition.top,
+            }}
+          />
+        ) : null}
+        {liveCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--live"
+            src={crosshairUrl}
+            alt="Live preview Julia parameter in the Julia set"
+            style={{
+              left: liveCrosshairPosition.left,
+              top: liveCrosshairPosition.top,
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );
