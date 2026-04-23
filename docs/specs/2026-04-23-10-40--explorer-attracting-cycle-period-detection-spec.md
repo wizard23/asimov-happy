@@ -69,6 +69,8 @@ Add a new advanced settings section at the end of the left-side parameter contro
 
 - section label:
   - `Advanced Settings`
+- default state:
+  - collapsed
 
 Within that section, add a dedicated subsection:
 
@@ -82,6 +84,15 @@ Required controls:
 - `Show Attracting Period`
 - `Period Detection Steps`
 - `Max Detected Period`
+
+Control behavior:
+
+- `Show Attracting Period`
+  - always visible inside the `Period Detection` subsection
+- `Period Detection Steps`
+  - disabled unless `Show Attracting Period` is enabled
+- `Max Detected Period`
+  - disabled unless `Show Attracting Period` is enabled
 
 Default values:
 
@@ -98,13 +109,13 @@ Recommended ranges:
   - min `1`
   - max `512`
 
-Additional detector-tuning controls may also be placed in this subsection if they are exposed in the UI, for example:
+In v1, only these three controls are user-facing:
 
-- transient discard amount
-- tail window size
-- tolerance controls
+- `Show Attracting Period`
+- `Period Detection Steps`
+- `Max Detected Period`
 
-If those are not exposed in v1, they remain implementation parameters.
+Other detector-tuning parameters remain internal implementation parameters in v1.
 
 ## Display
 
@@ -265,6 +276,8 @@ The detector must work with:
 - click-select mode
 - Live Preview mode
 
+If `Show Attracting Period` is enabled, Live Preview must run period detection for the current active parameter as hover updates change it.
+
 Live Preview will trigger repeated recomputation, so the implementation should remain reasonably cheap at default settings.
 
 ## Relationship To Orbit Overlay
@@ -295,26 +308,88 @@ Suggested return shape:
 - `status: "detected" | "no-attracting-cycle" | "undetermined"`
 - `period?: number`
 
+## Fixed Internal Defaults For V1
+
+These values are implementation parameters in v1 and are not user-facing controls.
+
+### Transient discard
+
+Discard:
+
+- `max(32, floor(N * 0.5))`
+
+orbit points before period testing.
+
+### Tail window
+
+Use a tail-comparison window of:
+
+- `min(128, floor(N * 0.4))`
+
+comparisons.
+
+### Tolerance
+
+Use:
+
+- `epsilon = max(1e-12, 1e-8 * max(1, |z_n|, |z_(n-p)|))`
+
+where `|z|` is the complex magnitude.
+
+### Pass threshold
+
+A candidate period passes if at least:
+
+- `90%`
+
+of tested tail pairs satisfy:
+
+- `|z_n - z_(n-p)| < epsilon`
+
+### Minimal-period rule
+
+Return the smallest candidate period that passes.
+
+This prevents harmonics such as `6` from replacing a valid smaller period such as `3`.
+
+## Numerical Honesty
+
+This feature is a numerical detector for the attracting-cycle period.
+
+It is not a formal mathematical proof.
+
+That is especially important near:
+
+- slow-converging regions
+- neutral cycles
+- boundary regions
+
+In those cases, the correct output may be:
+
+- `period undetermined`
+
 ## Acceptance Criteria
 
 1. Explorer has an `Advanced Settings` section at the end of the left-side controls.
-2. Inside it, explorer has a `Period Detection` subsection.
-3. That subsection contains `Show Attracting Period`.
-4. That subsection contains numeric controls for `Period Detection Steps` and `Max Detected Period`.
-5. Default values are:
+2. `Advanced Settings` is collapsed by default.
+3. Inside it, explorer has a `Period Detection` subsection.
+4. That subsection contains `Show Attracting Period`.
+5. That subsection contains numeric controls for `Period Detection Steps` and `Max Detected Period`.
+6. `Period Detection Steps` and `Max Detected Period` are disabled unless `Show Attracting Period` is enabled.
+7. Default values are:
    - period display off
    - detection steps `512`
    - max period `128`
-6. When enabled, the Mandelbrot overlay shows:
+8. When enabled, the Mandelbrot overlay shows:
    - detected period
    - or `no attracting cycle`
    - or `period undetermined`
-7. Points outside the Mandelbrot set report `no attracting cycle`.
-8. Stable interior points with clear attracting cycles report the minimal detected period.
-9. Harmonics do not replace the minimal period when the smaller valid period is present.
-10. Live Preview updates period detection from the active parameter.
-11. The feature works whether or not `Show Orbit` is enabled.
-12. Build and lint pass after implementation.
+9. Points outside the Mandelbrot set report `no attracting cycle`.
+10. Stable interior points with clear attracting cycles report the minimal detected period.
+11. Harmonics do not replace the minimal period when the smaller valid period is present.
+12. If `Show Attracting Period` is enabled, Live Preview updates period detection from the active parameter.
+13. The feature works whether or not `Show Orbit` is enabled.
+14. Build and lint pass after implementation.
 
 ## Explicit Rejection Of The Original Heuristic
 
