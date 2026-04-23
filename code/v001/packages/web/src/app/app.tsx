@@ -490,8 +490,8 @@ function ExplorerWorkspace(props: {
   const [mandelbrotIterations, setMandelbrotIterations] = useState(10000);
   const [juliaIterations, setJuliaIterations] = useState(10000);
   const [showAttractingPeriod, setShowAttractingPeriod] = useState(false);
-  const [periodDetectionSteps, setPeriodDetectionSteps] = useState(512);
-  const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(128);
+  const [periodDetectionSteps, setPeriodDetectionSteps] = useState(10000);
+  const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(3000);
   const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
   const [isNarrowZenLayout, setIsNarrowZenLayout] = useState(false);
 
