@@ -246,6 +246,41 @@ a {
   font-size: 1rem;
 }
 
+.advanced-settings {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.advanced-settings__summary {
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+
+.advanced-settings__summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-settings__summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 120ms ease;
+}
+
+.advanced-settings[open] .advanced-settings__summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced-settings__section {
+  margin-top: 16px;
+}
+
+.advanced-settings__heading {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+}
+
 .field {
   display: grid;
   gap: 6px;

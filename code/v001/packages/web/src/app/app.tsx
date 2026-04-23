@@ -40,6 +40,7 @@ import {
   type ExplorerRendererId,
 } from "../canvas/explorer-renderer.js";
 import { WEBGL_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-renderer.js";
+import { detectMandelbrotAttractingCyclePeriod } from "../canvas/orbit-period.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import {
   APP_THEME_STORAGE_KEY,
@@ -234,6 +235,17 @@ function formatComplexParameter(parameter: ComplexParameter | null): string {
   }
 
   return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
+}
+
+function getAttractingPeriodLabel(result: ReturnType<typeof detectMandelbrotAttractingCyclePeriod>): string {
+  switch (result.status) {
+    case "detected":
+      return `period ${result.period}`;
+    case "no-attracting-cycle":
+      return "no attracting cycle";
+    case "undetermined":
+      return "period undetermined";
+  }
 }
 
 function getPerformanceMode(settings: AppSettings): PerformanceMode {
@@ -475,8 +487,11 @@ function ExplorerWorkspace(props: {
   const [paletteMappingMode, setPaletteMappingMode] =
     useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
   const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
-  const [mandelbrotIterations, setMandelbrotIterations] = useState(1000);
-  const [juliaIterations, setJuliaIterations] = useState(1000);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(10000);
+  const [juliaIterations, setJuliaIterations] = useState(10000);
+  const [showAttractingPeriod, setShowAttractingPeriod] = useState(false);
+  const [periodDetectionSteps, setPeriodDetectionSteps] = useState(512);
+  const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(128);
   const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
   const [isNarrowZenLayout, setIsNarrowZenLayout] = useState(false);
 
@@ -489,6 +504,15 @@ function ExplorerWorkspace(props: {
   const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
+  const attractingPeriodLabel = useMemo(() => {
+    if (!showAttractingPeriod) {
+      return null;
+    }
+
+    return getAttractingPeriodLabel(
+      detectMandelbrotAttractingCyclePeriod(activeParameter, periodDetectionSteps, maxDetectedPeriod),
+    );
+  }, [activeParameter, maxDetectedPeriod, periodDetectionSteps, showAttractingPeriod]);
 
   useEffect(() => {
     window.localStorage.setItem(EXPLORER_RENDERER_STORAGE_KEY, requestedRenderer);
@@ -715,6 +739,38 @@ function ExplorerWorkspace(props: {
             </button>
           </div>
         </section>
+
+        <details className="group advanced-settings">
+          <summary className="advanced-settings__summary">Advanced Settings</summary>
+          <section className="advanced-settings__section">
+            <h3 className="advanced-settings__heading">Period Detection</h3>
+            <Field label="Show Attracting Period">
+              <input
+                type="checkbox"
+                checked={showAttractingPeriod}
+                onInput={(event) => setShowAttractingPeriod(event.currentTarget.checked)}
+              />
+            </Field>
+            <Field label="Period Detection Steps">
+              <NumberInput
+                value={periodDetectionSteps}
+                min={64}
+                max={8192}
+                disabled={!showAttractingPeriod}
+                onChange={setPeriodDetectionSteps}
+              />
+            </Field>
+            <Field label="Max Detected Period">
+              <NumberInput
+                value={maxDetectedPeriod}
+                min={1}
+                max={512}
+                disabled={!showAttractingPeriod}
+                onChange={setMaxDetectedPeriod}
+              />
+            </Field>
+          </section>
+        </details>
       </aside>
 
       <main
@@ -806,6 +862,7 @@ function ExplorerWorkspace(props: {
               paletteCycles={paletteCycles}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
+              attractingPeriodLabel={attractingPeriodLabel}
             />
             <p className="detail">
               Hover to inspect coordinates, drag to pan, scroll to zoom, click to choose `c`.

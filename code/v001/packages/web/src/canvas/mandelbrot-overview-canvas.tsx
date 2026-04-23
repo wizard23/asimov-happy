@@ -151,6 +151,7 @@ export function MandelbrotOverviewCanvas(props: {
   paletteCycles?: number;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
+  attractingPeriodLabel?: string | null;
   frameStyle?: preact.JSX.CSSProperties;
 }): preact.JSX.Element {
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -205,7 +206,9 @@ export function MandelbrotOverviewCanvas(props: {
     return mapToRelativePosition(props.parameter, viewport);
   }, [props.parameter, selectedParameter, viewport]);
   const overlayLabel = hoveredParameter ?? props.parameter;
-  const overlayText = `${formatComplex(overlayLabel)} \u00b7 ${formatZoomLevel(viewport)}`;
+  const overlayText = `${formatComplex(overlayLabel)} \u00b7 ${formatZoomLevel(viewport)}${
+    props.attractingPeriodLabel ? ` \u00b7 ${props.attractingPeriodLabel}` : ""
+  }`;
 
   useEffect(() => {
     onHoverParameterRef.current = props.onHoverParameter;
