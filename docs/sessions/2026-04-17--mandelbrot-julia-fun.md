@@ -3171,7 +3171,611 @@ In docs/explain please put a technical analysis of what exactly gets calculated 
 
 --
 
-can i haz high precision? double instead of float? what limits us from moar zoom?
+can we get more floating point precision? double instead of float? what limits us from a deeper zoom level?
+
+```
+• Yes on CPU, no on the current GPU path.
+
+  In this codebase:
+
+  - CPU-side math already uses JavaScript Number, which is IEEE-754 double precision.
+  - WebGL shader math uses highp float, which is still float precision, not double, in code/v001/packages/web/src/canvas/explorer-webgl-
+    renderer.ts:16.
+
+  So “switch to double instead of float” is not really available as a simple upgrade:
+
+  - CPU path: already double
+  - WebGL path: no double-precision fractal math in the current renderer
+
+  What currently limits deeper zoom is mainly the viewport precision clamp in the UI math, not an arbitrary zoom cap anymore. Both Mandelbrot and
+  Julia compute a minimum viewport span from Number.EPSILON, the viewport center magnitude, display size, and a safety factor in:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:83
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:85
+
+  The key idea is:
+
+  - each screen pixel needs a distinct complex-plane coordinate
+  - once the viewport span gets close to machine epsilon at the current center, adjacent pixels collapse onto the same representable numbers
+  - after that, zooming deeper stops being meaningful and starts producing numerical garbage
+
+  So the real limits are:
+
+  1. CPU arithmetic precision
+  - Already double precision.
+  - The limit comes from finite Number precision, especially subtraction/addition around a large center with a tiny viewport span.
+
+  2. WebGL precision
+
+  - The shader is float precision only.
+  - Even if the UI allowed deeper zoom, WebGL would lose meaningful coordinate resolution much earlier than the CPU path.
+
+  3. Coordinate mapping itself
+
+  - Every pixel coordinate is produced from viewport endpoints and normalized pixel position.
+  - At deep zoom, tiny differences between neighboring pixels can fall below representable precision.
+  - That is exactly what the Number.EPSILON clamp is protecting against.
+
+  4. Iteration count is separate
+
+  - More iterations help reveal more detail at deep zoom.
+  - They do not solve coordinate precision loss.
+  - So raising iterations alone will not let you zoom meaningfully deeper once coordinates stop resolving.
+
+  So the short answer is:
+
+  - CPU already is double.
+  - The current deep-zoom limit is mostly the precision-aware clamp based on Number.EPSILON.
+  - WebGL is more limited than CPU because it is still float-based.
+  - To go significantly deeper than this, you need a different numerical approach, not just “more iterations” or “flip a precision flag.”
+
+  What would actually enable much deeper zoom:
+
+  - arbitrary-precision / big-number coordinates on CPU
+  - perturbation / series approximation methods
+  - reference-orbit deep zoom techniques
+  - a renderer architecture designed around extended precision, not plain JS doubles or WebGL floats
+
+  So the main blocker is numerical representation of coordinates, not raw rendering speed.
+```
+
+does webgl support double precision in principle?
+
+```
+
+• In principle: not in the way you want for this app.
+
+  Short version:
+
+  - WebGL does not provide normal GLSL double support like desktop OpenGL.
+  - In WebGL shaders, you generally work with float, not true double.
+  - So you cannot just change float to double in the current fragment shader and get deep-zoom precision.
+
+  What is available in practice:
+
+  - highp float in shaders
+  - emulated higher precision using two floats
+      - sometimes called double-single or float-float arithmetic
+  - CPU-side splitting of coordinates into high/low parts and reconstructing them in shader math
+
+  So:
+
+  - true native double precision: effectively no for WebGL
+  - emulated higher precision: yes, but it is more complex and slower
+
+  For this codebase, if you wanted deeper zoom with WebGL, the realistic path would be:
+
+  - keep the viewport/reference math on CPU in double precision
+  - send high/low split values to the shader
+  - use compensated arithmetic in shader code
+
+  But that is still not the same as native doubles, and it is much more involved than the current renderer.
+```
+
+
+Explain how one could implement addition and multiplication (which is what we need for the fractals) with two floats to emulate higher precision?
+
+
+```
+• Use a hi + lo representation.
+
+  Each number is stored as two floats:
+
+  - x = x_hi + x_lo
+  - x_hi holds the main value
+  - x_lo holds the rounding error / residual
+
+  This is often called double-single arithmetic.
+
+  ## Representation
+
+  A value x becomes:
+
+  x ≈ x_hi + x_lo
+
+  with:
+
+  - x_hi = nearest float approximation
+  - x_lo = leftover small correction
+
+  The goal is to keep:
+
+  - |x_lo| << |x_hi|
+
+  ## Addition
+
+  To add two double-single values:
+
+  a = a_hi + a_lo
+  b = b_hi + b_lo
+
+  compute:
+
+  s = a_hi + b_hi
+  e = (a_hi - s + b_hi) + b_lo + a_lo
+  result_hi = s + e
+  result_lo = e - (result_hi - s)
+
+  A more standard route is to use two_sum.
+
+  ### two_sum
+
+  For ordinary floats a, b:
+
+  s = a + b
+  bb = s - a
+  err = (a - (s - bb)) + (b - bb)
+
+  Then:
+
+  a + b = s + err
+
+  So double-single add becomes:
+
+  1. sum high parts with two_sum
+  2. add low parts and carry terms
+  3. renormalize back into hi + lo
+
+  Pseudo:
+
+  (s, e) = two_sum(a_hi, b_hi)
+  t = a_lo + b_lo
+  (u, v) = two_sum(s, e + t)
+  result = normalize(u, v)
+
+  ## Multiplication
+
+  For multiplication, use a two_prod style split.
+
+  We want:
+
+  a * b = p + err
+
+  where p is the float product and err is the residual.
+
+  ### two_prod
+
+  If FMA were available, this is easy:
+
+  p = a * b
+  err = fma(a, b, -p)
+
+  But in WebGL you usually do not rely on FMA, so use Dekker splitting.
+
+  ### Split one float
+
+  Choose a splitter constant:
+
+  split = 2^13 + 1 = 8193
+
+  for 24-bit float mantissa.
+
+  Then:
+
+  c = split * a
+  a_hi = c - (c - a)
+  a_lo = a - a_hi
+
+  Do same for b.
+
+  Now:
+
+  p = a * b
+  err = ((a_hi*b_hi - p) + a_hi*b_lo + a_lo*b_hi) + a_lo*b_lo
+
+  So:
+
+  a * b = p + err
+
+  ### Double-single multiply
+
+  For:
+
+  a = a_hi + a_lo
+  b = b_hi + b_lo
+
+  compute:
+
+  1. (p, e) = two_prod(a_hi, b_hi)
+  2. add cross terms:
+
+     e += a_hi*b_lo + a_lo*b_hi
+  3. usually ignore a_lo*b_lo or include it if needed
+  4. renormalize:
+
+     result_hi = p + e
+     result_lo = e - (result_hi - p)
+
+  ## Renormalization
+
+  After add/mul, restore the number to clean hi + lo form:
+
+  hi = a + b
+  lo = b - (hi - a)
+
+  This keeps the representation stable.
+
+  ## For fractals
+
+  You need:
+
+  - addition
+  - subtraction
+  - multiplication
+
+  Subtraction is just addition with negation.
+
+  For Mandelbrot/Julia:
+
+  z_{n+1} = z^2 + c
+
+  with:
+
+  z = x + iy
+  z^2 = (x^2 - y^2) + i(2xy)
+
+  So each iteration needs:
+
+  - x*x
+  - y*y
+  - x*y
+  - adds/subtracts
+
+  Each of those would be done in double-single form.
+
+  ## Example structure in shader terms
+
+
+  vec2 ds; // x = ds.x + ds.y
+
+  Then define:
+
+  vec2 ds_add(vec2 a, vec2 b)
+  vec2 ds_sub(vec2 a, vec2 b)
+  vec2 ds_mul(vec2 a, vec2 b)
+
+  and complex numbers as:
+
+  struct DSComplex {
+    vec2 real;
+    vec2 imag;
+  };
+
+  Then Mandelbrot/Julia iteration becomes:
+
+  real2 = ds_sub(ds_mul(z.real, z.real), ds_mul(z.imag, z.imag));
+  imag2 = ds_mul(ds_add(z.real, z.real), z.imag);
+  z.real = ds_add(real2, c.real);
+  z.imag = ds_add(imag2, c.imag);
+
+  ## Practical caveats
+
+  This gives more precision than one float, but:
+
+  - it is much slower
+  - shader code gets much more complex
+  - accuracy is still below true IEEE double
+  - you must also pass viewport coordinates as high/low split values from CPU
+
+  So this is viable, but it is a serious renderer rewrite, not a small tweak.
+
+  If you want, I can next write the exact GLSL-style ds_add / ds_mul functions you’d use in this project.
+```
+
+how about webgpu?
+
+
+```
+• Better than WebGL structurally, but still not a simple “use doubles” answer.
+
+  Short version:
+
+  - WebGPU gives you a much better compute/render platform than WebGL.
+  - But native shader f64 support is not something you can assume in browsers.
+  - So for a browser fractal explorer, WebGPU mainly helps with architecture and performance, not guaranteed true double precision.
+
+  ## What WebGPU improves
+
+  Compared with WebGL, WebGPU gives you:
+
+  - compute shaders
+  - better buffer/control flow
+  - cleaner multi-pass pipelines
+  - easier implementation of advanced deep-zoom techniques
+  - better fit for tiled / perturbation / reference-orbit methods
+
+  So if the goal is deep zoom, WebGPU is a much better foundation.
+
+  ## What about doubles
+
+  In principle:
+
+  - WGSL has f32
+  - f16 exists optionally
+  - true f64 is not the normal portable path you can rely on across browsers/devices
+
+  So for practical browser deployment:
+
+  - do not assume native double precision in WebGPU shaders
+  - treat any f64 story as non-portable / experimental unless you verify a very specific environment
+
+  ## What this means in practice
+
+  With WebGPU, you still usually choose one of these:
+
+  1. f32 only
+
+  - simple
+  - fastest
+  - not enough for deep zoom
+
+  2. emulated higher precision
+
+  - float-float / double-single in shader code
+  - similar idea to WebGL, but easier to organize in WebGPU
+
+  3. perturbation-based deep zoom
+
+  - compute one high-precision reference orbit on CPU
+  - let GPU compute per-pixel deltas in lower precision
+  - this is the serious deep-zoom approach
+
+  ## Why WebGPU is still attractive
+
+  Even without native doubles, WebGPU is much better for:
+
+  - splitting work into tiles
+  - using compute passes
+  - storing orbit/reference data in buffers
+  - doing multipass refinement
+  - mixing CPU high-precision math with GPU bulk pixel work
+
+  That makes it a much more realistic target for deep Mandelbrot zoom than WebGL.
+
+  ## Bottom line
+
+  - WebGPU does not magically solve precision by giving you portable native doubles.
+  - It does give you a much better platform to implement high-precision techniques.
+  - For real deep zoom in the browser, the best path is likely:
+      - CPU high-precision reference calculations
+      - WebGPU for bulk per-pixel delta evaluation and coloring
+
+  So:
+
+  - WebGL: awkward for deep zoom
+  - WebGPU: promising, but still needs advanced numerics
+  - native browser doubles in shaders: not something to count on
+```
+
+what about a general algorithm to use n floats to get even higher precision?
+
+```
+• Yes. Generalize hi + lo to an expansion:
+
+  x = x0 + x1 + x2 + ... + x(n-1)
+
+  where each term is a float, ordered from largest to smallest magnitude.
+
+  This is usually called:
+
+  - floating-point expansion arithmetic
+  - unevaluated sums
+  - multi-component precision
+
+  ## Core idea
+
+  Instead of storing one number as:
+
+  - one float
+    or
+  - two floats
+
+  store it as n floats.
+
+  Example:
+
+  x ≈ x[0] + x[1] + x[2] + ... + x[n-1]
+
+  with:
+
+  - x[0] = main value
+  - later terms = progressively smaller residuals
+
+  If maintained properly, this gives much higher effective precision.
+
+  ## Building blocks
+
+  The general algorithm relies on error-free transforms for ordinary float operations:
+
+  - two_sum(a, b) -> (s, e)
+    where a + b = s + e
+  - two_prod(a, b) -> (p, e)
+    where a * b = p + e
+
+  These let you take one float operation and retain the rounding error explicitly.
+
+  ## Addition with n floats
+
+  Suppose:
+
+  a = Σ a[i]
+  b = Σ b[i]
+
+  A generic way to add them:
+
+  1. concatenate all terms:
+
+  [a0, a1, ..., an-1, b0, b1, ..., bn-1]
+
+  2. repeatedly merge with two_sum
+  3. collect the errors
+  4. renormalize back to n ordered components
+
+  Conceptually:
+
+  terms = all components of a and b
+  for each incoming term t:
+    insert t into accumulator using two_sum cascades
+  compress / renormalize
+  truncate or keep first n terms
+
+  This is often implemented as:
+
+  - grow-expansion
+  - expansion-sum
+  - fast-expansion-sum
+
+  ## Multiplication with n floats
+
+  For multiplication:
+
+  a * b = (Σ a[i]) * (Σ b[j]) = ΣΣ a[i] * b[j]
+
+  So:
+
+  1. compute all pairwise products a[i] * b[j]
+  2. each product gives two terms via two_prod
+  3. accumulate all resulting terms into a large expansion
+  4. renormalize back down to n floats
+
+  This is effectively convolution plus exact error tracking.
+
+  ## Renormalization
+
+  This is the critical step.
+
+  After add/mul, you may temporarily have many more than n terms.
+  Renormalization:
+
+  - sorts/merges terms by magnitude
+  - uses two_sum to push overlap downward
+  - restores a non-overlapping ordered expansion
+
+  Then you either:
+
+  - keep all terms
+    or
+  - truncate to n terms for fixed precision
+
+  Without good renormalization, the expansion degrades quickly.
+
+  ## Precision growth
+
+  Very roughly:
+
+  - 1 float -> ~24 bits mantissa
+  - 2 floats -> ~48 bits effective
+  - 3 floats -> ~72 bits
+  - 4 floats -> ~96 bits
+
+  Not exact, but that is the intuition.
+
+  So yes, in principle you can push precision arbitrarily high by increasing n.
+
+  ## Cost
+
+  The cost grows fast.
+
+  Addition:
+
+  - roughly O(n) to O(n^2) depending on algorithm quality
+
+  Multiplication:
+
+  - naive pairwise products are O(n^2)
+
+  For fractals, each iteration needs several multiplications and additions, so total cost becomes large quickly.
+
+  ## For Mandelbrot / Julia
+
+  Represent each real coordinate as an expansion:
+
+  x = [x0, x1, ..., x(n-1)]
+
+  A complex number becomes two expansions:
+
+  z = (x_expansion, y_expansion)
+
+  Each iteration:
+
+  x' = x*x - y*y + c_re
+  y' = 2*x*y + c_im
+
+  with all operations performed on expansions.
+
+  So yes, the method generalizes naturally.
+
+  ## Practical strategy
+
+  There are three useful levels:
+
+  1. n = 2
+
+  - double-single
+  - often practical in shaders
+
+  2. n = 4
+
+  - quad-single style
+  - much slower, but deeper zoom possible
+
+  3. arbitrary n
+
+  - best on CPU
+  - expensive in shaders
+  - useful for reference orbits
+
+  ## Best real-world use
+
+  For deep fractals, the best approach is usually not:
+
+  - render every pixel with very large n
+
+  Instead:
+
+  1. compute a high-precision reference orbit using large n on CPU
+  2. use perturbation for nearby pixels
+  3. use GPU for bulk pixel evaluation
+
+  That gives much better performance than full arbitrary-precision arithmetic per pixel.
+
+  ## Bottom line
+
+  Yes:
+
+  - there is a general algorithmic family for using n floats to get higher precision
+  - represent numbers as floating-point expansions
+  - use error-free transforms like two_sum and two_prod
+  - renormalize after operations
+  - cost grows quickly, especially for multiplication
+
+  So it is mathematically clean and scalable, but for fractal rendering the practical limit is performance, not the existence of the algorithm.
+
+  If you want, I can next show:
+
+  - pseudocode for n-float expansion addition/multiplication
+  - or how to specialize it for Mandelbrot iteration.
+```
 
 please add quality presets:
 
