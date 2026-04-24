@@ -43,6 +43,17 @@ interface DragState {
   viewportAtStart: ComplexBounds;
 }
 
+interface PointerSample {
+  x: number;
+  y: number;
+  pointerType: string;
+}
+
+interface PinchState {
+  initialDistance: number;
+  viewportAtStart: ComplexBounds;
+}
+
 function formatComplex(parameter: ComplexParameter | null): string {
   if (!parameter) {
     return "n/a";
@@ -122,7 +133,7 @@ function getStagePoint(
   frame: HTMLElement,
   displayWidth: number,
   displayHeight: number,
-  event: MouseEvent | WheelEvent,
+  event: { clientX: number; clientY: number },
 ): { x: number; y: number } {
   const rect = frame.getBoundingClientRect();
   const horizontalInset = (rect.width - displayWidth) / 2;
@@ -158,6 +169,8 @@ export function MandelbrotOverviewCanvas(props: {
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const activePointersRef = useRef<Map<number, PointerSample>>(new Map());
+  const pinchStateRef = useRef<PinchState | null>(null);
   const displaySizeRef = useRef({
     width: MANDELBROT_FALLBACK_WIDTH,
     height: MANDELBROT_FALLBACK_HEIGHT,
@@ -381,27 +394,15 @@ export function MandelbrotOverviewCanvas(props: {
       onHoverParameterRef.current(parameter);
     }
 
-    function handleMove(event: MouseEvent): void {
-      const frame = frameRef.current;
-      if (!frame) {
-        return;
+    function getTwoPointerSamples(): [PointerSample, PointerSample] | null {
+      const pointerEntries = [...activePointersRef.current.values()];
+      if (pointerEntries.length < 2) {
+        return null;
       }
+      return [pointerEntries[0]!, pointerEntries[1]!];
+    }
 
-      const point = getStagePoint(
-        frame,
-        displaySizeRef.current.width,
-        displaySizeRef.current.height,
-        event,
-      );
-      const parameter = mapPointToParameter(
-        point.x,
-        point.y,
-        displaySizeRef.current.width,
-        displaySizeRef.current.height,
-        viewportRef.current,
-      );
-      updateHover(parameter);
-
+    function updatePanFromPoint(point: { x: number; y: number }): void {
       const dragState = dragStateRef.current;
       if (!dragState) {
         return;
@@ -423,14 +424,94 @@ export function MandelbrotOverviewCanvas(props: {
       markInteractiveQuality();
     }
 
-    function handleLeave(): void {
-      if (!dragStateRef.current) {
+    function updatePinchViewport(): void {
+      const pinchState = pinchStateRef.current;
+      const pointers = getTwoPointerSamples();
+      if (!pinchState || !pointers) {
+        return;
+      }
+
+      const [first, second] = pointers;
+      const midpoint = {
+        x: (first.x + second.x) / 2,
+        y: (first.y + second.y) / 2,
+      };
+      const currentDistance = Math.hypot(second.x - first.x, second.y - first.y);
+      if (currentDistance <= 0) {
+        return;
+      }
+
+      const anchor = mapPointToParameter(
+        midpoint.x,
+        midpoint.y,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        pinchState.viewportAtStart,
+      );
+      setViewport(
+        zoomViewport(
+          pinchState.viewportAtStart,
+          anchor,
+          pinchState.initialDistance / currentDistance,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+        ),
+      );
+      markInteractiveQuality();
+    }
+
+    function handlePointerMove(event: PointerEvent): void {
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
+      const existingPointer = activePointersRef.current.get(event.pointerId);
+      if (existingPointer) {
+        activePointersRef.current.set(event.pointerId, {
+          x: point.x,
+          y: point.y,
+          pointerType: event.pointerType,
+        });
+      }
+
+      if (event.pointerType === "mouse") {
+        const parameter = mapPointToParameter(
+          point.x,
+          point.y,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+          viewportRef.current,
+        );
+        updateHover(parameter);
+      }
+
+      if (pinchStateRef.current && activePointersRef.current.size >= 2) {
+        updatePinchViewport();
+        return;
+      }
+
+      if (!dragStateRef.current || activePointersRef.current.size !== 1) {
+        return;
+      }
+
+      updatePanFromPoint(point);
+    }
+
+    function handlePointerLeave(event: PointerEvent): void {
+      if (event.pointerType === "mouse" && !dragStateRef.current && !pinchStateRef.current) {
         updateHover(null);
       }
     }
 
-    function handleMouseDown(event: MouseEvent): void {
-      if (event.button !== 0) {
+    function handlePointerDown(event: PointerEvent): void {
+      if (event.button !== 0 || (event.pointerType !== "mouse" && event.pointerType !== "touch")) {
         return;
       }
 
@@ -445,17 +526,80 @@ export function MandelbrotOverviewCanvas(props: {
         displaySizeRef.current.height,
         event,
       );
-      dragStateRef.current = {
-        pointerStartX: point.x,
-        pointerStartY: point.y,
-        viewportAtStart: viewportRef.current,
-      };
-      activeCanvas.style.cursor = "grabbing";
+      activePointersRef.current.set(event.pointerId, {
+        x: point.x,
+        y: point.y,
+        pointerType: event.pointerType,
+      });
+      activeCanvas.setPointerCapture(event.pointerId);
+
+      if (activePointersRef.current.size >= 2) {
+        const pointers = getTwoPointerSamples();
+        if (pointers) {
+          const [first, second] = pointers;
+          pinchStateRef.current = {
+            initialDistance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+            viewportAtStart: viewportRef.current,
+          };
+          dragStateRef.current = null;
+          if (event.pointerType === "mouse") {
+            activeCanvas.style.cursor = "grabbing";
+          }
+        }
+      } else {
+        pinchStateRef.current = null;
+        dragStateRef.current = {
+          pointerStartX: point.x,
+          pointerStartY: point.y,
+          viewportAtStart: viewportRef.current,
+        };
+        if (event.pointerType === "mouse") {
+          activeCanvas.style.cursor = "grabbing";
+        }
+      }
       event.preventDefault();
     }
 
-    function handleMouseUp(event: MouseEvent): void {
-      if (dragStateRef.current && onSelectParameterRef.current && activeCanvas.contains(event.target as Node)) {
+    function handlePointerUp(event: PointerEvent): void {
+      const frame = frameRef.current;
+      const pointerCountBeforeRelease = activePointersRef.current.size;
+      const dragState = dragStateRef.current;
+      const shouldSelect =
+        pointerCountBeforeRelease === 1 &&
+        dragState !== null &&
+        event.pointerType !== "mouse" &&
+        Boolean(onSelectParameterRef.current) &&
+        frame !== null;
+
+      if (shouldSelect) {
+        const point = getStagePoint(
+          frame,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+          event,
+        );
+        const deltaX = point.x - dragState.pointerStartX;
+        const deltaY = point.y - dragState.pointerStartY;
+        const movedDistance = Math.hypot(deltaX, deltaY);
+
+        if (movedDistance <= 10) {
+          onSelectParameterRef.current!(
+            mapPointToParameter(
+              point.x,
+              point.y,
+              displaySizeRef.current.width,
+              displaySizeRef.current.height,
+              viewportRef.current,
+            ),
+          );
+        }
+      } else if (
+        pointerCountBeforeRelease === 1 &&
+        dragState &&
+        onSelectParameterRef.current &&
+        event.pointerType === "mouse" &&
+        activeCanvas.contains(event.target as Node)
+      ) {
         const frame = frameRef.current;
         if (!frame) {
           dragStateRef.current = null;
@@ -469,8 +613,8 @@ export function MandelbrotOverviewCanvas(props: {
           displaySizeRef.current.height,
           event,
         );
-        const deltaX = point.x - dragStateRef.current.pointerStartX;
-        const deltaY = point.y - dragStateRef.current.pointerStartY;
+        const deltaX = point.x - dragState.pointerStartX;
+        const deltaY = point.y - dragState.pointerStartY;
         const movedDistance = Math.hypot(deltaX, deltaY);
 
         if (movedDistance <= CLICK_SELECTION_THRESHOLD) {
@@ -486,7 +630,22 @@ export function MandelbrotOverviewCanvas(props: {
         }
       }
 
+      activePointersRef.current.delete(event.pointerId);
+      if (activeCanvas.hasPointerCapture(event.pointerId)) {
+        activeCanvas.releasePointerCapture(event.pointerId);
+      }
       dragStateRef.current = null;
+      pinchStateRef.current = null;
+      activeCanvas.style.cursor = "crosshair";
+    }
+
+    function handlePointerCancel(event: PointerEvent): void {
+      activePointersRef.current.delete(event.pointerId);
+      if (activeCanvas.hasPointerCapture(event.pointerId)) {
+        activeCanvas.releasePointerCapture(event.pointerId);
+      }
+      dragStateRef.current = null;
+      pinchStateRef.current = null;
       activeCanvas.style.cursor = "crosshair";
     }
 
@@ -524,20 +683,24 @@ export function MandelbrotOverviewCanvas(props: {
     }
 
     activeCanvas.style.cursor = "crosshair";
-    activeCanvas.addEventListener("mousemove", handleMove);
-    activeCanvas.addEventListener("mouseleave", handleLeave);
-    activeCanvas.addEventListener("mousedown", handleMouseDown);
+    activeCanvas.addEventListener("pointermove", handlePointerMove);
+    activeCanvas.addEventListener("pointerleave", handlePointerLeave);
+    activeCanvas.addEventListener("pointerdown", handlePointerDown);
+    activeCanvas.addEventListener("pointerup", handlePointerUp);
+    activeCanvas.addEventListener("pointercancel", handlePointerCancel);
     activeCanvas.addEventListener("wheel", handleWheel, { passive: false });
-    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
+      activePointersRef.current.clear();
       dragStateRef.current = null;
+      pinchStateRef.current = null;
       activeCanvas.style.cursor = "";
-      activeCanvas.removeEventListener("mousemove", handleMove);
-      activeCanvas.removeEventListener("mouseleave", handleLeave);
-      activeCanvas.removeEventListener("mousedown", handleMouseDown);
+      activeCanvas.removeEventListener("pointermove", handlePointerMove);
+      activeCanvas.removeEventListener("pointerleave", handlePointerLeave);
+      activeCanvas.removeEventListener("pointerdown", handlePointerDown);
+      activeCanvas.removeEventListener("pointerup", handlePointerUp);
+      activeCanvas.removeEventListener("pointercancel", handlePointerCancel);
       activeCanvas.removeEventListener("wheel", handleWheel);
-      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
 

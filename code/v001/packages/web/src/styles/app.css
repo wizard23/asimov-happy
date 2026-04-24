@@ -486,6 +486,11 @@ a {
   aspect-ratio: 3 / 2;
 }
 
+.canvas-frame--mandelbrot,
+.canvas-frame--viewer {
+  touch-action: none;
+}
+
 .mandelbrot-crosshair {
   position: absolute;
   width: 36px;

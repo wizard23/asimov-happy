@@ -31,6 +31,16 @@ interface DragState {
   viewportAtStart: JuliaViewport;
 }
 
+interface PointerSample {
+  x: number;
+  y: number;
+}
+
+interface PinchState {
+  initialDistance: number;
+  viewportAtStart: JuliaViewport;
+}
+
 function getViewportWidth(viewport: JuliaViewport): number {
   return viewport.maxReal - viewport.minReal;
 }
@@ -122,7 +132,7 @@ function getStagePoint(
   frame: HTMLElement,
   displayWidth: number,
   displayHeight: number,
-  event: MouseEvent | WheelEvent,
+  event: { clientX: number; clientY: number },
 ): { x: number; y: number } {
   const rect = frame.getBoundingClientRect();
   const horizontalInset = (rect.width - displayWidth) / 2;
@@ -151,6 +161,8 @@ export function JuliaViewerCanvas(props: {
   const imageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
+  const activePointersRef = useRef<Map<number, PointerSample>>(new Map());
+  const pinchStateRef = useRef<PinchState | null>(null);
   const displaySizeRef = useRef({
     width: VIEWER_FALLBACK_SIZE,
     height: VIEWER_FALLBACK_SIZE,
@@ -357,48 +369,20 @@ export function JuliaViewerCanvas(props: {
     }
     const activeCanvas = canvas;
 
-    function handleMouseDown(event: MouseEvent): void {
-      if (event.button !== 0 || !parameterRef.current) {
-        return;
+    function getTwoPointerSamples(): [PointerSample, PointerSample] | null {
+      const pointerEntries = [...activePointersRef.current.values()];
+      if (pointerEntries.length < 2) {
+        return null;
       }
-
-      const frame = frameRef.current;
-      if (!frame) {
-        return;
-      }
-
-      const point = getStagePoint(
-        frame,
-        displaySizeRef.current.width,
-        displaySizeRef.current.height,
-        event,
-      );
-      dragStateRef.current = {
-        pointerStartX: point.x,
-        pointerStartY: point.y,
-        viewportAtStart: viewportRef.current,
-      };
-      activeCanvas.style.cursor = "grabbing";
-      event.preventDefault();
+      return [pointerEntries[0]!, pointerEntries[1]!];
     }
 
-    function handleMouseMove(event: MouseEvent): void {
+    function updatePanFromPoint(point: { x: number; y: number }): void {
       const dragState = dragStateRef.current;
       if (!dragState) {
         return;
       }
 
-      const frame = frameRef.current;
-      if (!frame) {
-        return;
-      }
-
-      const point = getStagePoint(
-        frame,
-        displaySizeRef.current.width,
-        displaySizeRef.current.height,
-        event,
-      );
       const deltaX = point.x - dragState.pointerStartX;
       const deltaY = point.y - dragState.pointerStartY;
       const viewportWidth = getViewportWidth(dragState.viewportAtStart);
@@ -415,8 +399,135 @@ export function JuliaViewerCanvas(props: {
       markInteractiveQuality();
     }
 
-    function handleMouseUp(): void {
+    function updatePinchViewport(): void {
+      const pinchState = pinchStateRef.current;
+      const pointers = getTwoPointerSamples();
+      if (!pinchState || !pointers) {
+        return;
+      }
+
+      const [first, second] = pointers;
+      const midpoint = {
+        x: (first.x + second.x) / 2,
+        y: (first.y + second.y) / 2,
+      };
+      const currentDistance = Math.hypot(second.x - first.x, second.y - first.y);
+      if (currentDistance <= 0) {
+        return;
+      }
+
+      const anchor = mapPointToCoordinate(
+        midpoint.x,
+        midpoint.y,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        pinchState.viewportAtStart,
+      );
+      setViewport(
+        zoomViewport(
+          pinchState.viewportAtStart,
+          anchor,
+          pinchState.initialDistance / currentDistance,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+        ),
+      );
+      markInteractiveQuality();
+    }
+
+    function handlePointerDown(event: PointerEvent): void {
+      if (event.button !== 0 || !parameterRef.current) {
+        return;
+      }
+
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
+      activePointersRef.current.set(event.pointerId, {
+        x: point.x,
+        y: point.y,
+      });
+      activeCanvas.setPointerCapture(event.pointerId);
+      if (activePointersRef.current.size >= 2) {
+        const pointers = getTwoPointerSamples();
+        if (pointers) {
+          const [first, second] = pointers;
+          pinchStateRef.current = {
+            initialDistance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+            viewportAtStart: viewportRef.current,
+          };
+          dragStateRef.current = null;
+        }
+      } else {
+        pinchStateRef.current = null;
+        dragStateRef.current = {
+          pointerStartX: point.x,
+          pointerStartY: point.y,
+          viewportAtStart: viewportRef.current,
+        };
+      }
+      if (event.pointerType === "mouse") {
+        activeCanvas.style.cursor = "grabbing";
+      }
+      event.preventDefault();
+    }
+
+    function handlePointerMove(event: PointerEvent): void {
+      const frame = frameRef.current;
+      if (!frame) {
+        return;
+      }
+
+      const point = getStagePoint(
+        frame,
+        displaySizeRef.current.width,
+        displaySizeRef.current.height,
+        event,
+      );
+      if (activePointersRef.current.has(event.pointerId)) {
+        activePointersRef.current.set(event.pointerId, {
+          x: point.x,
+          y: point.y,
+        });
+      }
+
+      if (pinchStateRef.current && activePointersRef.current.size >= 2) {
+        updatePinchViewport();
+        return;
+      }
+
+      if (!dragStateRef.current || activePointersRef.current.size !== 1) {
+        return;
+      }
+
+      updatePanFromPoint(point);
+    }
+
+    function handlePointerUp(event: PointerEvent): void {
+      activePointersRef.current.delete(event.pointerId);
+      if (activeCanvas.hasPointerCapture(event.pointerId)) {
+        activeCanvas.releasePointerCapture(event.pointerId);
+      }
       dragStateRef.current = null;
+      pinchStateRef.current = null;
+      activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
+    }
+
+    function handlePointerCancel(event: PointerEvent): void {
+      activePointersRef.current.delete(event.pointerId);
+      if (activeCanvas.hasPointerCapture(event.pointerId)) {
+        activeCanvas.releasePointerCapture(event.pointerId);
+      }
+      dragStateRef.current = null;
+      pinchStateRef.current = null;
       activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
     }
 
@@ -457,18 +568,22 @@ export function JuliaViewerCanvas(props: {
     }
 
     activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
-    activeCanvas.addEventListener("mousedown", handleMouseDown);
-    activeCanvas.addEventListener("mousemove", handleMouseMove);
+    activeCanvas.addEventListener("pointerdown", handlePointerDown);
+    activeCanvas.addEventListener("pointermove", handlePointerMove);
+    activeCanvas.addEventListener("pointerup", handlePointerUp);
+    activeCanvas.addEventListener("pointercancel", handlePointerCancel);
     activeCanvas.addEventListener("wheel", handleWheel, { passive: false });
-    window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
+      activePointersRef.current.clear();
       dragStateRef.current = null;
+      pinchStateRef.current = null;
       activeCanvas.style.cursor = "";
-      activeCanvas.removeEventListener("mousedown", handleMouseDown);
-      activeCanvas.removeEventListener("mousemove", handleMouseMove);
+      activeCanvas.removeEventListener("pointerdown", handlePointerDown);
+      activeCanvas.removeEventListener("pointermove", handlePointerMove);
+      activeCanvas.removeEventListener("pointerup", handlePointerUp);
+      activeCanvas.removeEventListener("pointercancel", handlePointerCancel);
       activeCanvas.removeEventListener("wheel", handleWheel);
-      window.removeEventListener("mouseup", handleMouseUp);
     };
   }, []);
 
