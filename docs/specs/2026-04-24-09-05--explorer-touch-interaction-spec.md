@@ -101,7 +101,6 @@ There is no true hover on touch devices.
 Recommended behavior:
 
 - do not attempt hover-preview semantics from passive touch presence
-- a touch move on Mandelbrot should update the active point only when interaction semantics clearly imply it
 
 For v1:
 
@@ -109,11 +108,11 @@ For v1:
 - drag pans
 - pinch zooms
 - Live Preview remains meaningful on desktop hover
-- on touch, Live Preview may update only during explicit single-touch movement if that movement is being interpreted as preview rather than pan
 
-To avoid ambiguity and accidental behavior, recommended v1 rule:
+Touch-specific rule:
 
 - touch interaction does not emulate continuous hover preview
+- on touch devices, `Live Preview` does not create hover-style preview behavior
 - selected point remains the main active parameter on touch devices unless explicitly changed by tap
 
 This avoids conflict between:
@@ -142,6 +141,8 @@ Recommended:
 
 Two simultaneous touches on the same canvas/frame should start pinch mode.
 
+If a one-finger pan candidate is already in progress and a second touch joins on the same canvas/frame, the interaction may upgrade into pinch mode.
+
 Pinch must track:
 
 - initial touch midpoint
@@ -162,6 +163,13 @@ Once pan mode is active:
 
 - selection must not fire on touch end
 
+### Tap commit rule
+
+Tap selection must fire only on `pointerup`, and only if the gesture never became:
+
+- pan
+- pinch
+
 ## Browser Gesture Handling
 
 The explorer must prevent browser-native touch gestures from interfering when interacting with the fractal canvases.
@@ -175,11 +183,22 @@ Recommended implementation:
 
 - apply `touch-action: none` to the interactive explorer overlay/canvas frames that own gesture handling
 
+This must apply only to the interactive fractal surfaces:
+
+- Mandelbrot interactive surface
+- Julia interactive surface
+
+It must not be applied globally to:
+
+- the whole page
+- the full explorer layout
+- the controls panel
+
 This is required so custom pointer or touch gesture handling can work reliably.
 
 ## Recommended Event Model
 
-Use Pointer Events rather than separate Touch Events if possible.
+Use Pointer Events rather than separate Touch Events.
 
 Reason:
 
@@ -193,13 +212,7 @@ Recommended implementation shape:
 - migrate canvas interaction handlers to pointer-event-based logic where practical
 - continue to use wheel for desktop zoom
 - add pointer tracking for touch pan and pinch
-
-If full migration is too risky, a mixed model is acceptable:
-
-- keep current mouse path
-- add dedicated pointer/touch support for mobile
-
-But unified pointer handling is preferred.
+- use pointer capture where appropriate to keep gestures stable during drag/pinch
 
 ## Desktop Compatibility Requirement
 
@@ -250,11 +263,13 @@ If separator drag conflicts with canvas touch gestures, that should be handled c
 4. On touch devices, pinching with two fingers zooms the Mandelbrot viewport.
 5. On touch devices, pinching with two fingers zooms the Julia viewport.
 6. Pinch zoom uses the touch midpoint as the zoom anchor.
-7. Tap selection does not accidentally fire after a pan.
-8. Browser page scroll/zoom does not interfere while actively interacting with the explorer canvases.
-9. Desktop mouse hover, click, drag, and wheel behavior still works as before.
-10. Zen mode still works with touch interaction.
-11. Build and lint pass after implementation.
+7. Tap selection fires only on `pointerup` and never after a pan or pinch gesture.
+8. On touch devices, `Live Preview` does not emulate hover-preview behavior.
+9. Browser page scroll/zoom does not interfere while actively interacting with the explorer canvases.
+10. `touch-action: none` is limited to the explorer interactive fractal surfaces.
+11. Desktop mouse hover, click, drag, and wheel behavior still works as before.
+12. Zen mode still works with touch interaction.
+13. Build and lint pass after implementation.
 
 ## Recommended Delivery Plan
 
