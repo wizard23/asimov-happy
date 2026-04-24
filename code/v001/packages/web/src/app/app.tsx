@@ -487,8 +487,8 @@ function ExplorerWorkspace(props: {
   const [paletteMappingMode, setPaletteMappingMode] =
     useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
   const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
-  const [mandelbrotIterations, setMandelbrotIterations] = useState(10000);
-  const [juliaIterations, setJuliaIterations] = useState(10000);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
+  const [juliaIterations, setJuliaIterations] = useState(2000);
   const [showAttractingPeriod, setShowAttractingPeriod] = useState(false);
   const [periodDetectionSteps, setPeriodDetectionSteps] = useState(10000);
   const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(3000);
