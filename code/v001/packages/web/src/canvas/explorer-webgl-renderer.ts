@@ -359,6 +359,8 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       paletteId: params.palette,
       paletteMappingMode: params.paletteMappingMode,
       paletteCycles: params.paletteCycles,
+      ...(params.binaryInteriorColor ? { binaryInteriorColor: params.binaryInteriorColor } : {}),
+      ...(params.binaryExteriorColor ? { binaryExteriorColor: params.binaryExteriorColor } : {}),
     });
   },
   renderJulia(canvas, params) {
@@ -374,6 +376,8 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       paletteId: params.palette,
       paletteMappingMode: params.paletteMappingMode,
       paletteCycles: params.paletteCycles,
+      ...(params.binaryInteriorColor ? { binaryInteriorColor: params.binaryInteriorColor } : {}),
+      ...(params.binaryExteriorColor ? { binaryExteriorColor: params.binaryExteriorColor } : {}),
     });
   },
 };
