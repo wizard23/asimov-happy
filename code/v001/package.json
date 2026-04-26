@@ -15,6 +15,7 @@
     "typecheck": "tsc -b --noEmit",
     "typecheck:packages": "npm run -ws typecheck",
     "clean": "npm run -ws clean",
+    "dev": "npm run dev:app",
     "dev:ts": "tsc -b -w tsconfig.dev.json",
     "dev:app": "concurrently -k -s first -n server,web \"npm run -w @asimov/minimal-server dev\" \"npm run dev:web\"",
     "dev:server": "npm run -w @asimov/minimal-server dev",
