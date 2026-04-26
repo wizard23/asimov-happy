@@ -440,6 +440,11 @@ a {
   backdrop-filter: blur(8px);
 }
 
+.canvas-overlay--right {
+  left: auto;
+  right: 10px;
+}
+
 .canvas-frame--map {
   overflow: auto;
 }

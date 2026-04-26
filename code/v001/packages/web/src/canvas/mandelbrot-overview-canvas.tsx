@@ -221,10 +221,10 @@ export function MandelbrotOverviewCanvas(props: {
 
     return mapToRelativePosition(props.parameter, viewport);
   }, [props.parameter, selectedParameter, viewport]);
-  const overlayLabel = hoveredParameter ?? props.parameter;
-  const overlayText = `${formatComplex(overlayLabel)} \u00b7 ${formatZoomLevel(viewport)}${
+  const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}${
     props.attractingPeriodLabel ? ` \u00b7 ${props.attractingPeriodLabel}` : ""
   }`;
+  const hoverOverlayText = formatComplex(hoveredParameter);
 
   useEffect(() => {
     onHoverParameterRef.current = props.onHoverParameter;
@@ -722,6 +722,7 @@ export function MandelbrotOverviewCanvas(props: {
       style={props.frameStyle}
     >
       <div className="canvas-overlay">{overlayText}</div>
+      <div className="canvas-overlay canvas-overlay--right">{hoverOverlayText}</div>
       <div
         className="canvas-stage"
         style={{

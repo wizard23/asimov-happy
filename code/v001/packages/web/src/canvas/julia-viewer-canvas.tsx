@@ -23,6 +23,7 @@ import { useResponsiveCanvasResolution } from "./use-responsive-canvas-resolutio
 const VIEWER_FALLBACK_SIZE = 360;
 const VIEWER_MAX_RENDER_SIZE = 2048;
 const VIEWPORT_PRECISION_SAFETY_FACTOR = 8;
+const CLICK_SELECTION_THRESHOLD = 5;
 const ZOOM_IN_FACTOR = 0.85;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 
@@ -148,6 +149,7 @@ function getStagePoint(
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
   selectedParameter?: ComplexParameter | null;
+  onSelectParameter?: (parameter: ComplexParameter) => void;
   iterations: number;
   palette: FractalPaletteId;
   paletteMappingMode?: PaletteMappingMode;
@@ -172,9 +174,11 @@ export function JuliaViewerCanvas(props: {
   });
   const enableTwoQualityLevelsRef = useRef(Boolean(props.enableTwoQualityLevels));
   const parameterRef = useRef(props.parameter);
+  const onSelectParameterRef = useRef(props.onSelectParameter);
   const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
+  const [hoveredCoordinate, setHoveredCoordinate] = useState<ComplexParameter | null>(null);
   const [qualityScale, setQualityScale] = useState(1);
   const [presentedRenderSize, setPresentedRenderSize] = useState(() => ({
     width: VIEWER_FALLBACK_SIZE,
@@ -211,6 +215,7 @@ export function JuliaViewerCanvas(props: {
     return mapToRelativePosition(props.parameter, viewport);
   }, [props.parameter, selectedParameter, viewport]);
   const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}`;
+  const hoverOverlayText = formatComplex(hoveredCoordinate);
 
   useEffect(() => {
     viewportRef.current = viewport;
@@ -219,6 +224,10 @@ export function JuliaViewerCanvas(props: {
   useEffect(() => {
     parameterRef.current = props.parameter;
   }, [props.parameter]);
+
+  useEffect(() => {
+    onSelectParameterRef.current = props.onSelectParameter;
+  }, [props.onSelectParameter]);
 
   useEffect(() => {
     enableTwoQualityLevelsRef.current = Boolean(props.enableTwoQualityLevels);
@@ -509,6 +518,17 @@ export function JuliaViewerCanvas(props: {
           y: point.y,
         });
       }
+      if (event.pointerType === "mouse" && parameterRef.current) {
+        setHoveredCoordinate(
+          mapPointToCoordinate(
+            point.x,
+            point.y,
+            displaySizeRef.current.width,
+            displaySizeRef.current.height,
+            viewportRef.current,
+          ),
+        );
+      }
 
       if (pinchStateRef.current && activePointersRef.current.size >= 2) {
         updatePinchViewport();
@@ -523,6 +543,39 @@ export function JuliaViewerCanvas(props: {
     }
 
     function handlePointerUp(event: PointerEvent): void {
+      const pointerCountBeforeRelease = activePointersRef.current.size;
+      const dragState = dragStateRef.current;
+      const frame = frameRef.current;
+      if (
+        pointerCountBeforeRelease === 1 &&
+        dragState &&
+        onSelectParameterRef.current &&
+        frame &&
+        activeCanvas.contains(event.target as Node)
+      ) {
+        const point = getStagePoint(
+          frame,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+          event,
+        );
+        const deltaX = point.x - dragState.pointerStartX;
+        const deltaY = point.y - dragState.pointerStartY;
+        const movedDistance = Math.hypot(deltaX, deltaY);
+
+        if (movedDistance <= CLICK_SELECTION_THRESHOLD) {
+          onSelectParameterRef.current(
+            mapPointToCoordinate(
+              point.x,
+              point.y,
+              displaySizeRef.current.width,
+              displaySizeRef.current.height,
+              viewportRef.current,
+            ),
+          );
+        }
+      }
+
       activePointersRef.current.delete(event.pointerId);
       if (activeCanvas.hasPointerCapture(event.pointerId)) {
         activeCanvas.releasePointerCapture(event.pointerId);
@@ -540,6 +593,12 @@ export function JuliaViewerCanvas(props: {
       dragStateRef.current = null;
       pinchStateRef.current = null;
       activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
+    }
+
+    function handlePointerLeave(event: PointerEvent): void {
+      if (event.pointerType === "mouse") {
+        setHoveredCoordinate(null);
+      }
     }
 
     function handleWheel(event: WheelEvent): void {
@@ -583,6 +642,7 @@ export function JuliaViewerCanvas(props: {
     activeCanvas.addEventListener("pointermove", handlePointerMove);
     activeCanvas.addEventListener("pointerup", handlePointerUp);
     activeCanvas.addEventListener("pointercancel", handlePointerCancel);
+    activeCanvas.addEventListener("pointerleave", handlePointerLeave);
     activeCanvas.addEventListener("wheel", handleWheel, { passive: false });
 
     return () => {
@@ -594,6 +654,7 @@ export function JuliaViewerCanvas(props: {
       activeCanvas.removeEventListener("pointermove", handlePointerMove);
       activeCanvas.removeEventListener("pointerup", handlePointerUp);
       activeCanvas.removeEventListener("pointercancel", handlePointerCancel);
+      activeCanvas.removeEventListener("pointerleave", handlePointerLeave);
       activeCanvas.removeEventListener("wheel", handleWheel);
     };
   }, []);
@@ -614,6 +675,7 @@ export function JuliaViewerCanvas(props: {
       style={props.frameStyle}
     >
       <div className="canvas-overlay">{overlayText}</div>
+      <div className="canvas-overlay canvas-overlay--right">{hoverOverlayText}</div>
       <div
         className="canvas-stage"
         style={{
