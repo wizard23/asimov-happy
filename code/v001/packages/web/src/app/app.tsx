@@ -26,7 +26,6 @@ import {
   getFractalPalettes,
   getFractalPalette,
   getPaletteMappingLabel,
-  getThemeFractalPaletteId,
   PALETTE_MAPPING_OPTIONS,
   type FractalPaletteId,
   type PaletteMappingMode,
@@ -516,15 +515,13 @@ function ExplorerWorkspace(props: {
   const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
     getInitialExplorerRendererId,
   );
-  const [palette, setPalette] = useState<FractalPaletteId>(() =>
-    getThemeFractalPaletteId(props.themeId),
-  );
+  const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [binaryInteriorColor, setBinaryInteriorColor] = useState<RgbColor>(() => {
-    const initialPalette = getFractalPalette(getThemeFractalPaletteId(props.themeId));
+    const initialPalette = getFractalPalette(DEFAULT_FRACTAL_PALETTE_ID);
     return initialPalette.interior;
   });
   const [binaryExteriorColor, setBinaryExteriorColor] = useState<RgbColor>(() => {
-    const initialPalette = getFractalPalette(getThemeFractalPaletteId(props.themeId));
+    const initialPalette = getFractalPalette(DEFAULT_FRACTAL_PALETTE_ID);
     return initialPalette.stops.at(-1)!.color;
   });
   const [paletteMappingMode, setPaletteMappingMode] =
@@ -847,7 +844,7 @@ function ExplorerWorkspace(props: {
             </div>
             {props.isZenView ? null : (
               <button
-                className="button button--subtle"
+                className="button button--primary"
                 type="button"
                 onClick={props.onToggleZenView}
               >
@@ -1880,19 +1877,6 @@ function App(): preact.JSX.Element {
     window.addEventListener("popstate", handleLocationChange);
     return () => window.removeEventListener("popstate", handleLocationChange);
   }, []);
-
-  useEffect(() => {
-    if (route !== "/") {
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    url.pathname = "/explorer";
-    url.searchParams.set("zen", "1");
-    window.history.replaceState(window.history.state, "", url);
-    setRoute("/explorer");
-    setIsZenView(true);
-  }, [route]);
 
   useEffect(() => {
     applyTheme(themeId);
