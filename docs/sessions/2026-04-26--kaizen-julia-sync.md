@@ -797,6 +797,178 @@ suppression is buggy. Please remove all suppression code and always draw all thr
 * hover julia (if hovering over julia set is active atm)
 * hover mandelbrot (if hovering over mandelbrot set is active atm)
 
+```
+• Done.
+
+  I removed the suppression behavior entirely and changed the marker model to always draw exactly these three markers, in this order:
+
+  - hover mandelbrot
+  - hover julia
+  - active point on top
+
+  That order now applies in both fractals. I also lifted Julia hover state into the explorer route so each canvas can render both hover sources consistently, and I updated the non-zen legend to
+  match the new meaning/colors:
+
+  - red: active point
+  - turquoise: hover Julia
+  - blue: hover Mandelbrot
+
+  Main changes:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+The visual center of the marker is at 0/0 i think. But the click position is not totally correct relative to the svg. Please check what I said by using the headless browser. don't chnage any code yet but double check if what i think is actually true. give me a full report.
+
+```
+• The SVG already looks suspicious: its geometric center is around (42, 42), but the viewBox is 100x125 starting at (-4, -8), so the visual target is not centered in the exported art box. I’m
+  opening the rendered screenshot now to confirm what that looks like in the browser.
+
+• Viewed Image
+  └ /tmp/explorer-marker-check.png
+
+• Yes. Your suspicion is correct.
+
+  ## Conclusion
+
+  The click/selection anchor in the code is centered on the SVG box, but the visual target inside the SVG is not centered inside that box.
+
+  So the marker is mathematically positioned at the clicked coordinate, but the visual center of the crosshair graphic is offset from that coordinate.
+
+  ## Evidence
+
+  ### 1. CSS positioning logic is centered on the image box
+
+  The marker is positioned with:
+
+  - left: ...
+  - top: ...
+  - transform: translate(-50%, -50%)
+
+  in code/v001/packages/web/src/styles/app.css
+
+  That means the code assumes:
+
+  - the true visual target is at the center of the image box
+
+  ### 2. The SVG art is not centered in its own viewBox
+
+  The asset is code/v001/packages/web/src/assets/noun-crosshair-59595.svg
+
+  Key geometry:
+
+  - viewBox: -4 -8 100 125
+  - viewBox center:
+      - x = -4 + 100/2 = 46
+      - y = -8 + 125/2 = 54.5
+
+  But the visible crosshair target is centered around roughly:
+
+  - x ≈ 42
+  - y ≈ 42
+
+  You can see that from:
+
+  - vertical bars at x=41
+  - horizontal bars at y=42
+  - circular target centered around (42, 42)
+
+  So the visual target is offset from the box center by about:
+
+  - dx = 42 - 46 = -4
+  - dy = 42 - 54.5 = -12.5
+
+  Meaning:
+
+  - the true target is left of the image-box center
+  - and significantly above the image-box center
+
+  ### 3. What that means at the rendered marker size
+
+  The marker is normally rendered at 36px base size before scale.
+
+  Relative offset inside the SVG:
+
+  - horizontal: 4 / 100 = 4%
+  - vertical: 12.5 / 125 = 10%
+
+  At 36px, that becomes approximately:
+
+  - horizontal offset: about 1.4px
+  - vertical offset: about 3.6px
+
+  So the visible target is not centered on the clicked coordinate.
+  It is roughly:
+
+  - 1.4px left
+  - 3.6px above
+
+  the actual anchor point.
+
+  ## Headless-browser check
+
+  I checked the rendered page in headless Chromium and the screenshot is consistent with this analysis:
+
+  - the marker appears visually a bit off relative to where a perfect centered target would be
+  - the SVG’s extra empty space below the actual target is the main cause
+
+  The screenshot alone is suggestive, but the SVG geometry makes the root cause quite clear.
+
+  ## What is not wrong
+
+  The click mapping itself is not the main problem.
+
+  The canvas interaction code maps the clicked position into complex coordinates in the normal way, and then the marker is placed at that computed coordinate.
+
+  So the issue is not primarily:
+
+  - bad viewport math
+  - wrong click coordinate conversion
+  - wrong CSS left/top
+
+  It is:
+
+  - the crosshair asset is not centered in its own box
+  - but the CSS treats it as if it were centered
+
+  ## Practical consequence
+
+  Users perceive:
+
+  - the clicked point is slightly “not under the center” of the marker
+
+  More precisely:
+
+  - the actual clicked coordinate lands a bit down-right from the visual crosshair target
+
+  because the visible target sits up-left inside the image box.
+
+  ## Bottom line
+
+  Yes:
+
+  - what you think is true
+  - the marker’s visual center does not match the anchor center used by the code
+
+  Root cause:
+
+  - the SVG’s visible target is off-center inside its viewBox
+  - translate(-50%, -50%) centers the whole SVG box, not the actual crosshair target
+
+  If you want next, I can propose the cleanest fix options before changing code:
+
+  1. fix the SVG asset itself
+  2. apply CSS pixel offsets
+  3. use a different marker asset or draw the marker procedurally
+```
+
+1. is the cleanest solution. Please fix the marker itself. The svg should be textbook ready please.
+
 
 
 
