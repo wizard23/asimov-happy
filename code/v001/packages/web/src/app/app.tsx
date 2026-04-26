@@ -365,9 +365,10 @@ function NumberInput(props: {
 function NavLink(props: {
   href: AppRoute;
   currentRoute: AppRoute;
+  isCurrent?: boolean;
   children: preact.ComponentChildren;
 }): preact.JSX.Element {
-  const isCurrent = props.currentRoute === props.href;
+  const isCurrent = props.isCurrent ?? props.currentRoute === props.href;
 
   return (
     <a
@@ -1904,7 +1905,7 @@ function App(): preact.JSX.Element {
 
   const activeTheme = useMemo(() => getThemeDefinition(themeId), [themeId]);
   const routeTitle =
-    route === "/explorer"
+    route === "/" || route === "/explorer"
       ? "Julia Set Explorer"
       : route === "/som"
         ? "Julia Set Kohonen Map"
@@ -1925,7 +1926,7 @@ function App(): preact.JSX.Element {
             <NavLink href="/som" currentRoute={route}>
               Workspace
             </NavLink>
-            <NavLink href="/explorer" currentRoute={route}>
+            <NavLink href="/" currentRoute={route} isCurrent={route === "/" || route === "/explorer"}>
               Explorer
             </NavLink>
             <NavLink href="/explorer-layout-harness" currentRoute={route}>
@@ -1951,7 +1952,7 @@ function App(): preact.JSX.Element {
           onToggleZenView={() => setIsZenView((current) => !current)}
         />
       </div>
-      <div hidden={route !== "/explorer"}>
+      <div hidden={route !== "/" && route !== "/explorer"}>
         <ExplorerWorkspace
           isZenView={isZenView}
           onToggleZenView={() => setIsZenView((current) => !current)}
