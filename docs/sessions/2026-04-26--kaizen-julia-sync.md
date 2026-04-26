@@ -636,6 +636,133 @@ Before you change anything: does this make sense? if it is unclear let's fix the
 Yes, your recommendation is good. Please make it so.
 
 
+```
+• Implemented.
+
+  What changed:
+
+  - Clicking in the Julia set now updates the shared selected parameter c, using the clicked Julia-plane coordinate as the new parameter.
+  - Hover in the Julia set does not change the active parameter.
+  - Both canvases now have a top-right overlay showing the current hover position for that canvas.
+  - The Mandelbrot top-left overlay now stays focused on the active parameter / zoom / period, while hover moved to the new top-right readout.
+
+  Main files:
+
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+
+The hover position in the julia set should also be shown with the same marker but in a different color. Please suggest a good color scheme.
+Also when not in zen mode below the fractals there should be a visual legend explaining the markers and their colors.
+Also: please add a slider to adapt the scaling of the markers from 50% to 500%
+Before you change anything: does this make sense? if it is unclear let's fix the spec before we make changes.
+
+```
+• Yes, it makes sense.
+
+  My reading:
+
+  - Julia should get a third visual marker state:
+      - hover position in Julia plane
+  - It should use the same crosshair asset as the existing selected/live markers
+  - It should have a distinct color from:
+      - selected red
+      - live-preview blue
+  - In non-zen mode, add a legend below the fractal panels explaining all marker colors
+  - Add a global marker scale slider controlling marker size from 50% to 500%
+
+  That is clear enough. The only thing to fix before implementation is the exact marker color scheme.
+
+  Recommended scheme:
+
+  - Selected parameter: red
+  - Live preview parameter: blue
+  - Hover position: amber
+
+  Why amber:
+
+  - it is clearly distinct from red and blue
+  - it reads as “inspection / transient / cursor-like”
+  - it stays visible on both dark and bright palettes better than green or white
+  - Red: Selected parameter
+  - Blue: Live preview parameter
+  - Amber: Hover position
+
+  Spec details I recommend:
+
+  - Marker scale slider label: Marker Scale
+  - Range: 50% to 500%
+  - Default: 100%
+  - Applies to:
+      - Mandelbrot selected marker
+      - Mandelbrot live-preview marker
+      - Julia selected marker
+      - Julia live-preview marker
+      - Julia hover marker
+  - Marker legend:
+      - only shown when not in zen mode
+      - placed below the explorer fractal section
+      - hidden in zen mode to avoid clutter
+
+  One small interpretation note:
+
+  - you asked for the hover position in the Julia set to use the same marker in a different color
+  - I assume this means:
+      - Julia hover gets a visible marker
+      - Mandelbrot hover still stays as top-right text only, unless you also want a Mandelbrot hover marker
+        Right now I assume: Julia hover marker only.
+
+  If that matches your intent, I can implement it.
+```
+
+
+all markers are always shown in both fractals.
+Use turquoise for the julia haver marker.
+Marker scale slider default: 150%
+Before you change anything: does this make sense? if it is unclear let's fix the spec before we make changes.
+
+
+```
+• Yes, that makes sense.
+
+  Updated spec as I understand it:
+
+  - Both fractals always support the full marker set:
+      - Selected parameter marker: red
+      - Live preview parameter marker: blue
+      - Hover position marker: turquoise
+  - This applies to both canvases:
+      - Mandelbrot
+      - Julia
+  - The hover position is still also shown numerically in the top-right overlay.
+  - In non-zen mode, show a legend below the fractals explaining the marker colors.
+  - Add a Marker Scale slider:
+      - range: 50% to 500%
+      - default: 150%
+  - The scale applies to all marker instances in both canvases.
+
+  One implementation detail to fix explicitly:
+
+  - if two markers land on the same coordinate, should they both be drawn on top of each other, or should one be suppressed?
+
+  My recommendation:
+
+  - suppress duplicates by priority:
+      - hover over live
+      - live over selected
+
+  That avoids unreadable overlap while still showing the most relevant state.
+
+  If that matches what you want, I can implement it.
+```
+
+yes. please do it.
+
 
 
 

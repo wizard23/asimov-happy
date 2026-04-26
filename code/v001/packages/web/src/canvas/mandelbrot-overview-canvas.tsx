@@ -82,6 +82,18 @@ function mapToRelativePosition(
   };
 }
 
+function areSameParameter(
+  left: ComplexParameter | null | undefined,
+  right: ComplexParameter | null | undefined,
+): boolean {
+  return Boolean(
+    left &&
+      right &&
+      left.real === right.real &&
+      left.imaginary === right.imaginary,
+  );
+}
+
 function mapPointToParameter(
   x: number,
   y: number,
@@ -163,6 +175,7 @@ export function MandelbrotOverviewCanvas(props: {
   paletteCycles?: number;
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
+  markerScale?: number;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
   attractingPeriodLabel?: string | null;
@@ -205,26 +218,29 @@ export function MandelbrotOverviewCanvas(props: {
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
   const selectedParameter = props.selectedParameter ?? props.parameter;
-  const selectedCrosshairPosition = useMemo(
-    () => (selectedParameter ? mapToRelativePosition(selectedParameter, viewport) : null),
-    [selectedParameter, viewport],
+  const hoverCrosshairPosition = useMemo(
+    () => (hoveredParameter ? mapToRelativePosition(hoveredParameter, viewport) : null),
+    [hoveredParameter, viewport],
   );
   const liveCrosshairPosition = useMemo(() => {
-    if (
-      !props.parameter ||
-      (selectedParameter &&
-        props.parameter.real === selectedParameter.real &&
-        props.parameter.imaginary === selectedParameter.imaginary)
-    ) {
+    if (!props.parameter || areSameParameter(props.parameter, hoveredParameter) || areSameParameter(props.parameter, selectedParameter)) {
       return null;
     }
 
     return mapToRelativePosition(props.parameter, viewport);
-  }, [props.parameter, selectedParameter, viewport]);
+  }, [hoveredParameter, props.parameter, selectedParameter, viewport]);
+  const selectedCrosshairPosition = useMemo(() => {
+    if (!selectedParameter || areSameParameter(selectedParameter, hoveredParameter) || areSameParameter(selectedParameter, props.parameter)) {
+      return null;
+    }
+
+    return mapToRelativePosition(selectedParameter, viewport);
+  }, [hoveredParameter, props.parameter, selectedParameter, viewport]);
   const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}${
     props.attractingPeriodLabel ? ` \u00b7 ${props.attractingPeriodLabel}` : ""
   }`;
   const hoverOverlayText = formatComplex(hoveredParameter);
+  const markerSize = 36 * (props.markerScale ?? 1);
 
   useEffect(() => {
     onHoverParameterRef.current = props.onHoverParameter;
@@ -743,6 +759,19 @@ export function MandelbrotOverviewCanvas(props: {
           width={canvasResolution.renderWidth}
           height={canvasResolution.renderHeight}
         />
+        {hoverCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover"
+            src={crosshairUrl}
+            alt="Hover position on the Mandelbrot set"
+            style={{
+              left: hoverCrosshairPosition.left,
+              top: hoverCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
+            }}
+          />
+        ) : null}
         {selectedCrosshairPosition ? (
           <img
             className="mandelbrot-crosshair mandelbrot-crosshair--selected"
@@ -751,6 +780,8 @@ export function MandelbrotOverviewCanvas(props: {
             style={{
               left: selectedCrosshairPosition.left,
               top: selectedCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
             }}
           />
         ) : null}
@@ -762,6 +793,8 @@ export function MandelbrotOverviewCanvas(props: {
             style={{
               left: liveCrosshairPosition.left,
               top: liveCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
             }}
           />
         ) : null}

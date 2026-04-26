@@ -513,6 +513,52 @@ a {
   filter: invert(52%) sepia(89%) saturate(1828%) hue-rotate(191deg) brightness(102%) contrast(102%);
 }
 
+.mandelbrot-crosshair--hover {
+  filter: invert(77%) sepia(61%) saturate(1141%) hue-rotate(129deg) brightness(99%) contrast(93%);
+}
+
+.marker-legend {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
+.marker-legend__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.marker-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  color: var(--text-color);
+}
+
+.marker-legend__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.marker-legend__swatch--selected {
+  color: #ff3f52;
+}
+
+.marker-legend__swatch--live {
+  color: #2fa8ff;
+}
+
+.marker-legend__swatch--hover {
+  color: #2edcc8;
+}
+
 .metric {
   margin: 8px 0 0;
   font-weight: 600;

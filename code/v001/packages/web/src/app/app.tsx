@@ -513,6 +513,7 @@ function ExplorerWorkspace(props: {
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitSteps, setOrbitSteps] = useState(100);
+  const [markerScalePercent, setMarkerScalePercent] = useState(150);
   const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
     getInitialExplorerRendererId,
   );
@@ -783,6 +784,18 @@ function ExplorerWorkspace(props: {
               onChange={setOrbitSteps}
             />
           </Field>
+          <Field label="Marker Scale">
+            <input
+              className="field__input"
+              type="range"
+              min={50}
+              max={500}
+              step={10}
+              value={markerScalePercent}
+              onInput={(event) => setMarkerScalePercent(Number(event.currentTarget.value))}
+            />
+            <span className="field__hint">{markerScalePercent}%</span>
+          </Field>
         </section>
 
         <section className="group">
@@ -921,6 +934,7 @@ function ExplorerWorkspace(props: {
               paletteCycles={paletteCycles}
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
+              markerScale={markerScalePercent / 100}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
               attractingPeriodLabel={attractingPeriodLabel}
@@ -981,6 +995,7 @@ function ExplorerWorkspace(props: {
               paletteCycles={paletteCycles}
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
+              markerScale={markerScalePercent / 100}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}
               renderer={activeImageRenderer}
@@ -993,6 +1008,25 @@ function ExplorerWorkspace(props: {
             </p>
           </article>
         </section>
+        {props.isZenView ? null : (
+          <section className="marker-legend" aria-label="Marker legend">
+            <p className="eyebrow">Markers</p>
+            <div className="marker-legend__items">
+              <span className="marker-legend__item">
+                <span className="marker-legend__swatch marker-legend__swatch--selected" />
+                Selected parameter
+              </span>
+              <span className="marker-legend__item">
+                <span className="marker-legend__swatch marker-legend__swatch--live" />
+                Live preview parameter
+              </span>
+              <span className="marker-legend__item">
+                <span className="marker-legend__swatch marker-legend__swatch--hover" />
+                Hover position
+              </span>
+            </div>
+          </section>
+        )}
       </main>
 
       <section className={`panel panel--inspector${props.isZenView ? " panel--hidden" : ""}`}>

@@ -82,6 +82,18 @@ function mapToRelativePosition(
   };
 }
 
+function areSameParameter(
+  left: ComplexParameter | null | undefined,
+  right: ComplexParameter | null | undefined,
+): boolean {
+  return Boolean(
+    left &&
+      right &&
+      left.real === right.real &&
+      left.imaginary === right.imaginary,
+  );
+}
+
 function mapPointToCoordinate(
   x: number,
   y: number,
@@ -156,6 +168,7 @@ export function JuliaViewerCanvas(props: {
   paletteCycles?: number;
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
+  markerScale?: number;
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
   renderer?: ExplorerImageRenderer;
@@ -198,24 +211,31 @@ export function JuliaViewerCanvas(props: {
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
   const selectedParameter = props.selectedParameter ?? props.parameter;
-  const selectedCrosshairPosition = useMemo(
-    () => (selectedParameter ? mapToRelativePosition(selectedParameter, viewport) : null),
-    [selectedParameter, viewport],
+  const hoverCrosshairPosition = useMemo(
+    () => (hoveredCoordinate ? mapToRelativePosition(hoveredCoordinate, viewport) : null),
+    [hoveredCoordinate, viewport],
   );
   const liveCrosshairPosition = useMemo(() => {
     if (
       !props.parameter ||
-      (selectedParameter &&
-        props.parameter.real === selectedParameter.real &&
-        props.parameter.imaginary === selectedParameter.imaginary)
+      areSameParameter(props.parameter, hoveredCoordinate) ||
+      areSameParameter(props.parameter, selectedParameter)
     ) {
       return null;
     }
 
     return mapToRelativePosition(props.parameter, viewport);
-  }, [props.parameter, selectedParameter, viewport]);
+  }, [hoveredCoordinate, props.parameter, selectedParameter, viewport]);
+  const selectedCrosshairPosition = useMemo(() => {
+    if (!selectedParameter || areSameParameter(selectedParameter, hoveredCoordinate) || areSameParameter(selectedParameter, props.parameter)) {
+      return null;
+    }
+
+    return mapToRelativePosition(selectedParameter, viewport);
+  }, [hoveredCoordinate, props.parameter, selectedParameter, viewport]);
   const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}`;
   const hoverOverlayText = formatComplex(hoveredCoordinate);
+  const markerSize = 36 * (props.markerScale ?? 1);
 
   useEffect(() => {
     viewportRef.current = viewport;
@@ -696,6 +716,19 @@ export function JuliaViewerCanvas(props: {
           width={canvasResolution.renderWidth}
           height={canvasResolution.renderHeight}
         />
+        {hoverCrosshairPosition ? (
+          <img
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover"
+            src={crosshairUrl}
+            alt="Hover position in the Julia set"
+            style={{
+              left: hoverCrosshairPosition.left,
+              top: hoverCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
+            }}
+          />
+        ) : null}
         {selectedCrosshairPosition ? (
           <img
             className="mandelbrot-crosshair mandelbrot-crosshair--selected"
@@ -704,6 +737,8 @@ export function JuliaViewerCanvas(props: {
             style={{
               left: selectedCrosshairPosition.left,
               top: selectedCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
             }}
           />
         ) : null}
@@ -715,6 +750,8 @@ export function JuliaViewerCanvas(props: {
             style={{
               left: liveCrosshairPosition.left,
               top: liveCrosshairPosition.top,
+              width: `${markerSize}px`,
+              height: `${markerSize}px`,
             }}
           />
         ) : null}
