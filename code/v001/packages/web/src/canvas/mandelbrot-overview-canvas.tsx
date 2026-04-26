@@ -5,6 +5,7 @@ import {
   getPaletteCssBackground,
   type FractalPaletteId,
   type PaletteMappingMode,
+  type RgbColor,
 } from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
@@ -160,6 +161,8 @@ export function MandelbrotOverviewCanvas(props: {
   palette?: FractalPaletteId;
   paletteMappingMode?: PaletteMappingMode;
   paletteCycles?: number;
+  binaryInteriorColor?: RgbColor;
+  binaryExteriorColor?: RgbColor;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
   attractingPeriodLabel?: string | null;
@@ -282,6 +285,10 @@ export function MandelbrotOverviewCanvas(props: {
     }
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+    const binaryColorOptions = {
+      ...(props.binaryInteriorColor ? { binaryInteriorColor: props.binaryInteriorColor } : {}),
+      ...(props.binaryExteriorColor ? { binaryExteriorColor: props.binaryExteriorColor } : {}),
+    };
     const nextPresentedSize =
       renderer.id === "webgl"
         ? renderExplorerImageWithFallback(
@@ -297,6 +304,7 @@ export function MandelbrotOverviewCanvas(props: {
                 palette: props.palette ?? "ember",
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
+                ...binaryColorOptions,
               });
             },
           )
@@ -313,6 +321,7 @@ export function MandelbrotOverviewCanvas(props: {
                 palette: props.palette ?? "ember",
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
+                ...binaryColorOptions,
               });
             },
           );
@@ -325,6 +334,8 @@ export function MandelbrotOverviewCanvas(props: {
     canvasResolution.renderWidth,
     props.iterations,
     props.palette,
+    props.binaryExteriorColor,
+    props.binaryInteriorColor,
     props.paletteCycles,
     props.paletteMappingMode,
     props.renderer,

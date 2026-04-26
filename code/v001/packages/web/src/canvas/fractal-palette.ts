@@ -12,7 +12,7 @@ export type PaletteMappingMode =
   | "cyclic"
   | "cyclic-mirrored";
 
-interface RgbColor {
+export interface RgbColor {
   red: number;
   green: number;
   blue: number;
@@ -305,16 +305,19 @@ export function getMappedPaletteColor(
     isInterior?: boolean;
     mappingMode?: PaletteMappingMode;
     cycles?: number;
+    binaryInteriorColor?: RgbColor;
+    binaryExteriorColor?: RgbColor;
   },
 ): RgbColor {
   const palette = getFractalPalette(paletteId);
+  const mappingMode = options?.mappingMode ?? DEFAULT_PALETTE_MAPPING_MODE;
 
   if (options?.isInterior) {
-    return palette.interior;
+    return options.binaryInteriorColor ?? palette.interior;
   }
 
-  if ((options?.mappingMode ?? DEFAULT_PALETTE_MAPPING_MODE) === "binary") {
-    return palette.stops.at(-1)!.color;
+  if (mappingMode === "binary") {
+    return options?.binaryExteriorColor ?? palette.stops.at(-1)!.color;
   }
 
   return getPaletteColor(

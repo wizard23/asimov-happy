@@ -413,5 +413,88 @@ Please propose a fix so it behaves the way you described earlier.
 
 yes please make it so
 
+```
+• Implemented.
+
+  Binary mode now behaves as true two-class coloring:
+
+  - interior / non-escaping points use palette.interior
+  - escaped / outside points use the palette’s final stop color
+
+  I changed both:
+
+  - the CPU/shared palette path in code/v001/packages/web/src/canvas/fractal-palette.ts
+  - the WebGL shader path in code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts
+
+  So it no longer thresholds the smooth escape value at 0.5; it now uses actual escape-vs-interior classification.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+In binary mode: hwo do i control what two colors afre used? it always looks black and white to me.
+
+```
+• In binary mode, the two colors are controlled by the selected palette:
+
+  - inside color = palette.interior
+  - outside color = the palette’s last stop color
+
+  So you change the two binary colors by changing the Palette dropdown.
+
+  Why it often looks black-and-white:
+
+  - many current palettes have a very dark interior
+  - many also have a very bright final stop
+  - so binary mode collapses them to “dark vs bright,” which can look like black/white
+
+  Examples:
+
+  - Ember
+      - inside: dark blue-black
+      - outside: warm near-white
+  - Oceanic
+      - inside: dark teal-black
+      - outside: pale mint-white
+  - Red / Black
+      - inside: black
+      - outside: red
+  - Blue / Black
+      - inside: black
+      - outside: blue
+
+  So if you want obvious color in binary mode, pick one of the Color / Black palettes.
+
+  If you want finer control than that, the current UI does not yet let you choose the two binary colors independently. Right now they are derived from the selected palette definition.
+```
+
+yes please. I want to be able to control these two colors directly
+
+
+very good. now please implement an n color mode: it works similar to binary mode
+```
+• Implemented.
+
+  You can now control the two binary-mode colors directly in the explorer:
+
+  - Binary Inside Color
+  - Binary Outside Color
+
+  These controls are enabled when Palette Mapping is set to Binary, and they override the palette-derived interior/final-stop colors for both Mandelbrot and Julia.
+
+  Main changes:
+
+  - UI/state in code/v001/packages/web/src/app/app.tsx
+  - renderer parameter plumbing in code/v001/packages/web/src/canvas/explorer-renderer.ts
+  - CPU binary override handling in code/v001/packages/web/src/canvas/explorer-cpu-renderer.ts
+  - WebGL binary override handling in code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts
+  - palette helper support in code/v001/packages/web/src/canvas/fractal-palette.ts
+  - canvas prop wiring in code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+No matter what colors I select. It still renders in black/white
+
+
 
 

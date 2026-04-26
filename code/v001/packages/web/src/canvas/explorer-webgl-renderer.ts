@@ -3,6 +3,7 @@ import type {
   ExplorerImageRenderer,
   MandelbrotRenderParams,
 } from "./explorer-renderer.js";
+import type { RgbColor } from "./fractal-palette.js";
 
 const VERTEX_SHADER_SOURCE = `
 attribute vec2 a_position;
@@ -277,17 +278,28 @@ function renderToCanvas(
     paletteId: MandelbrotRenderParams["palette"];
     paletteMappingMode: MandelbrotRenderParams["paletteMappingMode"];
     paletteCycles: MandelbrotRenderParams["paletteCycles"];
+    binaryInteriorColor?: RgbColor;
+    binaryExteriorColor?: RgbColor;
   },
 ): void {
   const state = getRendererState(canvas);
   const { context } = state;
   const palette = getFractalPalette(options.paletteId);
-  const stopColors = palette.stops.flatMap((stop) => [
+  const interiorColor = options.paletteMappingMode === "binary"
+    ? (options.binaryInteriorColor ?? palette.interior)
+    : palette.interior;
+  const finalStopColor = options.paletteMappingMode === "binary"
+    ? (options.binaryExteriorColor ?? palette.stops.at(-1)!.color)
+    : palette.stops.at(-1)!.color;
+  const paletteStops = palette.stops.map((stop, index, allStops) =>
+    index === allStops.length - 1 ? { ...stop, color: finalStopColor } : stop,
+  );
+  const stopColors = paletteStops.flatMap((stop) => [
     stop.color.red / 255,
     stop.color.green / 255,
     stop.color.blue / 255,
   ]);
-  const stopPositions = palette.stops.map((stop) => stop.position);
+  const stopPositions = paletteStops.map((stop) => stop.position);
 
   context.viewport(0, 0, canvas.width, canvas.height);
   context.clearColor(0, 0, 0, 1);
@@ -307,9 +319,9 @@ function renderToCanvas(
   context.uniform1f(state.paletteCyclesLocation, options.paletteCycles);
   context.uniform3f(
     state.interiorColorLocation,
-    palette.interior.red / 255,
-    palette.interior.green / 255,
-    palette.interior.blue / 255,
+    interiorColor.red / 255,
+    interiorColor.green / 255,
+    interiorColor.blue / 255,
   );
   context.uniform3fv(state.stopColorsLocation, new Float32Array(stopColors));
   context.uniform1fv(state.stopPositionsLocation, new Float32Array(stopPositions));

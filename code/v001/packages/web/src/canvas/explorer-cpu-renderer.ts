@@ -22,8 +22,14 @@ function renderMandelbrotImage({
   palette,
   paletteMappingMode,
   paletteCycles,
+  binaryInteriorColor,
+  binaryExteriorColor,
 }: MandelbrotRenderParams): ImageData {
   const imageData = new ImageData(width, height);
+  const binaryColorOptions = {
+    ...(binaryInteriorColor ? { binaryInteriorColor } : {}),
+    ...(binaryExteriorColor ? { binaryExteriorColor } : {}),
+  };
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -55,6 +61,7 @@ function renderMandelbrotImage({
           isInterior: true,
           mappingMode: paletteMappingMode,
           cycles: paletteCycles,
+          ...binaryColorOptions,
         });
         imageData.data[pixelIndex] = color.red;
         imageData.data[pixelIndex + 1] = color.green;
@@ -69,6 +76,7 @@ function renderMandelbrotImage({
       const color = getMappedPaletteColor(palette, normalized, {
         mappingMode: paletteMappingMode,
         cycles: paletteCycles,
+        ...binaryColorOptions,
       });
       imageData.data[pixelIndex] = clampByte(color.red);
       imageData.data[pixelIndex + 1] = clampByte(color.green);
@@ -89,9 +97,15 @@ function renderJuliaImage({
   palette,
   paletteMappingMode,
   paletteCycles,
+  binaryInteriorColor,
+  binaryExteriorColor,
 }: JuliaRenderParams): ImageData {
   const featureVector = renderJuliaFeatureVector(parameter, width, height, iterations, viewport);
   const imageData = new ImageData(width, height);
+  const binaryColorOptions = {
+    ...(binaryInteriorColor ? { binaryInteriorColor } : {}),
+    ...(binaryExteriorColor ? { binaryExteriorColor } : {}),
+  };
 
   for (let index = 0; index < featureVector.length; index += 1) {
     const pixelIndex = index * 4;
@@ -100,6 +114,7 @@ function renderJuliaImage({
       isInterior: value >= 1,
       mappingMode: paletteMappingMode,
       cycles: paletteCycles,
+      ...binaryColorOptions,
     });
     imageData.data[pixelIndex] = color.red;
     imageData.data[pixelIndex + 1] = color.green;

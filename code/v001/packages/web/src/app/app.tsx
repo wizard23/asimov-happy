@@ -24,11 +24,13 @@ import {
   DEFAULT_PALETTE_MAPPING_MODE,
   DEFAULT_FRACTAL_PALETTE_ID,
   getFractalPalettes,
+  getFractalPalette,
   getPaletteMappingLabel,
   getThemeFractalPaletteId,
   PALETTE_MAPPING_OPTIONS,
   type FractalPaletteId,
   type PaletteMappingMode,
+  type RgbColor,
 } from "../canvas/fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-cpu-renderer.js";
 import {
@@ -235,6 +237,31 @@ function formatComplexParameter(parameter: ComplexParameter | null): string {
   }
 
   return `${parameter.real.toFixed(6)} ${parameter.imaginary >= 0 ? "+" : "-"} ${Math.abs(parameter.imaginary).toFixed(6)}i`;
+}
+
+function formatHexByte(value: number): string {
+  return value.toString(16).padStart(2, "0");
+}
+
+function rgbColorToHex(color: RgbColor): string {
+  return `#${formatHexByte(color.red)}${formatHexByte(color.green)}${formatHexByte(color.blue)}`;
+}
+
+function hexToRgbColor(value: string): RgbColor {
+  const normalized = value.trim().replace(/^#/, "");
+  const hex = normalized.length === 3
+    ? normalized.split("").map((channel) => channel + channel).join("")
+    : normalized;
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    throw new Error(`Unsupported hex color: ${value}`);
+  }
+
+  return {
+    red: Number.parseInt(hex.slice(0, 2), 16),
+    green: Number.parseInt(hex.slice(2, 4), 16),
+    blue: Number.parseInt(hex.slice(4, 6), 16),
+  };
 }
 
 function getAttractingPeriodLabel(result: ReturnType<typeof detectMandelbrotAttractingCyclePeriod>): string {
@@ -492,6 +519,14 @@ function ExplorerWorkspace(props: {
   const [palette, setPalette] = useState<FractalPaletteId>(() =>
     getThemeFractalPaletteId(props.themeId),
   );
+  const [binaryInteriorColor, setBinaryInteriorColor] = useState<RgbColor>(() => {
+    const initialPalette = getFractalPalette(getThemeFractalPaletteId(props.themeId));
+    return initialPalette.interior;
+  });
+  const [binaryExteriorColor, setBinaryExteriorColor] = useState<RgbColor>(() => {
+    const initialPalette = getFractalPalette(getThemeFractalPaletteId(props.themeId));
+    return initialPalette.stops.at(-1)!.color;
+  });
   const [paletteMappingMode, setPaletteMappingMode] =
     useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
   const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
@@ -669,9 +704,27 @@ function ExplorerWorkspace(props: {
             <NumberInput
               value={paletteCycles}
               min={1}
-              max={32}
+              max={500}
               onChange={setPaletteCycles}
               disabled={paletteMappingMode !== "cyclic" && paletteMappingMode !== "cyclic-mirrored"}
+            />
+          </Field>
+          <Field label="Binary Inside Color">
+            <input
+              className="field__input"
+              type="color"
+              value={rgbColorToHex(binaryInteriorColor)}
+              disabled={paletteMappingMode !== "binary"}
+              onInput={(event) => setBinaryInteriorColor(hexToRgbColor(event.currentTarget.value))}
+            />
+          </Field>
+          <Field label="Binary Outside Color">
+            <input
+              className="field__input"
+              type="color"
+              value={rgbColorToHex(binaryExteriorColor)}
+              disabled={paletteMappingMode !== "binary"}
+              onInput={(event) => setBinaryExteriorColor(hexToRgbColor(event.currentTarget.value))}
             />
           </Field>
           <Field label="Mandelbrot Iterations">
@@ -868,6 +921,8 @@ function ExplorerWorkspace(props: {
               palette={palette}
               paletteMappingMode={paletteMappingMode}
               paletteCycles={paletteCycles}
+              binaryInteriorColor={binaryInteriorColor}
+              binaryExteriorColor={binaryExteriorColor}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
               attractingPeriodLabel={attractingPeriodLabel}
@@ -925,6 +980,8 @@ function ExplorerWorkspace(props: {
               palette={palette}
               paletteMappingMode={paletteMappingMode}
               paletteCycles={paletteCycles}
+              binaryInteriorColor={binaryInteriorColor}
+              binaryExteriorColor={binaryExteriorColor}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}
               renderer={activeImageRenderer}

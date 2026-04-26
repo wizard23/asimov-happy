@@ -9,6 +9,7 @@ import {
   getPaletteCssBackground,
   type FractalPaletteId,
   type PaletteMappingMode,
+  type RgbColor,
 } from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
 import type { ExplorerImageRenderer } from "./explorer-renderer.js";
@@ -151,6 +152,8 @@ export function JuliaViewerCanvas(props: {
   palette: FractalPaletteId;
   paletteMappingMode?: PaletteMappingMode;
   paletteCycles?: number;
+  binaryInteriorColor?: RgbColor;
+  binaryExteriorColor?: RgbColor;
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
   renderer?: ExplorerImageRenderer;
@@ -288,6 +291,10 @@ export function JuliaViewerCanvas(props: {
 
     const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
     const parameter = props.parameter;
+    const binaryColorOptions = {
+      ...(props.binaryInteriorColor ? { binaryInteriorColor: props.binaryInteriorColor } : {}),
+      ...(props.binaryExteriorColor ? { binaryExteriorColor: props.binaryExteriorColor } : {}),
+    };
     const nextPresentedSize =
       renderer.id === "webgl"
         ? renderExplorerImageWithFallback(
@@ -304,6 +311,7 @@ export function JuliaViewerCanvas(props: {
                 palette: props.palette,
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
+                ...binaryColorOptions,
               });
             },
           )
@@ -321,6 +329,7 @@ export function JuliaViewerCanvas(props: {
                 palette: props.palette,
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
+                ...binaryColorOptions,
               });
             },
           );
@@ -333,6 +342,8 @@ export function JuliaViewerCanvas(props: {
     canvasResolution.renderWidth,
     props.iterations,
     props.palette,
+    props.binaryExteriorColor,
+    props.binaryInteriorColor,
     props.paletteCycles,
     props.paletteMappingMode,
     props.parameter,

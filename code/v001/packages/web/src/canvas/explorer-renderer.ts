@@ -1,5 +1,5 @@
 import type { ComplexBounds, ComplexParameter, JuliaViewport } from "@asimov/minimal-shared";
-import type { FractalPaletteId, PaletteMappingMode } from "./fractal-palette.js";
+import type { FractalPaletteId, PaletteMappingMode, RgbColor } from "./fractal-palette.js";
 
 export type ExplorerRendererId = "cpu" | "webgl" | "webgpu";
 
@@ -26,6 +26,8 @@ export interface MandelbrotRenderParams {
   palette: FractalPaletteId;
   paletteMappingMode: PaletteMappingMode;
   paletteCycles: number;
+  binaryInteriorColor?: RgbColor;
+  binaryExteriorColor?: RgbColor;
 }
 
 export interface JuliaRenderParams {
@@ -37,6 +39,8 @@ export interface JuliaRenderParams {
   palette: FractalPaletteId;
   paletteMappingMode: PaletteMappingMode;
   paletteCycles: number;
+  binaryInteriorColor?: RgbColor;
+  binaryExteriorColor?: RgbColor;
 }
 
 export interface ExplorerImageRenderer {
