@@ -764,5 +764,39 @@ Before you change anything: does this make sense? if it is unclear let's fix the
 yes. please do it.
 
 
+```
+• Implemented.
+
+  What changed:
+
+  - Both canvases now always support all three marker types:
+      - red: selected parameter
+      - blue: live preview parameter
+      - turquoise: hover position
+  - Duplicate markers are suppressed by priority:
+      - hover over live
+      - live over selected
+  - Added a Marker Scale slider in the left controls:
+      - range 50% to 500%
+      - default 150%
+  - Added a non-zen legend below the fractal section explaining the marker colors
+
+  Main files:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+
+suppression is buggy. Please remove all suppression code and always draw all three markers in this order 
+* active point (on top of all other)
+* hover julia (if hovering over julia set is active atm)
+* hover mandelbrot (if hovering over mandelbrot set is active atm)
+
+
 
 

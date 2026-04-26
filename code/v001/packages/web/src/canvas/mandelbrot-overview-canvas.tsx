@@ -82,18 +82,6 @@ function mapToRelativePosition(
   };
 }
 
-function areSameParameter(
-  left: ComplexParameter | null | undefined,
-  right: ComplexParameter | null | undefined,
-): boolean {
-  return Boolean(
-    left &&
-      right &&
-      left.real === right.real &&
-      left.imaginary === right.imaginary,
-  );
-}
-
 function mapPointToParameter(
   x: number,
   y: number,
@@ -161,6 +149,8 @@ function getStagePoint(
 export function MandelbrotOverviewCanvas(props: {
   parameter: ComplexParameter | null;
   selectedParameter?: ComplexParameter | null;
+  hoveredMandelbrotParameter?: ComplexParameter | null;
+  hoveredJuliaCoordinate?: ComplexParameter | null;
   onHoverParameter: (parameter: ComplexParameter | null) => void;
   onSelectParameter?: (parameter: ComplexParameter) => void;
   result?: SomTrainingResult | null;
@@ -217,25 +207,24 @@ export function MandelbrotOverviewCanvas(props: {
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
 
-  const selectedParameter = props.selectedParameter ?? props.parameter;
-  const hoverCrosshairPosition = useMemo(
-    () => (hoveredParameter ? mapToRelativePosition(hoveredParameter, viewport) : null),
-    [hoveredParameter, viewport],
+  const activeCrosshairPosition = useMemo(
+    () => (props.parameter ? mapToRelativePosition(props.parameter, viewport) : null),
+    [props.parameter, viewport],
   );
-  const liveCrosshairPosition = useMemo(() => {
-    if (!props.parameter || areSameParameter(props.parameter, hoveredParameter) || areSameParameter(props.parameter, selectedParameter)) {
-      return null;
-    }
-
-    return mapToRelativePosition(props.parameter, viewport);
-  }, [hoveredParameter, props.parameter, selectedParameter, viewport]);
-  const selectedCrosshairPosition = useMemo(() => {
-    if (!selectedParameter || areSameParameter(selectedParameter, hoveredParameter) || areSameParameter(selectedParameter, props.parameter)) {
-      return null;
-    }
-
-    return mapToRelativePosition(selectedParameter, viewport);
-  }, [hoveredParameter, props.parameter, selectedParameter, viewport]);
+  const mandelbrotHoverCrosshairPosition = useMemo(
+    () =>
+      props.hoveredMandelbrotParameter
+        ? mapToRelativePosition(props.hoveredMandelbrotParameter, viewport)
+        : null,
+    [props.hoveredMandelbrotParameter, viewport],
+  );
+  const juliaHoverCrosshairPosition = useMemo(
+    () =>
+      props.hoveredJuliaCoordinate
+        ? mapToRelativePosition(props.hoveredJuliaCoordinate, viewport)
+        : null,
+    [props.hoveredJuliaCoordinate, viewport],
+  );
   const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}${
     props.attractingPeriodLabel ? ` \u00b7 ${props.attractingPeriodLabel}` : ""
   }`;
@@ -759,40 +748,40 @@ export function MandelbrotOverviewCanvas(props: {
           width={canvasResolution.renderWidth}
           height={canvasResolution.renderHeight}
         />
-        {hoverCrosshairPosition ? (
+        {mandelbrotHoverCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--hover"
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover-mandelbrot"
             src={crosshairUrl}
-            alt="Hover position on the Mandelbrot set"
+            alt="Hover position from the Mandelbrot set"
             style={{
-              left: hoverCrosshairPosition.left,
-              top: hoverCrosshairPosition.top,
+              left: mandelbrotHoverCrosshairPosition.left,
+              top: mandelbrotHoverCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}
           />
         ) : null}
-        {selectedCrosshairPosition ? (
+        {juliaHoverCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--selected"
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover-julia"
             src={crosshairUrl}
-            alt="Selected Julia parameter on the Mandelbrot set"
+            alt="Hover position from the Julia set"
             style={{
-              left: selectedCrosshairPosition.left,
-              top: selectedCrosshairPosition.top,
+              left: juliaHoverCrosshairPosition.left,
+              top: juliaHoverCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}
           />
         ) : null}
-        {liveCrosshairPosition ? (
+        {activeCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--live"
+            className="mandelbrot-crosshair mandelbrot-crosshair--active"
             src={crosshairUrl}
-            alt="Live preview Julia parameter on the Mandelbrot set"
+            alt="Active Julia parameter on the Mandelbrot set"
             style={{
-              left: liveCrosshairPosition.left,
-              top: liveCrosshairPosition.top,
+              left: activeCrosshairPosition.left,
+              top: activeCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}

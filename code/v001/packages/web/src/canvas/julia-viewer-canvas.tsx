@@ -82,18 +82,6 @@ function mapToRelativePosition(
   };
 }
 
-function areSameParameter(
-  left: ComplexParameter | null | undefined,
-  right: ComplexParameter | null | undefined,
-): boolean {
-  return Boolean(
-    left &&
-      right &&
-      left.real === right.real &&
-      left.imaginary === right.imaginary,
-  );
-}
-
 function mapPointToCoordinate(
   x: number,
   y: number,
@@ -161,7 +149,10 @@ function getStagePoint(
 export function JuliaViewerCanvas(props: {
   parameter: ComplexParameter | null;
   selectedParameter?: ComplexParameter | null;
+  hoveredMandelbrotParameter?: ComplexParameter | null;
+  hoveredJuliaCoordinate?: ComplexParameter | null;
   onSelectParameter?: (parameter: ComplexParameter) => void;
+  onHoverCoordinate?: (parameter: ComplexParameter | null) => void;
   iterations: number;
   palette: FractalPaletteId;
   paletteMappingMode?: PaletteMappingMode;
@@ -188,6 +179,7 @@ export function JuliaViewerCanvas(props: {
   const enableTwoQualityLevelsRef = useRef(Boolean(props.enableTwoQualityLevels));
   const parameterRef = useRef(props.parameter);
   const onSelectParameterRef = useRef(props.onSelectParameter);
+  const onHoverCoordinateRef = useRef(props.onHoverCoordinate);
   const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
   const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
@@ -210,29 +202,24 @@ export function JuliaViewerCanvas(props: {
     [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
-  const selectedParameter = props.selectedParameter ?? props.parameter;
-  const hoverCrosshairPosition = useMemo(
-    () => (hoveredCoordinate ? mapToRelativePosition(hoveredCoordinate, viewport) : null),
-    [hoveredCoordinate, viewport],
+  const activeCrosshairPosition = useMemo(
+    () => (props.parameter ? mapToRelativePosition(props.parameter, viewport) : null),
+    [props.parameter, viewport],
   );
-  const liveCrosshairPosition = useMemo(() => {
-    if (
-      !props.parameter ||
-      areSameParameter(props.parameter, hoveredCoordinate) ||
-      areSameParameter(props.parameter, selectedParameter)
-    ) {
-      return null;
-    }
-
-    return mapToRelativePosition(props.parameter, viewport);
-  }, [hoveredCoordinate, props.parameter, selectedParameter, viewport]);
-  const selectedCrosshairPosition = useMemo(() => {
-    if (!selectedParameter || areSameParameter(selectedParameter, hoveredCoordinate) || areSameParameter(selectedParameter, props.parameter)) {
-      return null;
-    }
-
-    return mapToRelativePosition(selectedParameter, viewport);
-  }, [hoveredCoordinate, props.parameter, selectedParameter, viewport]);
+  const mandelbrotHoverCrosshairPosition = useMemo(
+    () =>
+      props.hoveredMandelbrotParameter
+        ? mapToRelativePosition(props.hoveredMandelbrotParameter, viewport)
+        : null,
+    [props.hoveredMandelbrotParameter, viewport],
+  );
+  const juliaHoverCrosshairPosition = useMemo(
+    () =>
+      props.hoveredJuliaCoordinate
+        ? mapToRelativePosition(props.hoveredJuliaCoordinate, viewport)
+        : null,
+    [props.hoveredJuliaCoordinate, viewport],
+  );
   const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}`;
   const hoverOverlayText = formatComplex(hoveredCoordinate);
   const markerSize = 36 * (props.markerScale ?? 1);
@@ -248,6 +235,10 @@ export function JuliaViewerCanvas(props: {
   useEffect(() => {
     onSelectParameterRef.current = props.onSelectParameter;
   }, [props.onSelectParameter]);
+
+  useEffect(() => {
+    onHoverCoordinateRef.current = props.onHoverCoordinate;
+  }, [props.onHoverCoordinate]);
 
   useEffect(() => {
     enableTwoQualityLevelsRef.current = Boolean(props.enableTwoQualityLevels);
@@ -539,15 +530,15 @@ export function JuliaViewerCanvas(props: {
         });
       }
       if (event.pointerType === "mouse" && parameterRef.current) {
-        setHoveredCoordinate(
-          mapPointToCoordinate(
-            point.x,
-            point.y,
-            displaySizeRef.current.width,
-            displaySizeRef.current.height,
-            viewportRef.current,
-          ),
+        const hoveredPoint = mapPointToCoordinate(
+          point.x,
+          point.y,
+          displaySizeRef.current.width,
+          displaySizeRef.current.height,
+          viewportRef.current,
         );
+        setHoveredCoordinate(hoveredPoint);
+        onHoverCoordinateRef.current?.(hoveredPoint);
       }
 
       if (pinchStateRef.current && activePointersRef.current.size >= 2) {
@@ -618,6 +609,7 @@ export function JuliaViewerCanvas(props: {
     function handlePointerLeave(event: PointerEvent): void {
       if (event.pointerType === "mouse") {
         setHoveredCoordinate(null);
+        onHoverCoordinateRef.current?.(null);
       }
     }
 
@@ -716,40 +708,40 @@ export function JuliaViewerCanvas(props: {
           width={canvasResolution.renderWidth}
           height={canvasResolution.renderHeight}
         />
-        {hoverCrosshairPosition ? (
+        {mandelbrotHoverCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--hover"
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover-mandelbrot"
             src={crosshairUrl}
-            alt="Hover position in the Julia set"
+            alt="Hover position from the Mandelbrot set"
             style={{
-              left: hoverCrosshairPosition.left,
-              top: hoverCrosshairPosition.top,
+              left: mandelbrotHoverCrosshairPosition.left,
+              top: mandelbrotHoverCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}
           />
         ) : null}
-        {selectedCrosshairPosition ? (
+        {juliaHoverCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--selected"
+            className="mandelbrot-crosshair mandelbrot-crosshair--hover-julia"
             src={crosshairUrl}
-            alt="Selected Julia parameter in the Julia set"
+            alt="Hover position from the Julia set"
             style={{
-              left: selectedCrosshairPosition.left,
-              top: selectedCrosshairPosition.top,
+              left: juliaHoverCrosshairPosition.left,
+              top: juliaHoverCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}
           />
         ) : null}
-        {liveCrosshairPosition ? (
+        {activeCrosshairPosition ? (
           <img
-            className="mandelbrot-crosshair mandelbrot-crosshair--live"
+            className="mandelbrot-crosshair mandelbrot-crosshair--active"
             src={crosshairUrl}
-            alt="Live preview Julia parameter in the Julia set"
+            alt="Active Julia parameter in the Julia set"
             style={{
-              left: liveCrosshairPosition.left,
-              top: liveCrosshairPosition.top,
+              left: activeCrosshairPosition.left,
+              top: activeCrosshairPosition.top,
               width: `${markerSize}px`,
               height: `${markerSize}px`,
             }}

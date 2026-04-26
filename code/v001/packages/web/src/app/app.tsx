@@ -508,6 +508,7 @@ function ExplorerWorkspace(props: {
     imaginary: 0.11301,
   });
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
+  const [hoveredJuliaCoordinate, setHoveredJuliaCoordinate] = useState<ComplexParameter | null>(null);
   const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(true);
   const [useTwoQualityLevels, setUseTwoQualityLevels] = useState(true);
   const [showOrbit, setShowOrbit] = useState(false);
@@ -922,6 +923,8 @@ function ExplorerWorkspace(props: {
             <MandelbrotOverviewCanvas
               parameter={activeParameter}
               selectedParameter={selectedParameter}
+              hoveredMandelbrotParameter={hoveredParameter}
+              hoveredJuliaCoordinate={hoveredJuliaCoordinate}
               onHoverParameter={setHoveredParameter}
               onSelectParameter={setSelectedParameter}
               iterations={mandelbrotIterations}
@@ -988,7 +991,10 @@ function ExplorerWorkspace(props: {
             <JuliaViewerCanvas
               parameter={activeParameter}
               selectedParameter={selectedParameter}
+              hoveredMandelbrotParameter={hoveredParameter}
+              hoveredJuliaCoordinate={hoveredJuliaCoordinate}
               onSelectParameter={setSelectedParameter}
+              onHoverCoordinate={setHoveredJuliaCoordinate}
               iterations={juliaIterations}
               palette={palette}
               paletteMappingMode={paletteMappingMode}
@@ -1013,16 +1019,16 @@ function ExplorerWorkspace(props: {
             <p className="eyebrow">Markers</p>
             <div className="marker-legend__items">
               <span className="marker-legend__item">
-                <span className="marker-legend__swatch marker-legend__swatch--selected" />
-                Selected parameter
+                <span className="marker-legend__swatch marker-legend__swatch--active" />
+                Active point
               </span>
               <span className="marker-legend__item">
-                <span className="marker-legend__swatch marker-legend__swatch--live" />
-                Live preview parameter
+                <span className="marker-legend__swatch marker-legend__swatch--hover-julia" />
+                Hover Julia
               </span>
               <span className="marker-legend__item">
-                <span className="marker-legend__swatch marker-legend__swatch--hover" />
-                Hover position
+                <span className="marker-legend__swatch marker-legend__swatch--hover-mandelbrot" />
+                Hover Mandelbrot
               </span>
             </div>
           </section>
