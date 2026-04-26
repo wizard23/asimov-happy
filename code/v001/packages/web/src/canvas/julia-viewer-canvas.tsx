@@ -505,9 +505,6 @@ export function JuliaViewerCanvas(props: {
           viewportAtStart: viewportRef.current,
         };
       }
-      if (event.pointerType === "mouse") {
-        activeCanvas.style.cursor = "grabbing";
-      }
       event.preventDefault();
     }
 
@@ -593,7 +590,7 @@ export function JuliaViewerCanvas(props: {
       }
       dragStateRef.current = null;
       pinchStateRef.current = null;
-      activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
+      activeCanvas.style.cursor = parameterRef.current ? "none" : "default";
     }
 
     function handlePointerCancel(event: PointerEvent): void {
@@ -603,7 +600,7 @@ export function JuliaViewerCanvas(props: {
       }
       dragStateRef.current = null;
       pinchStateRef.current = null;
-      activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
+      activeCanvas.style.cursor = parameterRef.current ? "none" : "default";
     }
 
     function handlePointerLeave(event: PointerEvent): void {
@@ -649,7 +646,7 @@ export function JuliaViewerCanvas(props: {
       markInteractiveQuality();
     }
 
-    activeCanvas.style.cursor = parameterRef.current ? "grab" : "default";
+    activeCanvas.style.cursor = parameterRef.current ? "none" : "default";
     activeCanvas.addEventListener("pointerdown", handlePointerDown);
     activeCanvas.addEventListener("pointermove", handlePointerMove);
     activeCanvas.addEventListener("pointerup", handlePointerUp);
@@ -677,7 +674,7 @@ export function JuliaViewerCanvas(props: {
       return;
     }
 
-    canvas.style.cursor = props.parameter ? "grab" : "default";
+    canvas.style.cursor = props.parameter ? "none" : "default";
   }, [props.parameter]);
 
   return (

@@ -558,9 +558,6 @@ export function MandelbrotOverviewCanvas(props: {
             viewportAtStart: viewportRef.current,
           };
           dragStateRef.current = null;
-          if (event.pointerType === "mouse") {
-            activeCanvas.style.cursor = "grabbing";
-          }
         }
       } else {
         pinchStateRef.current = null;
@@ -569,9 +566,6 @@ export function MandelbrotOverviewCanvas(props: {
           pointerStartY: point.y,
           viewportAtStart: viewportRef.current,
         };
-        if (event.pointerType === "mouse") {
-          activeCanvas.style.cursor = "grabbing";
-        }
       }
       event.preventDefault();
     }
@@ -619,7 +613,7 @@ export function MandelbrotOverviewCanvas(props: {
         const frame = frameRef.current;
         if (!frame) {
           dragStateRef.current = null;
-          activeCanvas.style.cursor = "crosshair";
+          activeCanvas.style.cursor = "none";
           return;
         }
 
@@ -652,7 +646,7 @@ export function MandelbrotOverviewCanvas(props: {
       }
       dragStateRef.current = null;
       pinchStateRef.current = null;
-      activeCanvas.style.cursor = "crosshair";
+      activeCanvas.style.cursor = "none";
     }
 
     function handlePointerCancel(event: PointerEvent): void {
@@ -662,7 +656,7 @@ export function MandelbrotOverviewCanvas(props: {
       }
       dragStateRef.current = null;
       pinchStateRef.current = null;
-      activeCanvas.style.cursor = "crosshair";
+      activeCanvas.style.cursor = "none";
     }
 
     function handleWheel(event: WheelEvent): void {
@@ -698,7 +692,7 @@ export function MandelbrotOverviewCanvas(props: {
       markInteractiveQuality();
     }
 
-    activeCanvas.style.cursor = "crosshair";
+    activeCanvas.style.cursor = "none";
     activeCanvas.addEventListener("pointermove", handlePointerMove);
     activeCanvas.addEventListener("pointerleave", handlePointerLeave);
     activeCanvas.addEventListener("pointerdown", handlePointerDown);

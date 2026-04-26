@@ -969,6 +969,34 @@ The visual center of the marker is at 0/0 i think. But the click position is not
 
 1. is the cleanest solution. Please fix the marker itself. The svg should be textbook ready please.
 
+```
+• Fixed the marker asset itself.
+
+  I replaced code/v001/packages/web/src/assets/noun-crosshair-59595.svg with a clean centered square-viewBox SVG whose visual target is exactly centered in the asset. That means the existing
+  translate(-50%, -50%) positioning now matches the marker’s true visual center without hacks.
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
+Please hide the mouse cursor on hover. The marker replaces the mouse cursor.
+
+```
+• Build and lint are still running. If they pass, the mouse cursor will stay hidden over the interactive fractal canvases.
+
+• Waited for background terminal
+
+• Waited for background terminal
+
+• Implemented. The mouse cursor is now hidden while hovering the interactive Mandelbrot and Julia canvases, so the marker acts as the visual pointer.
+
+  Changes are in:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  Verification passed with npm run build and npm run lint in code/v001.
+```
+
 
 
 
