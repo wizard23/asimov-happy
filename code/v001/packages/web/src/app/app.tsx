@@ -312,6 +312,15 @@ function NumberInput(props: {
   onChange: (value: number) => void;
   disabled?: boolean;
 }): preact.JSX.Element {
+  function commitValue(rawValue: string): void {
+    const nextValue = Number(rawValue);
+    if (!Number.isFinite(nextValue)) {
+      return;
+    }
+
+    props.onChange(nextValue);
+  }
+
   return (
     <input
       className="field__input"
@@ -319,11 +328,10 @@ function NumberInput(props: {
       value={props.value}
       min={props.min}
       max={props.max}
+      step={1}
       disabled={props.disabled}
-      onInput={(event) => {
-        const nextValue = Number(event.currentTarget.value);
-        props.onChange(nextValue);
-      }}
+      onInput={(event) => commitValue(event.currentTarget.value)}
+      onChange={(event) => commitValue(event.currentTarget.value)}
     />
   );
 }
