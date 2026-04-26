@@ -314,9 +314,7 @@ export function getMappedPaletteColor(
   }
 
   if ((options?.mappingMode ?? DEFAULT_PALETTE_MAPPING_MODE) === "binary") {
-    return mapPaletteValue(value, "binary", options?.cycles) >= 0.5
-      ? palette.stops.at(-1)!.color
-      : palette.interior;
+    return palette.stops.at(-1)!.color;
   }
 
   return getPaletteColor(

@@ -73,7 +73,7 @@ float applyPaletteMapping(float value) {
 
 vec3 getMappedColor(float value) {
   if (u_paletteMappingMode == 0) {
-    return applyPaletteMapping(value) >= 0.5 ? u_stopColors[3] : u_interiorColor;
+    return u_stopColors[3];
   }
 
   return getPaletteColor(applyPaletteMapping(value));
