@@ -999,4 +999,349 @@ Please hide the mouse cursor on hover. The marker replaces the mouse cursor.
 
 
 
+Please create a new palette mode that is similar to the binary mode but works like this:
+The user can enter the number of palette entries (default 3)
+for each palette entry the user can specify a color
+for each palette entry (except the last one) the user can specify a threshold
+
+the 1st color is used for all complex numbers that stay below or equal to the 1st threshold.
+the 2nd color is used for all complex numbers that stay below or equal to the 2nd threshold.
+...
+the last color is used for all other (including the diverging) complex numbers
+
+Before you change anything: does this make sense? if it is unclear let's fix the spec before we make changes.
+
+
+
+
+Since this is important we will create a spec for this before chnaging any code.
+
+* Please use the iteration count
+
+Before you create the spec for this please explain the meaning of the iteration count and what kind opf points have what kind of iteration count so I can use the terms in the correct way for the spec.
+
+```
+• For Mandelbrot/Julia escape-time rendering, the iteration count means:
+
+  - start with an initial complex state
+  - repeatedly apply the fractal recurrence
+  - count how many steps happen before the orbit escapes past the bailout radius
+
+  So the iteration count is an “escape time”.
+
+  ## Mandelbrot
+
+  For Mandelbrot:
+
+  - z0 = 0
+  - z(n+1) = z(n)^2 + c
+
+  where c is the pixel’s complex-plane coordinate.
+
+  Interpretation:
+
+  - low iteration count
+      - escapes very quickly
+      - these points are well outside the Mandelbrot set
+  - medium iteration count
+      - escapes, but only after some iterations
+      - these are outside the set, but closer to the boundary
+  - high iteration count
+      - escapes very late
+      - these are very close to the boundary from the outside
+  - does not escape within max iterations
+      - treated as interior / in-set for rendering purposes
+      - these are points inside the Mandelbrot set, or at least indistinguishable from it at the chosen iteration limit
+
+  So for Mandelbrot:
+
+  - quick escape = far outside
+  - slow escape = near boundary outside
+  - no escape = interior/in-set
+
+  ## Julia
+
+  For Julia:
+
+  - z0 is the pixel coordinate
+  - z(n+1) = z(n)^2 + c
+  - c is fixed
+
+  Interpretation is analogous:
+
+  - low iteration count
+      - point escapes quickly
+      - far outside the filled Julia set
+  - medium iteration count
+      - outside, but closer to the boundary
+  - high iteration count
+      - escapes late
+      - near the boundary from the outside
+  - does not escape within max iterations
+      - treated as interior of the filled Julia set for rendering
+
+  So the same language applies:
+
+  - fast escape
+  - slow escape
+  - non-escaping / interior
+
+  ## Important wording detail
+
+  A point with a given iteration count is usually best described as:
+
+  - “escapes in n iterations”
+  - or “does not escape within the iteration limit”
+
+  That is more precise than saying:
+
+  - “stays below threshold”
+    or
+  - “has value n”
+
+  because the underlying thing being measured is:
+
+  - number of iterations before escape
+
+  ## One subtlety
+
+  In the current renderer, coloring often uses a smoothed escape value, not just the raw integer count.
+  But for the mode you want, if we base it on iteration count, then we should mean:
+
+  - the raw integer escape iteration count
+
+  not the smoothed normalized value.
+
+  ## Good terminology for the spec
+
+  I recommend using these terms:
+
+  - escape iteration count
+  - escapes in n iterations
+  - non-escaping points
+  - interior points
+  - late-escaping points
+  - early-escaping points
+
+  And specifically:
+
+  - threshold T means:
+      - “points whose orbit escapes in at most T iterations”
+
+  That is the cleanest wording for the spec.
+
+  If you want, next I can write the spec in docs/specs using exactly that terminology.
+```
+
+Yes please use the terminology you suggested in the spec. Before you write the spec please give me a list of all open questions you still have about this new feature. Order them by importance and give suggestions on the answers according to your current understanding of the feature.
+
+
+```
+• Open questions, ordered by importance.
+
+  1. How should non-escaping/interior points be colored?
+
+  - This is the biggest semantic choice.
+  - Your current description says:
+      - “the last color is used for all other (including the diverging) complex numbers”
+  - But with iteration-count terminology, the important distinction is:
+      - escaping points
+      - non-escaping/interior points
+  - Recommendation:
+      - last color should be used for:
+          - all points that escape after the last threshold
+          - all non-escaping/interior points
+  - This matches your current intent and keeps the mode simple.
+
+  2. Are thresholds inclusive?
+
+  - Recommendation:
+      - yes
+      - color i applies to points whose orbit escapes in at most threshold i
+  - So:
+      - entry 1: escape iteration count <= t1
+      - entry 2: t1 < count <= t2
+      - ...
+      - last entry: everything else
+
+  3. Must thresholds be strictly increasing?
+
+  - Recommendation:
+      - yes
+  - Otherwise the bands become ambiguous or redundant.
+
+  4. What is the maximum number of palette entries?
+
+  - Recommendation:
+      - allow something practical like 2..12
+  - More than that makes the UI cumbersome.
+
+  5. What is the default number of entries?
+
+  - You already suggested 3.
+  - Recommendation:
+      - use 3
+
+  6. What are the default thresholds?
+
+  - Recommendation:
+      - for 3 entries, use 10 and 50
+  - Rationale:
+      - early escape band
+      - medium escape band
+      - late escape/interior band
+
+  7. What are the default colors?
+
+  - Recommendation:
+      - entry 1: dark navy
+      - entry 2: amber
+      - entry 3: near-white
+  - This gives obvious separation and works on dark backgrounds.
+
+  8. Should this mode apply to both Mandelbrot and Julia?
+
+  - Recommendation:
+      - yes
+  - That keeps explorer behavior consistent.
+
+  9. What should the mode be called in the UI?
+
+  - Recommendation:
+      - Escape Bands
+  - Better than something generic like Threshold Mode
+  - It directly reflects the meaning:
+      - bands by escape iteration count
+
+  10. Where should the controls live?
+
+  - Recommendation:
+      - in Advanced Settings
+      - in a dedicated subsection shown only when Palette Mapping = Escape Bands
+  - This avoids cluttering the main controls.
+
+  11. How should the UI behave when the number of entries changes?
+
+  - Recommendation:
+      - grow/shrink the editable list dynamically
+      - preserve existing values where possible
+      - initialize new entries with sensible defaults
+
+  12. How should thresholds be edited?
+
+  - Recommendation:
+      - simple integer number inputs
+      - one threshold per entry except the last
+  - Threshold labels could be:
+      - Threshold 1
+      - Threshold 2
+      - etc.
+
+  13. Should colors be edited with native color pickers?
+
+  - Recommendation:
+      - yes
+
+  14. Should this mode ignore the selected palette dropdown entirely?
+
+  - Recommendation:
+      - mostly yes for coloring
+  - The selected palette could remain visible for other modes, but in Escape Bands mode the explicit band colors should define the actual result.
+  - This should be stated clearly in the spec.
+
+  15. Should smoothed escape values be ignored in this mode?
+
+  - Recommendation:
+      - yes
+  - This mode should use raw integer escape iteration count only.
+  - That is essential to make the feature match the intended semantics.
+
+  16. What should happen for points outside the iteration limit that do not escape?
+
+  - Recommendation:
+      - treat them as non-escaping/interior
+      - assign the last color
+
+  17. Should this mode support WebGL and CPU equally?
+
+  - Recommendation:
+      - yes
+  - But the spec should note that the implementation must use raw escape iteration count in both paths, not the smoothed normalized scalar.
+
+  18. Should the thresholds be validated against the current iteration limit?
+      - no
+  - Keep Logarithmic as default.
+
+  My current best recommendation for the core feature definition is:
+
+  - mode name: Escape Bands
+  - based on raw integer escape iteration count
+  - applies to both Mandelbrot and Julia
+  - entries: default 3, range 2..12
+  - thresholds: inclusive, strictly increasing
+  - last color used for:
+      - points escaping after the last threshold
+      - non-escaping/interior points
+  - explicit color pickers and threshold inputs in Advanced Settings
+  - ignore normal palette-gradient interpolation while this mode is active
+
+  If you want, I can now turn that into a timestamped spec in docs/specs.
+```
+
+All your recommendations are good except the default palette. Please use these colors
+1. violet (fast escaping points)
+2. turquoise
+3. black (interior and very slowly escaping points)
+
+About how growing and shrinking the number of controls. Please keep all colors in memory so when the user shrinks the number of entries and then goes back to a higher entry count the colors that were entered before and the thresholds are restored/
+
+Labels:
+1. Threshold 1 (diverge very quickly)
+2. Threshold 2
+3. ...
+4. Threshold n-1 (diverge very slowly)
+5. (last threshold is implicit and no control is created for it)
+
+If everything is clear now please create the spec. Otherwise let's discuss the remaining open questions.
+
+
+
+```
+• Created the spec in the usual location:
+
+  docs/specs/2026-04-26-17-05--explorer-escape-bands-palette-mode-spec.md
+
+  It uses the terminology we agreed on:
+
+  - escape iteration count
+  - escapes in n iterations
+  - non-escaping/interior points
+  - early-escaping
+  - late-escaping
+
+  and includes:
+
+  - your violet / turquoise / black defaults
+  - persistent hidden colors and thresholds when entry count shrinks
+  - the threshold labeling convention
+  - the rule that the last color is used for both late-escaping and non-escaping points
+```
+
+please implement it.
+
+
+
+
+
+
+
+
+
+---
+
+I want to create another spec for combining palettes. 
+In this advanced feature the user can select two palettes 
+
+
+
 
