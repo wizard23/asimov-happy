@@ -1370,6 +1370,202 @@ please implement it.
 ```
 
 
+The color selection control looks broken to me. It does not actually display the selected color. Please don't change any code but just look at it and test it with a headless browser. Then give me a report.
+
+```
+• Yes. The control looks broken in the browser too.
+
+  What I verified
+
+  - I opened the app in headless Chromium at http://127.0.0.1:4173/.
+  - In the screenshot, both color controls render as narrow dark rounded bars, not as visible color swatches.
+  - That matches your description: the selected color is not visually communicated by the control.
+
+  What the browser is actually rendering
+
+  - The DOM contains real native color inputs:
+      - Binary Inside Color
+      - Binary Outside Color
+  - They are rendered as:
+      - <input class="field__input" type="color" ...>
+
+  So this is not a missing element problem. The controls exist, but their visual treatment is wrong.
+
+  Likely root cause
+  The generic text-input styling is being applied to input[type="color"]:
+
+  - code/v001/packages/web/src/styles/app.css:295
+
+  That rule applies to all .field__input elements:
+
+  - width: 100%
+  - border
+  - border-radius: 14px
+  - padding: 10px 12px
+  - background: var(--surface-strong)
+  - color: inherit
+
+  There is no color-input-specific CSS override anywhere in the stylesheet.
+
+  So Chromium is treating the color input like a generic full-width form field, and the default color swatch UI is effectively not presented in a useful way inside this styling. In the screenshot it collapses into a dark pill-like control with no
+  visible selected-color chip.
+
+  Important nuance
+  In the default explorer state from the browser capture, those two color inputs are also disabled because Palette Mapping is not Binary. That makes the problem worse visually.
+
+  But even with that caveat, a disabled native color input should still usually show a recognizable swatch. Here it does not. So the broken appearance is still real, not just user perception.
+
+  Conclusion
+  Your reading is correct:
+
+  - the color selection controls are present
+  - but their current CSS styling makes them fail as color pickers visually
+  - the selected color is not meaningfully displayed in the rendered UI
+
+  I did not change any code.
+```
+
+I just noticed that it actually shows the color in firefox. But it's very narrow in firefox too. Please propose a clean fix.
+
+
+
+
+```
+• A clean fix is to stop treating input[type="color"] like a generic text field and give it its own explicit control styling.
+
+  ## Recommended fix
+
+  Add a dedicated color-input variant in CSS and use it for all color pickers.
+
+  ### Structure
+
+  Keep the native color input, but style it as a proper swatch control:
+
+  - full field width
+  - taller hit area
+  - visible preview area
+  - no generic text-input padding
+  - browser-specific swatch element styling where available
+
+  ### What to change
+
+  1. Add a dedicated class for color inputs
+
+  - for example: field__input field__input--color
+
+  2. Override the generic .field__input box model for that class
+     Recommended:
+
+  - fixed height like 44px or 48px
+  - padding: 4px
+  - background: var(--surface-strong)
+  - border-radius: 14px
+  - cursor: pointer
+
+  3. Style the native swatch
+     For Chromium/WebKit:
+
+  - ::-webkit-color-swatch-wrapper
+  - ::-webkit-color-swatch
+
+  For Firefox:
+
+  - ::-moz-color-swatch
+
+  Make the swatch:
+
+  - fill the usable area
+  - inherit rounded corners
+  - remove inner border if needed
+
+  4. Keep disabled-state readable
+     When disabled:
+
+  - slightly reduce opacity
+  - but do not hide the swatch color
+
+  ## Why this is the cleanest fix
+
+  It preserves:
+
+  - native browser color picker behavior
+  - accessibility
+  - cross-browser compatibility
+
+  while fixing the actual issue:
+
+  - wrong control geometry due to generic input styling
+
+  ## What I would not do
+
+  I would avoid:
+
+  - replacing native color inputs with custom JS widgets
+  - trying to force text-input padding to work for color inputs
+  - building a fake swatch with divs unless native inputs prove unusable
+
+  That would add complexity for no real benefit.
+
+  ## Expected result
+
+  After the fix:
+
+  - in Chromium, the selected color becomes clearly visible
+  - in Firefox, the control becomes wider/taller and no longer looks cramped
+  - disabled color inputs still communicate the stored color
+
+  ## Minimal implementation shape
+
+  - add className="field__input field__input--color" to the relevant color inputs
+  - add dedicated CSS rules for .field__input--color and vendor swatch pseudos
+
+  That is the clean, maintainable solution.
+```
+
+yes, please make it so.
+
+```
+• Fixed the color controls by giving native color inputs their own styling instead of reusing the generic text-field style.
+
+  Changes:
+
+  - added field__input--color to all explorer color pickers in code/v001/packages/web/src/app/app.tsx
+  - added dedicated color-input CSS, including Chromium/WebKit and Firefox swatch styling, in code/v001/packages/web/src/styles/app.css
+
+  That should make the selected color clearly visible and give the control a proper usable size in both Chromium and Firefox.
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+```
+
+
+On mobile devices in zen view it is very hard to grab the split between the trwo fractals to chnage their sizes. Please see if you can reproduce this UX problem with a headless browser session. Don't change any code yet
+
+
+
+I want to create a spec for exporting and importing settings.
+There should be a export/import section with an import button and an export button. When exporting or importing the user should be able to select what kind of parameters should be imported or exported. There should be checkboxes for these settings:
+
+* selected Renderer (the renderer could be parametrized in the future)
+* palette(s)
+* mansdelbrot settings
+* julia settings
+* other settings that I forgot to mention. What would be a good name for these? Should there be more than on group of settings in this section?
+
+Please follow best practices for json based the file format for settings.
+
+for now don't create the spec yet but please give me feedback if this makes sense and is well specified.
+
+
+
+
+
+I want to create a spec for a new WebGL render mode that uses n floats for the complex calculations for the mandelbrot and julia sets. The user should be able to set the number of floats used (range 2 to 8, default 2)
+Before creating the spec for it please tell me what potential pitfalls you see and estimate the runtime impact in the shader.
+
+
 
 
 

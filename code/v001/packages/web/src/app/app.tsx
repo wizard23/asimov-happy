@@ -776,7 +776,7 @@ function ExplorerWorkspace(props: {
           </Field>
           <Field label="Binary Inside Color">
             <input
-              className="field__input"
+              className="field__input field__input--color"
               type="color"
               value={rgbColorToHex(binaryInteriorColor)}
               disabled={paletteMappingMode !== "binary"}
@@ -785,7 +785,7 @@ function ExplorerWorkspace(props: {
           </Field>
           <Field label="Binary Outside Color">
             <input
-              className="field__input"
+              className="field__input field__input--color"
               type="color"
               value={rgbColorToHex(binaryExteriorColor)}
               disabled={paletteMappingMode !== "binary"}
@@ -895,7 +895,7 @@ function ExplorerWorkspace(props: {
                 <div key={`escape-band-entry-${index}`} className="advanced-settings__stack">
                   <Field label={`Color ${index + 1}`}>
                     <input
-                      className="field__input"
+                      className="field__input field__input--color"
                       type="color"
                       value={rgbColorToHex(escapeBandColors[index] ?? escapeBandColors[escapeBandColors.length - 1]!)}
                       onInput={(event) => handleEscapeBandColorChange(index, event.currentTarget.value)}
