@@ -1722,6 +1722,146 @@ yes, please make it so.
 
 I tested it obn my phone. It is much better than before but still surprisingly hard to grab the separator.
 
+```
+• I tightened the separator interaction again without making it visually thicker.
+
+  What changed:
+
+  - increased the invisible hitbox further
+  - raised the separator above the neighboring canvases so the expanded hit area actually wins touch events
+  - added touch-action: none so touch drags are treated as separator interaction instead of competing with browser gestures
+
+  The change is in code/v001/packages/web/src/styles/app.css.
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  The useful next check is your phone retest, because this is exactly the kind of interaction that matters more on real hardware than in headless verification.
+```
+
+
+
+I want to create a spec for a new WebGL render mode that uses n floats for the complex calculations for the mandelbrot and julia sets. The user should be able to set the number of floats used (range 2 to 8, default 2)
+Before creating the spec for it please tell me what potential pitfalls you see and estimate the runtime impact in the shader.
+
+```
+• I tightened the separator interaction again without making it visually thicker.
+
+  What changed:
+
+  - increased the invisible hitbox further
+  - raised the separator above the neighboring canvases so the expanded hit area actually wins touch events
+  - added touch-action: none so touch drags are treated as separator interaction instead of competing with browser gestures
+
+  The change is in code/v001/packages/web/src/styles/app.css.
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  The useful next check is your phone retest, because this is exactly the kind of interaction that matters more on real hardware than in headless verification.
+
+
+› I want to create a spec for a new WebGL render mode that uses n floats for the complex calculations for the mandelbrot and julia sets. The user should be able to set the number of floats used (range 2 to 8, default 2)
+  Before creating the spec for it please tell me what potential pitfalls you see and estimate the runtime impact in the shader.
+
+
+• Main pitfalls:
+
+  1. Cost grows fast
+
+  - Addition is roughly linear in n.
+  - Multiplication is roughly quadratic in n if implemented naively.
+  - Fractal iteration needs several multiplies/adds per pixel:
+      - x*x
+      - y*y
+      - x*y
+      - adds/subtracts
+  - So going from 2 floats to 8 floats is not a small step. It is a large shader-cost multiplier.
+
+  2. Register pressure
+
+  - Each real number becomes n floats.
+  - Each complex number becomes 2n floats.
+  - Intermediate temporaries add more.
+  - That can push the shader into heavy register use, lower occupancy, and sometimes spills or driver pessimization.
+
+  3. WebGL shader complexity limits
+
+  - WebGL GLSL is much less pleasant than compute-oriented APIs for this kind of arithmetic.
+  - Loops often need fixed bounds or careful structure.
+  - Dynamic n can be awkward. In practice you may need:
+      - compile-time max 8
+      - runtime active length n
+      - loops over fixed max with conditionals
+  - That adds overhead even for small n.
+
+  4. Numerical quality is not automatically “like doubles”
+
+  - 2 floats is usually double-single style, not IEEE double.
+  - 4 or 8 floats can improve precision, but only if:
+      - normalization is done carefully
+      - two_sum / two_prod style routines are correct
+      - viewport coordinates are also passed in split form
+  - A sloppy implementation can be much slower without giving trustworthy deep-zoom gains.
+
+  5. Coordinate transport matters
+
+  - It is not enough to do the iteration in n floats if the input coordinates arrive as plain f32.
+  - Viewport min/max, parameter c, and pixel mapping need high/low component transport too.
+  - Otherwise precision is lost before the iteration even starts.
+
+  6. Divergence and branch cost
+
+  - Escape-time fractals already have divergent loop lengths per pixel.
+  - Adding multi-float arithmetic makes each iteration much heavier.
+  - So boundary regions get especially expensive.
+
+  7. UI expectation risk
+
+  - A user-facing 2..8 slider suggests smooth scaling.
+  - In reality:
+      - 2 may be practical
+      - 3-4 may already be borderline
+      - 8 may be too slow for interactive full-frame rendering
+  - So the spec should treat higher values as experimental.
+
+  Runtime impact, rough estimate:
+
+  Use current f32 WebGL as baseline 1x.
+
+  Very rough shader-cost intuition:
+
+  - n=2: maybe 4x to 8x
+  - n=3: maybe 8x to 18x
+  - n=4: maybe 14x to 30x
+  - n=8: easily 50x+, possibly much worse
+
+  That is only an estimate, but directionally right: performance will degrade superlinearly, closer to quadratic than linear.
+
+  Practical expectation:
+
+  - n=2 is the only value I would expect to be plausibly interactive at useful resolutions.
+  - n=3 or 4 may be usable only with reduced resolution / adaptive quality.
+  - n=5..8 are likely research or still-frame modes, not smooth explorer modes.
+
+  Spec implications I recommend:
+
+  - call it experimental
+  - keep default 2
+  - warn that higher values may sharply reduce frame rate
+  - integrate with existing adaptive-quality system
+  - probably allow the control only in WebGL mode
+  - consider a safety fallback if frame time becomes too high
+
+  If you want, next I can turn these pitfalls into a clean spec preamble and then write the full spec in docs/specs.
+```
+
+Yes, Please create the spec now.
+
 
 ---
 
@@ -1742,9 +1882,6 @@ for now don't create the spec yet but please give me feedback if this makes sens
 
 
 
-
-I want to create a spec for a new WebGL render mode that uses n floats for the complex calculations for the mandelbrot and julia sets. The user should be able to set the number of floats used (range 2 to 8, default 2)
-Before creating the spec for it please tell me what potential pitfalls you see and estimate the runtime impact in the shader.
 
 
 
