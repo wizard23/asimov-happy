@@ -1700,6 +1700,28 @@ propose a clean fix without wasting more space in the separator.
 
 yes, please make it so.
 
+```
+• Implemented the thin-separator / large-hitbox fix for zen mode.
+
+  What changed:
+
+  - the visible separator stays thin
+  - an invisible enlarged hit area now surrounds it, so it is much easier to grab on touch devices
+  - the hit area is larger for coarse pointers and smaller for fine pointers
+
+  Files changed:
+
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+```
+
+I tested it obn my phone. It is much better than before but still surprisingly hard to grab the separator.
+
 
 ---
 
