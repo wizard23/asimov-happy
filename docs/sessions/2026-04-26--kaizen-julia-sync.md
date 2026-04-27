@@ -1541,8 +1541,167 @@ yes, please make it so.
 ```
 
 
-On mobile devices in zen view it is very hard to grab the split between the trwo fractals to chnage their sizes. Please see if you can reproduce this UX problem with a headless browser session. Don't change any code yet
+On mobile devices in zen view it is very hard to grab the split between the two fractals to change their sizes. Please see if you can reproduce this UX problem with a headless browser session. Don't change any code yet
 
+```
+
+• Yes. The headless-browser result supports your UX report.
+
+  What I checked
+
+  - Opened zen mode at http://127.0.0.1:4174/?zen=1
+  - Used a narrow mobile-sized viewport: 430x932
+  - Captured both:
+      - rendered screenshot
+      - rendered DOM/CSS state
+
+  What the browser shows
+  In the screenshot, the separator between the two fractals is just a very thin horizontal strip with a tiny visible handle in the center.
+
+  The DOM confirms the mobile zen layout is using:
+
+  - code/v001/packages/web/src/app/app.tsx:1025
+  - grid rows:
+      - minmax(0, 50%) 12px minmax(0, 50%)
+
+  So the entire draggable separator row is only 12px high on narrow/mobile zen layout.
+
+  The CSS then makes the visible handle even thinner:
+
+  - code/v001/packages/web/src/styles/app.css:970
+  - code/v001/packages/web/src/styles/app.css:984
+  - code/v001/packages/web/src/styles/app.css:997
+  - code/v001/packages/web/src/styles/app.css:1005
+
+  Specifically:
+
+  - separator row: 12px high
+  - visible horizontal handle: 68px wide and only 4px high
+
+  Why this is a real mobile UX problem
+  Even if the full 12px strip is technically draggable, that is still a very small touch target for a resize affordance on mobile.
+
+  So the problem is not just perception:
+
+  - the mobile layout really does give you only a 12px-high drag zone
+  - and the visible affordance inside it is only 4px high
+  - that is below what is comfortable for touch interaction
+
+  Can I fully “reproduce” the touch difficulty in headless Chromium?
+  Not perfectly, because headless Chromium does not give the same tactile feel as a real device finger drag.
+
+  But the browser evidence is strong enough that this does not need guesswork:
+
+  - the rendered target is objectively tiny
+  - the DOM/CSS match the difficult touch experience you described
+
+  Conclusion
+  Yes, your report is credible and consistent with the actual rendered mobile zen layout.
+
+  The core cause is:
+
+  - mobile zen separator is only 12px tall
+  - its visible handle is only 4px tall
+  - that creates an undersized touch target for resizing the split
+```
+
+propose a clean fix without wasting more space in the separator.
+
+```
+• A clean fix is to keep the separator visually thin, but enlarge its invisible touch hit area.
+
+  ## Recommended fix
+
+  Leave the separator looking almost the same:
+
+  - keep the 12px row
+  - keep the thin 4px handle
+
+  But add an absolutely positioned invisible hit target around it.
+
+  ### Mobile/narrow zen mode
+
+  For the horizontal separator:
+
+  - create a larger interactive box centered on the separator
+  - for example an invisible 32px to 44px tall hit area
+  - keep pointer-events on that hit area
+  - keep the visible separator line/handle unchanged
+
+  So visually:
+
+  - still slim
+  - still elegant
+
+  But functionally:
+
+  - much easier to grab with a finger
+
+  ## Why this is the cleanest fix
+
+  It solves the real problem:
+
+  - insufficient touch target size
+
+  without paying for it in layout space.
+
+  This is better than:
+
+  - making the separator row itself thicker
+  - making the visible handle visually bulky
+  - changing the split proportions
+
+  ## Implementation shape
+
+  Use a pseudo-element or inner element on .zen-separator.
+
+  Example concept:
+
+  - .zen-separator stays 12px tall
+  - .zen-separator::before becomes:
+      - position: absolute
+      - larger inset around the separator
+      - transparent
+      - used only to catch touch/pointer interaction
+
+  Or equivalently:
+
+  - add a child like .zen-separator__hitbox
+
+  Important detail:
+
+  - the actual pointerdown handler should be on the separator element or a child that spans the enlarged hitbox
+  - z-index should ensure it wins touches over nearby content
+
+  ## Desktop behavior
+
+  On desktop:
+
+  - you can keep the current thin appearance and cursor behavior
+  - optionally only enlarge the hit area for coarse pointers via:
+      - @media (pointer: coarse)
+
+  That avoids degrading precise mouse interaction.
+
+  ## Best version
+
+  My recommendation:
+
+  - keep visual separator exactly as is
+  - enlarge the effective hit area only on coarse pointers
+  - use an invisible hitbox centered on the separator
+  - do the same for vertical desktop/mobile variants if desired, but the urgent need is the horizontal mobile case
+
+  So the clean fix is:
+
+  - bigger invisible target, same visible separator.
+```
+
+
+yes, please make it so.
+
+
+---
 
 
 I want to create a spec for exporting and importing settings.

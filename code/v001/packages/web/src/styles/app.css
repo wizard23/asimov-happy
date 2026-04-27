@@ -969,6 +969,7 @@ a {
 
 .zen-separator {
   position: relative;
+  overflow: visible;
   background:
     linear-gradient(180deg, hsl(0 0% 100% / 0.06), hsl(0 0% 100% / 0.02)),
     var(--surface-strong);
@@ -979,6 +980,12 @@ a {
   align-items: center;
   justify-content: center;
   outline: none;
+}
+
+.zen-separator__hitbox {
+  position: absolute;
+  inset: -12px;
+  z-index: 0;
 }
 
 .zen-separator--horizontal {
@@ -995,6 +1002,8 @@ a {
 }
 
 .zen-separator__handle {
+  position: relative;
+  z-index: 1;
   width: 4px;
   height: 68px;
   border-radius: 999px;
@@ -1006,6 +1015,12 @@ a {
   width: 68px;
   height: 4px;
   background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+}
+
+@media (pointer: fine) {
+  .zen-separator__hitbox {
+    inset: -6px;
+  }
 }
 
 .viewer-layout--zen .canvas-frame--map {

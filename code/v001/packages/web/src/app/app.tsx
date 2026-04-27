@@ -1090,6 +1090,7 @@ function ExplorerWorkspace(props: {
                 }
               }}
             >
+              <span className="zen-separator__hitbox" aria-hidden="true" />
               <span className="zen-separator__handle" aria-hidden="true" />
             </div>
           ) : null}
