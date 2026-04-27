@@ -37,7 +37,9 @@ import {
   EXPLORER_RENDERER_OPTIONS,
   getExplorerRendererLabel,
   isExplorerRendererId,
+  MAX_ESCAPE_BAND_ENTRIES,
   resolveExplorerRendererSelection,
+  type EscapeBandConfiguration,
   type ExplorerRendererId,
 } from "../canvas/explorer-renderer.js";
 import { WEBGL_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-renderer.js";
@@ -261,6 +263,34 @@ function hexToRgbColor(value: string): RgbColor {
     green: Number.parseInt(hex.slice(2, 4), 16),
     blue: Number.parseInt(hex.slice(4, 6), 16),
   };
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function createDefaultEscapeBandColors(): RgbColor[] {
+  const defaultColors: RgbColor[] = [
+    { red: 168, green: 85, blue: 247 },
+    { red: 46, green: 220, blue: 200 },
+    { red: 0, green: 0, blue: 0 },
+  ];
+
+  while (defaultColors.length < MAX_ESCAPE_BAND_ENTRIES) {
+    defaultColors.push({ red: 0, green: 0, blue: 0 });
+  }
+
+  return defaultColors;
+}
+
+function createDefaultEscapeBandThresholds(): number[] {
+  const thresholds = [10, 5000];
+
+  while (thresholds.length < MAX_ESCAPE_BAND_ENTRIES - 1) {
+    thresholds.push(thresholds[thresholds.length - 1]! + 5000);
+  }
+
+  return thresholds;
 }
 
 function getAttractingPeriodLabel(result: ReturnType<typeof detectMandelbrotAttractingCyclePeriod>): string {
@@ -530,6 +560,10 @@ function ExplorerWorkspace(props: {
   const [paletteMappingMode, setPaletteMappingMode] =
     useState<PaletteMappingMode>(DEFAULT_PALETTE_MAPPING_MODE);
   const [paletteCycles, setPaletteCycles] = useState(DEFAULT_PALETTE_CYCLES);
+  const [escapeBandEntryCount, setEscapeBandEntryCount] = useState(3);
+  const [escapeBandColors, setEscapeBandColors] = useState<RgbColor[]>(createDefaultEscapeBandColors);
+  const [escapeBandThresholds, setEscapeBandThresholds] =
+    useState<number[]>(createDefaultEscapeBandThresholds);
   const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
   const [juliaIterations, setJuliaIterations] = useState(2000);
   const [showAttractingPeriod, setShowAttractingPeriod] = useState(false);
@@ -547,6 +581,14 @@ function ExplorerWorkspace(props: {
   const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
+  const escapeBandConfiguration = useMemo<EscapeBandConfiguration>(
+    () => ({
+      entryCount: escapeBandEntryCount,
+      colors: escapeBandColors.slice(0, escapeBandEntryCount),
+      thresholds: escapeBandThresholds.slice(0, Math.max(0, escapeBandEntryCount - 1)),
+    }),
+    [escapeBandColors, escapeBandEntryCount, escapeBandThresholds],
+  );
   const attractingPeriodLabel = useMemo(() => {
     if (!showAttractingPeriod) {
       return null;
@@ -614,6 +656,29 @@ function ExplorerWorkspace(props: {
 
   function updateZenSplitFromKeyboard(direction: -1 | 1): void {
     setZenSplitRatio((current) => Math.max(0.2, Math.min(0.8, current + direction * 0.05)));
+  }
+
+  function handleEscapeBandEntryCountChange(nextValue: number): void {
+    setEscapeBandEntryCount(clampNumber(Math.round(nextValue), 2, MAX_ESCAPE_BAND_ENTRIES));
+  }
+
+  function handleEscapeBandColorChange(index: number, value: string): void {
+    setEscapeBandColors((current) => {
+      const next = [...current];
+      next[index] = hexToRgbColor(value);
+      return next;
+    });
+  }
+
+  function handleEscapeBandThresholdChange(index: number, nextValue: number): void {
+    setEscapeBandThresholds((current) => {
+      const next = [...current];
+      const lowerBound = index === 0 ? 1 : (next[index - 1] ?? 1) + 1;
+      const upperBound =
+        index >= current.length - 1 ? Number.MAX_SAFE_INTEGER : Math.max(lowerBound, (next[index + 1] ?? lowerBound + 1) - 1);
+      next[index] = clampNumber(Math.round(nextValue), lowerBound, upperBound);
+      return next;
+    });
   }
 
   function getZenLayoutStyle(): preact.JSX.CSSProperties | undefined {
@@ -815,6 +880,49 @@ function ExplorerWorkspace(props: {
 
         <details className="group advanced-settings">
           <summary className="advanced-settings__summary">Advanced Settings</summary>
+          {paletteMappingMode === "escape-bands" ? (
+            <section className="advanced-settings__section">
+              <h3 className="advanced-settings__heading">Escape Bands</h3>
+              <Field label="Number of Entries">
+                <NumberInput
+                  value={escapeBandEntryCount}
+                  min={2}
+                  max={MAX_ESCAPE_BAND_ENTRIES}
+                  onChange={handleEscapeBandEntryCountChange}
+                />
+              </Field>
+              {Array.from({ length: escapeBandEntryCount }, (_, index) => (
+                <div key={`escape-band-entry-${index}`} className="advanced-settings__stack">
+                  <Field label={`Color ${index + 1}`}>
+                    <input
+                      className="field__input"
+                      type="color"
+                      value={rgbColorToHex(escapeBandColors[index] ?? escapeBandColors[escapeBandColors.length - 1]!)}
+                      onInput={(event) => handleEscapeBandColorChange(index, event.currentTarget.value)}
+                    />
+                  </Field>
+                  {index < escapeBandEntryCount - 1 ? (
+                    <Field
+                      label={
+                        index === 0
+                          ? "Threshold 1 (diverge very quickly)"
+                          : index === escapeBandEntryCount - 2
+                            ? `Threshold ${index + 1} (diverge very slowly)`
+                            : `Threshold ${index + 1}`
+                      }
+                    >
+                      <NumberInput
+                        value={escapeBandThresholds[index] ?? 1}
+                        min={1}
+                        max={100000}
+                        onChange={(value) => handleEscapeBandThresholdChange(index, value)}
+                      />
+                    </Field>
+                  ) : null}
+                </div>
+              ))}
+            </section>
+          ) : null}
           <section className="advanced-settings__section">
             <h3 className="advanced-settings__heading">Period Detection</h3>
             <Field label="Show Attracting Period">
@@ -937,6 +1045,7 @@ function ExplorerWorkspace(props: {
               paletteCycles={paletteCycles}
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
+              escapeBands={escapeBandConfiguration}
               markerScale={markerScalePercent / 100}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
@@ -1001,6 +1110,7 @@ function ExplorerWorkspace(props: {
               paletteCycles={paletteCycles}
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
+              escapeBands={escapeBandConfiguration}
               markerScale={markerScalePercent / 100}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}

@@ -1329,6 +1329,46 @@ If everything is clear now please create the spec. Otherwise let's discuss the r
 
 please implement it.
 
+```
+• Implemented the new Escape Bands palette mode for /explorer.
+
+  It adds:
+
+  - a new Palette Mapping option: Escape Bands
+  - an Advanced Settings -> Escape Bands section with:
+      - Number of Entries
+      - one color picker per entry
+      - one threshold per entry except the last
+  - persistent hidden colors/thresholds when the entry count shrinks and grows again
+
+  Rendering now uses raw integer escape iteration count for this mode in both backends:
+
+  - CPU path
+  - WebGL path
+
+  The last band color is used for:
+
+  - points escaping after the last threshold
+  - non-escaping/interior points
+
+  Main files changed:
+
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/canvas/explorer-renderer.ts
+  - code/v001/packages/web/src/canvas/fractal-palette.ts
+  - code/v001/packages/web/src/canvas/explorer-cpu-renderer.ts
+  - code/v001/packages/web/src/canvas/explorer-webgl-renderer.ts
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  I did not do a browser QA pass here, so the next useful check is whether the band boundaries and defaults look the way you want visually in both CPU and WebGL modes.
+```
+
 
 
 

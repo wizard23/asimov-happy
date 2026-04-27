@@ -2,6 +2,13 @@ import type { ComplexBounds, ComplexParameter, JuliaViewport } from "@asimov/min
 import type { FractalPaletteId, PaletteMappingMode, RgbColor } from "./fractal-palette.js";
 
 export type ExplorerRendererId = "cpu" | "webgl" | "webgpu";
+export const MAX_ESCAPE_BAND_ENTRIES = 12;
+
+export interface EscapeBandConfiguration {
+  entryCount: number;
+  colors: RgbColor[];
+  thresholds: number[];
+}
 
 export const EXPLORER_RENDERER_OPTIONS: Array<{
   id: ExplorerRendererId;
@@ -28,6 +35,7 @@ export interface MandelbrotRenderParams {
   paletteCycles: number;
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
+  escapeBands?: EscapeBandConfiguration;
 }
 
 export interface JuliaRenderParams {
@@ -41,6 +49,7 @@ export interface JuliaRenderParams {
   paletteCycles: number;
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
+  escapeBands?: EscapeBandConfiguration;
 }
 
 export interface ExplorerImageRenderer {

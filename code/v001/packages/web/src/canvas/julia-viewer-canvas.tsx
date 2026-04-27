@@ -12,7 +12,7 @@ import {
   type RgbColor,
 } from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
-import type { ExplorerImageRenderer } from "./explorer-renderer.js";
+import type { EscapeBandConfiguration, ExplorerImageRenderer } from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
 import {
   renderExplorerImageWithFallback,
@@ -159,6 +159,7 @@ export function JuliaViewerCanvas(props: {
   paletteCycles?: number;
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
+  escapeBands?: EscapeBandConfiguration;
   markerScale?: number;
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
@@ -315,6 +316,7 @@ export function JuliaViewerCanvas(props: {
       ...(props.binaryInteriorColor ? { binaryInteriorColor: props.binaryInteriorColor } : {}),
       ...(props.binaryExteriorColor ? { binaryExteriorColor: props.binaryExteriorColor } : {}),
     };
+    const escapeBandOptions = props.escapeBands ? { escapeBands: props.escapeBands } : {};
     const nextPresentedSize =
       renderer.id === "webgl"
         ? renderExplorerImageWithFallback(
@@ -332,6 +334,7 @@ export function JuliaViewerCanvas(props: {
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
                 ...binaryColorOptions,
+                ...escapeBandOptions,
               });
             },
           )
@@ -350,6 +353,7 @@ export function JuliaViewerCanvas(props: {
                 paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
                 paletteCycles: props.paletteCycles ?? 6,
                 ...binaryColorOptions,
+                ...escapeBandOptions,
               });
             },
           );
@@ -364,6 +368,7 @@ export function JuliaViewerCanvas(props: {
     props.palette,
     props.binaryExteriorColor,
     props.binaryInteriorColor,
+    props.escapeBands,
     props.paletteCycles,
     props.paletteMappingMode,
     props.parameter,

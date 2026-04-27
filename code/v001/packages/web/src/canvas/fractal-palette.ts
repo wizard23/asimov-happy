@@ -7,6 +7,7 @@ import {
 export type FractalPaletteId = string;
 export type PaletteMappingMode =
   | "binary"
+  | "escape-bands"
   | "linear"
   | "logarithmic"
   | "cyclic"
@@ -36,6 +37,7 @@ export const PALETTE_MAPPING_OPTIONS: Array<{
   label: string;
 }> = [
   { id: "binary", label: "Binary" },
+  { id: "escape-bands", label: "Escape Bands" },
   { id: "linear", label: "Linear" },
   { id: "logarithmic", label: "Logarithmic" },
   { id: "cyclic", label: "Cyclic" },
@@ -247,6 +249,8 @@ export function mapPaletteValue(
   switch (mode) {
     case "binary":
       return normalizedValue >= 0.5 ? 1 : 0;
+    case "escape-bands":
+      return normalizedValue;
     case "linear":
       return normalizedValue;
     case "logarithmic":

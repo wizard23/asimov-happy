@@ -1,6 +1,7 @@
 import { renderJuliaFeatureVector } from "@asimov/minimal-shared";
 import { clampByte, getMappedPaletteColor } from "./fractal-palette.js";
 import type {
+  EscapeBandConfiguration,
   ExplorerImageRenderer,
   JuliaRenderParams,
   MandelbrotRenderParams,
@@ -14,6 +15,29 @@ function getViewportHeight(viewport: MandelbrotRenderParams["viewport"]): number
   return viewport.maxImaginary - viewport.minImaginary;
 }
 
+function getEscapeBandColor(
+  escapeIterationCount: number | null,
+  escapeBands: EscapeBandConfiguration,
+) {
+  const finalIndex = Math.max(0, Math.min(escapeBands.entryCount - 1, escapeBands.colors.length - 1));
+  if (escapeIterationCount === null) {
+    return escapeBands.colors[finalIndex]!;
+  }
+
+  const explicitThresholdCount = Math.max(0, Math.min(
+    escapeBands.entryCount - 1,
+    escapeBands.thresholds.length,
+  ));
+
+  for (let index = 0; index < explicitThresholdCount; index += 1) {
+    if (escapeIterationCount <= escapeBands.thresholds[index]!) {
+      return escapeBands.colors[index] ?? escapeBands.colors[finalIndex]!;
+    }
+  }
+
+  return escapeBands.colors[finalIndex]!;
+}
+
 function renderMandelbrotImage({
   viewport,
   width,
@@ -24,6 +48,7 @@ function renderMandelbrotImage({
   paletteCycles,
   binaryInteriorColor,
   binaryExteriorColor,
+  escapeBands,
 }: MandelbrotRenderParams): ImageData {
   const imageData = new ImageData(width, height);
   const binaryColorOptions = {
@@ -56,6 +81,15 @@ function renderMandelbrotImage({
       }
 
       const pixelIndex = (y * width + x) * 4;
+      if (paletteMappingMode === "escape-bands" && escapeBands) {
+        const color = getEscapeBandColor(escaped ? iteration + 1 : null, escapeBands);
+        imageData.data[pixelIndex] = color.red;
+        imageData.data[pixelIndex + 1] = color.green;
+        imageData.data[pixelIndex + 2] = color.blue;
+        imageData.data[pixelIndex + 3] = 255;
+        continue;
+      }
+
       if (!escaped) {
         const color = getMappedPaletteColor(palette, 0, {
           isInterior: true,
@@ -99,7 +133,46 @@ function renderJuliaImage({
   paletteCycles,
   binaryInteriorColor,
   binaryExteriorColor,
+  escapeBands,
 }: JuliaRenderParams): ImageData {
+  if (paletteMappingMode === "escape-bands" && escapeBands) {
+    const imageData = new ImageData(width, height);
+    const viewportWidth = viewport.maxReal - viewport.minReal;
+    const viewportHeight = viewport.maxImaginary - viewport.minImaginary;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const normalizedX = (x + 0.5) / width;
+        const normalizedY = (y + 0.5) / height;
+        let real = viewport.minReal + viewportWidth * normalizedX;
+        let imaginary = viewport.maxImaginary - viewportHeight * normalizedY;
+        let escaped = false;
+        let iteration = 0;
+
+        for (; iteration < iterations; iteration += 1) {
+          const nextReal = real * real - imaginary * imaginary + parameter.real;
+          const nextImaginary = 2 * real * imaginary + parameter.imaginary;
+          real = nextReal;
+          imaginary = nextImaginary;
+
+          if (real * real + imaginary * imaginary > 4) {
+            escaped = true;
+            break;
+          }
+        }
+
+        const color = getEscapeBandColor(escaped ? iteration + 1 : null, escapeBands);
+        const pixelIndex = (y * width + x) * 4;
+        imageData.data[pixelIndex] = color.red;
+        imageData.data[pixelIndex + 1] = color.green;
+        imageData.data[pixelIndex + 2] = color.blue;
+        imageData.data[pixelIndex + 3] = 255;
+      }
+    }
+
+    return imageData;
+  }
+
   const featureVector = renderJuliaFeatureVector(parameter, width, height, iterations, viewport);
   const imageData = new ImageData(width, height);
   const binaryColorOptions = {

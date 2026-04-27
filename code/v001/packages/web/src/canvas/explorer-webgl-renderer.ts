@@ -1,7 +1,9 @@
 import { getFractalPalette } from "./fractal-palette.js";
-import type {
-  ExplorerImageRenderer,
-  MandelbrotRenderParams,
+import {
+  MAX_ESCAPE_BAND_ENTRIES,
+  type EscapeBandConfiguration,
+  type ExplorerImageRenderer,
+  type MandelbrotRenderParams,
 } from "./explorer-renderer.js";
 import type { RgbColor } from "./fractal-palette.js";
 
@@ -27,8 +29,12 @@ uniform float u_paletteCycles;
 uniform vec3 u_interiorColor;
 uniform vec3 u_stopColors[4];
 uniform float u_stopPositions[4];
+uniform int u_escapeBandEntryCount;
+uniform vec3 u_escapeBandColors[12];
+uniform int u_escapeBandThresholds[11];
 
 const int MAX_ITERATIONS = 4096;
+const int MAX_ESCAPE_BAND_ENTRIES = 12;
 
 vec3 getPaletteColor(float value) {
   float normalizedValue = clamp(value, 0.0, 1.0);
@@ -80,6 +86,30 @@ vec3 getMappedColor(float value) {
   return getPaletteColor(applyPaletteMapping(value));
 }
 
+vec3 getEscapeBandFallbackColor() {
+  for (int i = 0; i < MAX_ESCAPE_BAND_ENTRIES; i += 1) {
+    if (i == u_escapeBandEntryCount - 1) {
+      return u_escapeBandColors[i];
+    }
+  }
+
+  return u_escapeBandColors[MAX_ESCAPE_BAND_ENTRIES - 1];
+}
+
+vec3 getEscapeBandColor(int escapeIterationCount) {
+  for (int i = 0; i < MAX_ESCAPE_BAND_ENTRIES - 1; i += 1) {
+    if (i >= u_escapeBandEntryCount - 1) {
+      break;
+    }
+
+    if (escapeIterationCount <= u_escapeBandThresholds[i]) {
+      return u_escapeBandColors[i];
+    }
+  }
+
+  return getEscapeBandFallbackColor();
+}
+
 void main() {
   vec2 normalizedCoordinate = vec2(
     (gl_FragCoord.x - 0.5) / u_resolution.x,
@@ -114,7 +144,17 @@ void main() {
   }
 
   if (!escaped) {
+    if (u_paletteMappingMode == 5) {
+      gl_FragColor = vec4(getEscapeBandFallbackColor(), 1.0);
+      return;
+    }
+
     gl_FragColor = vec4(u_interiorColor, 1.0);
+    return;
+  }
+
+  if (u_paletteMappingMode == 5) {
+    gl_FragColor = vec4(getEscapeBandColor(iteration + 1), 1.0);
     return;
   }
 
@@ -141,6 +181,9 @@ interface WebGlRendererState {
   interiorColorLocation: WebGLUniformLocation;
   stopColorsLocation: WebGLUniformLocation;
   stopPositionsLocation: WebGLUniformLocation;
+  escapeBandEntryCountLocation: WebGLUniformLocation;
+  escapeBandColorsLocation: WebGLUniformLocation;
+  escapeBandThresholdsLocation: WebGLUniformLocation;
 }
 
 const WEBGL_STATE_CACHE = new WeakMap<HTMLCanvasElement, WebGlRendererState>();
@@ -258,6 +301,9 @@ function getRendererState(canvas: HTMLCanvasElement): WebGlRendererState {
     interiorColorLocation: getUniformLocation(context, program, "u_interiorColor"),
     stopColorsLocation: getUniformLocation(context, program, "u_stopColors"),
     stopPositionsLocation: getUniformLocation(context, program, "u_stopPositions"),
+    escapeBandEntryCountLocation: getUniformLocation(context, program, "u_escapeBandEntryCount"),
+    escapeBandColorsLocation: getUniformLocation(context, program, "u_escapeBandColors"),
+    escapeBandThresholdsLocation: getUniformLocation(context, program, "u_escapeBandThresholds"),
   };
 
   WEBGL_STATE_CACHE.set(canvas, state);
@@ -280,6 +326,7 @@ function renderToCanvas(
     paletteCycles: MandelbrotRenderParams["paletteCycles"];
     binaryInteriorColor?: RgbColor;
     binaryExteriorColor?: RgbColor;
+    escapeBands?: EscapeBandConfiguration;
   },
 ): void {
   const state = getRendererState(canvas);
@@ -300,6 +347,18 @@ function renderToCanvas(
     stop.color.blue / 255,
   ]);
   const stopPositions = paletteStops.map((stop) => stop.position);
+  const escapeBandEntryCount = Math.max(
+    2,
+    Math.min(options.escapeBands?.entryCount ?? 3, MAX_ESCAPE_BAND_ENTRIES),
+  );
+  const escapeBandColors = Array.from({ length: MAX_ESCAPE_BAND_ENTRIES }, (_, index) => {
+    const fallbackColor = options.binaryExteriorColor ?? finalStopColor;
+    return options.escapeBands?.colors[index] ?? fallbackColor;
+  }).flatMap((color) => [color.red / 255, color.green / 255, color.blue / 255]);
+  const escapeBandThresholds = Array.from(
+    { length: MAX_ESCAPE_BAND_ENTRIES - 1 },
+    (_, index) => options.escapeBands?.thresholds[index] ?? 2147483647,
+  );
 
   context.viewport(0, 0, canvas.width, canvas.height);
   context.clearColor(0, 0, 0, 1);
@@ -325,6 +384,9 @@ function renderToCanvas(
   );
   context.uniform3fv(state.stopColorsLocation, new Float32Array(stopColors));
   context.uniform1fv(state.stopPositionsLocation, new Float32Array(stopPositions));
+  context.uniform1i(state.escapeBandEntryCountLocation, escapeBandEntryCount);
+  context.uniform3fv(state.escapeBandColorsLocation, new Float32Array(escapeBandColors));
+  context.uniform1iv(state.escapeBandThresholdsLocation, new Int32Array(escapeBandThresholds));
 
   context.drawArrays(context.TRIANGLES, 0, 6);
 }
@@ -341,6 +403,8 @@ function getPaletteMappingModeIndex(mode: MandelbrotRenderParams["paletteMapping
       return 3;
     case "cyclic-mirrored":
       return 4;
+    case "escape-bands":
+      return 5;
   }
 }
 
@@ -361,6 +425,7 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       paletteCycles: params.paletteCycles,
       ...(params.binaryInteriorColor ? { binaryInteriorColor: params.binaryInteriorColor } : {}),
       ...(params.binaryExteriorColor ? { binaryExteriorColor: params.binaryExteriorColor } : {}),
+      ...(params.escapeBands ? { escapeBands: params.escapeBands } : {}),
     });
   },
   renderJulia(canvas, params) {
@@ -378,6 +443,7 @@ export const WEBGL_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
       paletteCycles: params.paletteCycles,
       ...(params.binaryInteriorColor ? { binaryInteriorColor: params.binaryInteriorColor } : {}),
       ...(params.binaryExteriorColor ? { binaryExteriorColor: params.binaryExteriorColor } : {}),
+      ...(params.escapeBands ? { escapeBands: params.escapeBands } : {}),
     });
   },
 };
