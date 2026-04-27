@@ -1886,6 +1886,30 @@ The spec is for a separate new Renderer called "High Precision WebGL Rendering"
 The currently existing "WebGL Rendering" renderer must not be changed in any way.
 Please adapt the specs accordingly.
 
+```
+• Updated the spec accordingly:
+
+  docs/specs/2026-04-27-21-20--explorer-webgl-n-float-precision-renderer-spec.md
+
+  It now explicitly defines:
+
+  - a separate renderer: High Precision WebGL Rendering
+  - the existing WebGL Rendering renderer must remain unchanged
+  - Precision Floats applies only to the new renderer
+  - fallback from the new renderer can go to existing WebGL Rendering if needed
+```
+
+good, now please make a plan for the implementation. 
+Is it clear how to do the math in an performance efficient and numerical sound way? If this is unclear the should do research about this and put it in the spec.
+
+
+```
+
+```
+
+
+
+
 ---
 
 

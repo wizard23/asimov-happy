@@ -199,6 +199,134 @@ Examples of acceptable approaches:
 
 This spec does not lock a single exact algorithm, but it requires a coherent expansion-arithmetic implementation.
 
+## Research-Based Implementation Guidance
+
+The arithmetic approach is now considered clear enough to implement, with the following constraints and recommendations.
+
+### Recommended algorithm family
+
+Use a fixed-width renormalized floating-point expansion representation.
+
+The implementation should draw on:
+
+- Dekker/Priest-style error-free transforms for basic pieces of arithmetic
+- Shewchuk-style expansion arithmetic and renormalization
+- QD-style double-double / quad-double organization for the low-`n` cases
+
+### Recommended concrete strategy
+
+#### `n = 2`
+
+Implement this as a dedicated double-single path.
+
+Recommended properties:
+
+- use specialized helper functions for:
+  - add
+  - subtract
+  - multiply
+- prefer a carefully tuned dedicated representation rather than routing `n = 2` through the fully generic `n`-term code path
+
+Reason:
+
+- `n = 2` is the default
+- `n = 2` is the most practically interactive mode
+- a specialized path is likely to be materially faster than a generic expansion loop
+
+#### `n = 3..8`
+
+Implement these as fixed-width renormalized expansions with:
+
+- compile-time maximum width `8`
+- runtime active length `n`
+- loops over fixed maximum size with explicit bounds checks
+
+Recommended arithmetic structure:
+
+- addition:
+  - merge terms using error-free transforms
+  - renormalize back to width `n`
+- multiplication:
+  - accumulate pairwise products and error terms
+  - renormalize back to width `n`
+
+### FMA assumption
+
+The shader implementation must not depend on fused multiply-add being available in a portable way.
+
+Therefore:
+
+- multiplication should be designed around split/error-free transform techniques that do not require reliable shader FMA semantics
+
+### Canonicalization / normalization
+
+After arithmetic operations, the expansion must be renormalized so that:
+
+- larger-magnitude terms remain earlier
+- small residuals remain later
+- the representation does not degrade numerically after repeated iterations
+
+This is mandatory for numerical soundness.
+
+Without renormalization, precision gains will erode quickly during fractal iteration.
+
+### Transport requirement
+
+The viewport and parameter values must be decomposed on the CPU into float components before upload to the shader.
+
+Recommended transport model:
+
+- for each scalar real value:
+  - upload `n` float components
+- for each complex scalar:
+  - upload `n` components for real part
+  - upload `n` components for imaginary part
+
+This includes:
+
+- viewport min/max
+- Julia parameter `c`
+- any per-frame anchor values needed for pixel coordinate reconstruction
+
+### Pixel coordinate reconstruction
+
+Per-pixel coordinates should be reconstructed in the shader from:
+
+- a high-precision viewport origin
+- high-precision viewport spans
+- normalized pixel coordinates
+
+The normalized pixel coordinates themselves may stay ordinary shader floats, but the accumulation into the complex plane must use the expansion representation.
+
+### Recommended optimization boundary
+
+The first implementation should not attempt a fully general arbitrary-expansion arithmetic library.
+
+Recommended staged scope:
+
+1. tuned `n = 2`
+2. generic fixed-width expansion path for `n = 3..8`
+
+This gives the best chance of shipping a usable first version.
+
+## Performance Interpretation
+
+The runtime impact is considered significant and must shape the plan.
+
+### Practical expectation
+
+- `n = 2` is expected to be the main interactive mode
+- `n = 3..4` may still be usable with adaptive quality and reduced render resolution
+- `n = 5..8` should be treated as experimental / inspection-oriented, not guaranteed smooth interactive modes
+
+### Product implication
+
+The UI and implementation should be prepared for:
+
+- strong frame-rate degradation as `n` increases
+- greater sensitivity near boundaries where more iterations survive longer
+- possible need for internal safeguards if a chosen `n` becomes too slow in practice
+
 ## Mandelbrot and Julia Semantics
 
 The rendered fractal meaning must remain unchanged:
