@@ -1863,6 +1863,29 @@ Before creating the spec for it please tell me what potential pitfalls you see a
 Yes, Please create the spec now.
 
 
+```
+• Created the spec here:
+
+  docs/specs/2026-04-27-21-20--explorer-webgl-n-float-precision-renderer-spec.md
+
+  It includes:
+
+  - the Precision Floats control with range 2..8, default 2
+  - scope limited to /explorer
+  - required use of n-float arithmetic for both iteration and viewport/parameter transport
+  - performance expectations and risks
+  - fallback behavior
+  - acceptance criteria
+  - a recommended implementation plan
+
+  If you want, the next step is a checklist in docs/plans before any implementation.
+```
+
+The spec is good but one detail is wrong: 
+The spec is for a separate new Renderer called "High Precision WebGL Rendering"
+The currently existing "WebGL Rendering" renderer must not be changed in any way.
+Please adapt the specs accordingly.
+
 ---
 
 

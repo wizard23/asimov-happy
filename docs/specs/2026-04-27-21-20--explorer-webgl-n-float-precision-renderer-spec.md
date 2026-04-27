@@ -1,4 +1,4 @@
-# Explorer WebGL N-Float Precision Renderer Spec
+# Explorer High Precision WebGL Renderer Spec
 
 ## Scope
 
@@ -20,7 +20,7 @@ It does not apply to:
 
 ## Goal
 
-Add an experimental WebGL precision mode that represents each real component of a complex number as a sum of `n` floats rather than a single shader float.
+Add an experimental separate renderer called `High Precision WebGL Rendering` that represents each real component of a complex number as a sum of `n` floats rather than a single shader float.
 
 This mode is intended to increase useful zoom depth beyond ordinary `f32` WebGL rendering.
 
@@ -74,7 +74,19 @@ This feature does not attempt to provide:
 
 ## User-Facing Control
 
-Add a control to the explorer display section:
+Add a renderer option:
+
+- `High Precision WebGL Rendering`
+
+This is a separate renderer choice.
+
+The existing renderer:
+
+- `WebGL Rendering`
+
+must remain unchanged in implementation and behavior.
+
+Add a control to the explorer display section when this renderer is selected:
 
 - `Precision Floats`
 
@@ -92,9 +104,9 @@ Default:
 
 This control applies only when:
 
-- requested renderer is `WebGL Rendering`
+- requested renderer is `High Precision WebGL Rendering`
 
-If the active renderer is not WebGL:
+If the active renderer is not `High Precision WebGL Rendering`:
 
 - the control may be disabled
 - or remain visible but marked as inactive
@@ -111,7 +123,7 @@ Recommended help text:
 
 ## Default Behavior
 
-When WebGL rendering is active:
+When `High Precision WebGL Rendering` is active:
 
 - default active float count is `2`
 
@@ -200,7 +212,7 @@ Only the numerical precision of the WebGL arithmetic changes.
 
 ## Performance Expectations
 
-This feature is experimental and must explicitly acknowledge its performance cost.
+This renderer is experimental and must explicitly acknowledge its performance cost.
 
 ### Expected scaling
 
@@ -236,17 +248,17 @@ The UI should communicate that this mode is experimental.
 Recommended behavior:
 
 - show a small note or status text near the control
-- optionally include current float count in the active renderer status
+- include current float count in the active renderer status when this renderer is active
 
 Example:
 
-- `Active Renderer: WebGL · Precision Floats: 2`
+- `Active Renderer: High Precision WebGL · Precision Floats: 2`
 
 ## Fallback and Failure Behavior
 
-If the WebGL n-float shader cannot be compiled or linked:
+If the `High Precision WebGL Rendering` shader cannot be compiled or linked:
 
-- fall back to the existing ordinary WebGL precision mode if possible
+- fall back to the existing `WebGL Rendering` renderer if possible
 - otherwise fall back according to the existing renderer fallback rules
 
 The explorer must not hard-crash.
@@ -265,7 +277,7 @@ The selected `Precision Floats` value should persist with explorer UI state.
 On reload:
 
 - restore the requested value
-- attempt to use it again when WebGL is active
+- attempt to use it again when `High Precision WebGL Rendering` is active
 
 ## Constraints
 
@@ -291,18 +303,19 @@ Minimum:
 Reason:
 
 - the feature is specifically for multi-float precision
-- `1` is already covered by the existing ordinary WebGL mode
+- `1` is already covered by the existing `WebGL Rendering` renderer
 
-## Relationship to Existing WebGL Mode
+## Relationship to Existing WebGL Rendering
 
-The current WebGL renderer remains the baseline.
+The current `WebGL Rendering` renderer remains the baseline.
 
-This feature extends that path with a precision control, rather than introducing a wholly separate explorer route.
+This feature introduces a separate renderer choice rather than extending the existing `WebGL Rendering` path.
 
-Recommended interpretation:
+Required interpretation:
 
-- `WebGL Rendering` continues to be the renderer choice
-- `Precision Floats` becomes an additional WebGL-specific setting
+- `WebGL Rendering` continues to exist unchanged
+- `High Precision WebGL Rendering` is a new renderer option
+- `Precision Floats` is specific to `High Precision WebGL Rendering`
 
 ## Openly Acknowledged Risks
 
@@ -316,11 +329,12 @@ The spec explicitly recognizes these risks:
 
 ## Acceptance Criteria
 
-1. Explorer exposes a `Precision Floats` control for WebGL rendering.
+1. Explorer exposes a new renderer option: `High Precision WebGL Rendering`.
 2. Allowed range is `2..8`.
 3. Default value is `2`.
-4. Mandelbrot WebGL rendering uses n-float arithmetic for complex iteration.
-5. Julia WebGL rendering uses n-float arithmetic for complex iteration.
+4. The existing `WebGL Rendering` renderer remains unchanged.
+5. Mandelbrot high-precision WebGL rendering uses n-float arithmetic for complex iteration.
+6. Julia high-precision WebGL rendering uses n-float arithmetic for complex iteration.
 6. Viewport coordinate transport into the shader also uses the n-float representation.
 7. Existing overlays and interaction systems continue to work unchanged.
 8. Adaptive-quality rendering remains compatible with this mode.
@@ -329,12 +343,13 @@ The spec explicitly recognizes these risks:
 
 ## Recommended Delivery Plan
 
-1. Introduce a WebGL precision-float control in explorer state and UI.
-2. Extend renderer configuration to carry active float count.
+1. Add `High Precision WebGL Rendering` as a new explorer renderer option.
+2. Introduce a precision-float control in explorer state and UI for that renderer only.
 3. Implement a fixed-width expansion representation up to `8` floats.
 4. Implement expansion add/subtract/multiply helpers in GLSL.
 5. Upgrade viewport and parameter transport to multi-float uniforms.
 6. Use the new arithmetic in Mandelbrot and Julia iteration.
-7. Keep overlays and non-image explorer behavior unchanged.
-8. Verify correctness at `n = 2` first before enabling broader values.
-9. Profile interactive behavior and confirm adaptive-quality fallback remains effective.
+7. Keep the existing `WebGL Rendering` path unchanged.
+8. Keep overlays and non-image explorer behavior unchanged.
+9. Verify correctness at `n = 2` first before enabling broader values.
+10. Profile interactive behavior and confirm adaptive-quality fallback remains effective.
