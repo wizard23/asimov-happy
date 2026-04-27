@@ -1,8 +1,9 @@
 import type { ComplexBounds, ComplexParameter, JuliaViewport } from "@asimov/minimal-shared";
 import type { FractalPaletteId, PaletteMappingMode, RgbColor } from "./fractal-palette.js";
 
-export type ExplorerRendererId = "cpu" | "webgl" | "webgpu";
+export type ExplorerRendererId = "cpu" | "webgl" | "webgl-high-precision" | "webgpu";
 export const MAX_ESCAPE_BAND_ENTRIES = 12;
+export const MAX_HIGH_PRECISION_FLOAT_COUNT = 8;
 
 export interface EscapeBandConfiguration {
   entryCount: number;
@@ -16,6 +17,7 @@ export const EXPLORER_RENDERER_OPTIONS: Array<{
 }> = [
   { id: "cpu", label: "CPU Rendering" },
   { id: "webgl", label: "WebGL Rendering" },
+  { id: "webgl-high-precision", label: "High Precision WebGL Rendering" },
   { id: "webgpu", label: "WebGPU Rendering" },
 ];
 
@@ -36,6 +38,7 @@ export interface MandelbrotRenderParams {
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
   escapeBands?: EscapeBandConfiguration;
+  precisionFloatCount?: number;
 }
 
 export interface JuliaRenderParams {
@@ -50,6 +53,7 @@ export interface JuliaRenderParams {
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
   escapeBands?: EscapeBandConfiguration;
+  precisionFloatCount?: number;
 }
 
 export interface ExplorerImageRenderer {
@@ -76,6 +80,7 @@ export function detectAvailableExplorerRenderers(): ExplorerRendererId[] {
       canvas.getContext("experimental-webgl", { preserveDrawingBuffer: true });
     if (webglContext) {
       availableRenderers.push("webgl");
+      availableRenderers.push("webgl-high-precision");
     }
   }
 

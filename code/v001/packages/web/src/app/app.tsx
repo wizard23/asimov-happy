@@ -38,10 +38,12 @@ import {
   getExplorerRendererLabel,
   isExplorerRendererId,
   MAX_ESCAPE_BAND_ENTRIES,
+  MAX_HIGH_PRECISION_FLOAT_COUNT,
   resolveExplorerRendererSelection,
   type EscapeBandConfiguration,
   type ExplorerRendererId,
 } from "../canvas/explorer-renderer.js";
+import { WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-high-precision-renderer.js";
 import { WEBGL_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-renderer.js";
 import { detectMandelbrotAttractingCyclePeriod } from "../canvas/orbit-period.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
@@ -64,6 +66,7 @@ import "../styles/app.css";
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
 type AppRoute = "/" | "/som" | "/explorer" | "/explorer-layout-harness" | "/gui-settings";
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
+const EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY = "asimov-happy.explorer-high-precision-floats";
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -162,6 +165,17 @@ function getInitialExplorerRendererId(): ExplorerRendererId {
 
   const storedValue = window.localStorage.getItem(EXPLORER_RENDERER_STORAGE_KEY);
   return storedValue && isExplorerRendererId(storedValue) ? storedValue : "webgl";
+}
+
+function getInitialHighPrecisionFloatCount(): number {
+  if (typeof window === "undefined") {
+    return 2;
+  }
+
+  const storedValue = Number(window.localStorage.getItem(EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY));
+  return Number.isFinite(storedValue)
+    ? clampNumber(Math.round(storedValue), 2, MAX_HIGH_PRECISION_FLOAT_COUNT)
+    : 2;
 }
 
 function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | null) {
@@ -335,12 +349,14 @@ function formatThreshold(threshold: number): string {
   return threshold.toExponential(0);
 }
 
-function getImplementedExplorerImageRenderer(rendererId: "cpu" | "webgl" | "webgpu") {
+function getImplementedExplorerImageRenderer(rendererId: ExplorerRendererId) {
   switch (rendererId) {
     case "cpu":
       return CPU_EXPLORER_IMAGE_RENDERER;
     case "webgl":
       return WEBGL_EXPLORER_IMAGE_RENDERER;
+    case "webgl-high-precision":
+      return WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER;
     case "webgpu":
     default:
       return CPU_EXPLORER_IMAGE_RENDERER;
@@ -548,6 +564,9 @@ function ExplorerWorkspace(props: {
   const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
     getInitialExplorerRendererId,
   );
+  const [requestedHighPrecisionFloatCount, setRequestedHighPrecisionFloatCount] = useState(
+    getInitialHighPrecisionFloatCount,
+  );
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [binaryInteriorColor, setBinaryInteriorColor] = useState<RgbColor>(() => {
     const initialPalette = getFractalPalette(DEFAULT_FRACTAL_PALETTE_ID);
@@ -579,6 +598,14 @@ function ExplorerWorkspace(props: {
     [availableRenderers, requestedRenderer],
   );
   const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
+  const activeHighPrecisionFloatCount = rendererSelection.active === "webgl-high-precision"
+    ? Math.min(requestedHighPrecisionFloatCount, 2)
+    : null;
+  const highPrecisionFloatCountStatus = rendererSelection.active === "webgl-high-precision"
+    ? requestedHighPrecisionFloatCount > 2
+      ? `Precision Floats: ${activeHighPrecisionFloatCount} (requested ${requestedHighPrecisionFloatCount}; only 2 is implemented in this milestone)`
+      : `Precision Floats: ${activeHighPrecisionFloatCount}`
+    : null;
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
   const escapeBandConfiguration = useMemo<EscapeBandConfiguration>(
@@ -602,6 +629,13 @@ function ExplorerWorkspace(props: {
   useEffect(() => {
     window.localStorage.setItem(EXPLORER_RENDERER_STORAGE_KEY, requestedRenderer);
   }, [requestedRenderer]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY,
+      String(requestedHighPrecisionFloatCount),
+    );
+  }, [requestedHighPrecisionFloatCount]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -739,6 +773,9 @@ function ExplorerWorkspace(props: {
             Active Renderer: {getExplorerRendererLabel(rendererSelection.active)}
             {rendererSelection.fallbackReason ? ` (${rendererSelection.fallbackReason})` : ""}
           </p>
+          {rendererSelection.active === "webgl-high-precision" ? (
+            <p className="detail">{highPrecisionFloatCountStatus}</p>
+          ) : null}
           <Field label="Palette">
             <select
               className="field__input"
@@ -774,6 +811,19 @@ function ExplorerWorkspace(props: {
               disabled={paletteMappingMode !== "cyclic" && paletteMappingMode !== "cyclic-mirrored"}
             />
           </Field>
+          {requestedRenderer === "webgl-high-precision" ? (
+            <Field
+              label="Precision Floats"
+              hint="Experimental. This first milestone implements the specialized 2-float double-single path only."
+            >
+              <NumberInput
+                value={requestedHighPrecisionFloatCount}
+                min={2}
+                max={MAX_HIGH_PRECISION_FLOAT_COUNT}
+                onChange={setRequestedHighPrecisionFloatCount}
+              />
+            </Field>
+          ) : null}
           <Field label="Binary Inside Color">
             <input
               className="field__input field__input--color"
@@ -1046,6 +1096,9 @@ function ExplorerWorkspace(props: {
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
               escapeBands={escapeBandConfiguration}
+              {...(activeHighPrecisionFloatCount !== null
+                ? { precisionFloatCount: activeHighPrecisionFloatCount }
+                : {})}
               markerScale={markerScalePercent / 100}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
@@ -1112,6 +1165,9 @@ function ExplorerWorkspace(props: {
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
               escapeBands={escapeBandConfiguration}
+              {...(activeHighPrecisionFloatCount !== null
+                ? { precisionFloatCount: activeHighPrecisionFloatCount }
+                : {})}
               markerScale={markerScalePercent / 100}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}

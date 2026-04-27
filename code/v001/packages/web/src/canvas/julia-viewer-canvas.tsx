@@ -160,6 +160,7 @@ export function JuliaViewerCanvas(props: {
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
   escapeBands?: EscapeBandConfiguration;
+  precisionFloatCount?: number;
   markerScale?: number;
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
@@ -317,8 +318,10 @@ export function JuliaViewerCanvas(props: {
       ...(props.binaryExteriorColor ? { binaryExteriorColor: props.binaryExteriorColor } : {}),
     };
     const escapeBandOptions = props.escapeBands ? { escapeBands: props.escapeBands } : {};
+    const precisionOptions =
+      props.precisionFloatCount !== undefined ? { precisionFloatCount: props.precisionFloatCount } : {};
     const nextPresentedSize =
-      renderer.id === "webgl"
+      renderer.id === "webgl" || renderer.id === "webgl-high-precision"
         ? renderExplorerImageWithFallback(
             canvas,
             canvasResolution.renderWidth,
@@ -335,6 +338,7 @@ export function JuliaViewerCanvas(props: {
                 paletteCycles: props.paletteCycles ?? 6,
                 ...binaryColorOptions,
                 ...escapeBandOptions,
+                ...precisionOptions,
               });
             },
           )
@@ -354,6 +358,7 @@ export function JuliaViewerCanvas(props: {
                 paletteCycles: props.paletteCycles ?? 6,
                 ...binaryColorOptions,
                 ...escapeBandOptions,
+                ...precisionOptions,
               });
             },
           );
@@ -372,6 +377,7 @@ export function JuliaViewerCanvas(props: {
     props.paletteCycles,
     props.paletteMappingMode,
     props.parameter,
+    props.precisionFloatCount,
     props.renderer,
     viewport,
   ]);

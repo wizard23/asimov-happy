@@ -1904,8 +1904,33 @@ Is it clear how to do the math in an performance efficient and numerical sound w
 
 
 ```
+• I updated the spec and added the implementation plan.
 
+  Updated spec:
+
+  - docs/specs/2026-04-27-21-20--explorer-webgl-n-float-precision-renderer-spec.md
+
+  New plan:
+
+  - docs/plans/2026-04-27-21-32--explorer-high-precision-webgl-renderer-implementation-checklist.md
+
+  On your question: it was not fully clear enough before. I did a research pass and tightened the spec accordingly. The main conclusions now reflected in the spec are:
+
+  - n = 2 should be a specialized double-single path, not just the generic n-float machinery.
+  - n = 3..8 should use fixed-width renormalized expansions.
+  - The implementation must not rely on portable shader FMA.
+  - Viewport and parameter transport must also be multi-float, not only the iteration body.
+  - Practically, n = 2 is the main interactive target; n = 5..8 should be treated as experimental and likely slow.
+
+  Research basis I used:
+
+  - Shewchuk on adaptive precision and expansion arithmetic
+  - QD / double-double / quad-double algorithm family by Hida, Li, and Bailey
+
+  If you want, the next step is to review the plan and decide whether to implement only milestone 1 (n = 2) first, which is what I recommend.
 ```
+
+Yes please.
 
 
 
