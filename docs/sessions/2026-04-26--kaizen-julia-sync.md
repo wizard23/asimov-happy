@@ -3314,6 +3314,91 @@ yes, please continue with the plan.
 
 WebGL2 please. We want a clean implementation.
 
+```
+
+• The old experimental renderer is fully gone from active source now. I’m just waiting on the final build and lint pass to confirm the replacement
+  path is clean end-to-end.
+
+• Waited for background terminal
+
+• Updated Plan
+  └ Replaced the old experimental float-expansion WebGL path with a WebGL2 arbitrary-precision limb-based renderer, added the host-side fixed-point
+    encoding layer, renamed the UI/control terminology to precision limbs, removed the old renderer module, and verified no stale active source
+    references remain. Build and lint both pass.
+    ✔ Inventory current old experimental renderer code paths and active references
+    ✔ Lock concrete v1 WebGL limb transport and fixed-point design
+    ✔ Implement host-side encoding and shader arithmetic library scaffolding
+    ✔ Replace old experimental renderer with new arbitrary-precision WebGL path
+    ✔ Clean up stale old-renderer code and verify build/lint
+
+• Waited for background terminal
+
+• Replaced the old experimental WebGL high-precision path with a new WebGL2 limb-based arbitrary-precision path.
+
+  What changed:
+
+  - Added the new host-side fixed-point/layered limb encoding module at code/v001/packages/web/src/canvas/webgl-arbitrary-precision.ts.
+  - Added the new renderer at code/v001/packages/web/src/canvas/explorer-webgl-arbitrary-precision-renderer.ts.
+  - Switched active renderer IDs/labels from High Precision WebGL Rendering / Precision Floats to Arbitrary Precision WebGL Rendering / Precision
+    Limbs in code/v001/packages/web/src/canvas/explorer-renderer.ts and code/v001/packages/web/src/app/app.tsx.
+  - Updated Mandelbrot/Julia canvas prop plumbing from precisionFloatCount to precisionLimbCount in code/v001/packages/web/src/canvas/mandelbrot-
+    overview-canvas.tsx and code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx.
+  - Updated the compare route to compare ordinary WebGL against the new arbitrary-precision renderer.
+  - Removed the old file code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts.
+
+  Cleanup result:
+
+  - I searched active source for old identifiers like webgl-high-precision, Precision Floats, precisionFloatCount, and
+    WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER.
+  - No active source references remain.
+
+  Verification:
+
+  - npm run build -w @asimov/minimal-web passed
+  - npm run lint passed
+
+  One important note: this is code-complete for the replacement pass, but I have not yet done browser-level visual QA of the new renderer. The next
+  useful step is a focused browser comparison on /explorer-renderer-compare, especially to validate shader correctness and performance under real
+  WebGL2.
+
+  9 background terminals running · /ps to view · /stop to close
+```
+
+yes please continue
+```
+• I continued the investigation with the compare route and headless Chromium.
+
+  Findings:
+
+  - The new AP renderer is still visibly wrong in headless WebGL2. The right-side Mandelbrot panel stays effectively black, and Julia is also
+    wrong.
+  - This is not just stale code. I verified the built bundle actually contained the temporary fragment-shader debug output.
+  - It is also not a normal JS exception path:
+      - no render-effect error surfaced
+      - no fallback error surfaced
+  - I tried several targeted diagnostics:
+      - fragment shader forced to render reconstructed-coordinate colors
+      - fragment shader forced to render pure gl_FragCoord gradient
+      - explicit WebGL2 getError() checks around setup, uniforms, and draw
+      - explicit WebGL2 VAO setup
+  - None of those changed the visible AP output in headless Chromium.
+
+  What that means:
+
+  - The problem is probably not in the old Mandelbrot/Julia arithmetic yet.
+  - The stronger suspicion now is that the live AP image path is not actually presenting the shader output the way we think, or that the renderer
+    is silently producing a black frame before the fractal arithmetic even becomes relevant.
+  - Since even a pure fragment-coordinate gradient did not appear, the next high-signal step is not “tune the arbitrary-precision math.” It is to
+    inspect the rendered pixels directly from the AP canvas, for example with a temporary readPixels check after draw, so we can tell whether:
+      - the shader is drawing non-black data that is not being presented correctly, or
+      - the shader output is already black in the framebuffer.
+
+  I cleaned the temporary diagnostics back out and left the code in a sane state. One clean WebGL2-only change remains: explicit VAO setup in the
+  AP renderer. npm run build -w @asimov/minimal-web and npm run lint both pass.
+
+  If you want, I’ll do the next pass with framebuffer/readback diagnostics, which is now the shortest path to a real answer.
+```
+
 
 
 

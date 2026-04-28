@@ -28,6 +28,7 @@ void main() {
 interface WebGlArbitraryPrecisionRendererState {
   context: WebGL2RenderingContext;
   program: WebGLProgram;
+  vertexArray: WebGLVertexArrayObject;
   positionBuffer: WebGLBuffer;
   positionLocation: number;
   modeLocation: WebGLUniformLocation;
@@ -593,11 +594,16 @@ function getRendererState(
   }
 
   const program = createProgram(context, createFragmentShaderSource(layout));
+  const vertexArray = context.createVertexArray();
+  if (!vertexArray) {
+    throw new Error("Failed to create WebGL2 vertex array.");
+  }
   const positionBuffer = context.createBuffer();
   if (!positionBuffer) {
     throw new Error("Failed to create WebGL2 vertex buffer.");
   }
 
+  context.bindVertexArray(vertexArray);
   context.bindBuffer(context.ARRAY_BUFFER, positionBuffer);
   context.bufferData(
     context.ARRAY_BUFFER,
@@ -616,10 +622,14 @@ function getRendererState(
   if (positionLocation < 0) {
     throw new Error("Missing WebGL2 attribute: a_position");
   }
+  context.enableVertexAttribArray(positionLocation);
+  context.vertexAttribPointer(positionLocation, 2, context.FLOAT, false, 0, 0);
+  context.bindVertexArray(null);
 
   const state: WebGlArbitraryPrecisionRendererState = {
     context,
     program,
+    vertexArray,
     positionBuffer,
     positionLocation,
     modeLocation: getUniformLocation(context, program, "u_mode"),
@@ -739,9 +749,7 @@ function renderToCanvas(
   context.clearColor(0, 0, 0, 1);
   context.clear(context.COLOR_BUFFER_BIT);
   context.useProgram(state.program);
-  context.bindBuffer(context.ARRAY_BUFFER, state.positionBuffer);
-  context.enableVertexAttribArray(state.positionLocation);
-  context.vertexAttribPointer(state.positionLocation, 2, context.FLOAT, false, 0, 0);
+  context.bindVertexArray(state.vertexArray);
 
   context.uniform1i(state.modeLocation, options.mode);
   context.uniform1i(state.iterationsLocation, options.iterations);
@@ -767,6 +775,7 @@ function renderToCanvas(
   context.uniform1iv(state.escapeBandThresholdsLocation, new Int32Array(escapeBandThresholds));
 
   context.drawArrays(context.TRIANGLES, 0, 6);
+  context.bindVertexArray(null);
 }
 
 export const WEBGL_ARBITRARY_PRECISION_EXPLORER_IMAGE_RENDERER: ExplorerImageRenderer = {
