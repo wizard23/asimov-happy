@@ -1932,6 +1932,518 @@ Is it clear how to do the math in an performance efficient and numerical sound w
 
 Yes please.
 
+```
+ - a separate renderer option: High Precision WebGL Rendering
+  - the existing WebGL Rendering path is left unchanged
+  - a working specialized double-single shader path for the new renderer
+  - Precision Floats UI and persisted state
+  - honest milestone behavior:
+      - the control allows 2..8
+      - but this first implementation only activates 2
+      - if a higher value is requested, the UI says it is not implemented yet and the renderer uses 2
+
+  Main files:
+
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/canvas/explorer-renderer.ts
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  One limitation: I verified this at build/lint level, but I did not complete a browser-level validation of the new shader path here. The next useful step is a focused browser QA pass comparing:
+
+  - WebGL Rendering
+  - High Precision WebGL Rendering
+  - especially deep zoom behavior at Precision Floats = 2
+```
+
+For me the new mode with n = 2 does not give ay deeper zoom level than the existing webgl renderer please look at it with a headless browser and try to find out what the problem is. Give me a technical report but don't change anything yet please.
+
+```
+• Yes. I think I found the root cause, and it is not primarily in the shader.
+
+  ## Conclusion
+
+  The new High Precision WebGL Rendering mode does not allow a deeper zoom range because the zoom limit is still enforced entirely in the canvas
+  interaction / viewport code, before rendering happens.
+
+  So even if the new renderer can evaluate the fractal with higher precision, the app never lets the viewport get smaller than the same old
+  JavaScript-side precision clamp.
+
+  ## Main root cause
+
+  Both explorer canvases clamp zoom in zoomViewport(...) using Number.EPSILON and the current display size:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:101
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:101
+
+  The relevant logic is:
+
+  - compute realUlp and imaginaryUlp from Number.EPSILON
+  - derive minimumWidth
+  - derive minimumHeight
+  - clamp nextWidth / nextHeight to those minima
+
+  That means:
+
+  - the maximum zoom depth is determined by this JS-side viewport clamp
+  - that clamp is the same regardless of renderer
+  - renderer selection does not participate in the decision at all
+
+  So the ordinary WebGL renderer and the new high-precision renderer hit the same zoom floor.
+
+  ## Why that fully explains your observation
+
+  The zoom floor is reached in the UI/state layer, not in the shader.
+
+  So:
+
+  - the same wheel gestures
+  - produce the same minimum viewport span
+  - therefore the same maximum zoom shown in the overlay
+  - therefore no deeper zoom is possible in the new mode
+
+  This is exactly consistent with “n = 2 does not give any deeper zoom level”.
+
+  ## Secondary confirmation from the new high-precision implementation
+
+  The new renderer is isolated correctly as a separate renderer, but it only affects rendering, not viewport policy.
+
+  The renderer switch happens in:
+
+  - code/v001/packages/web/src/app/app.tsx:601
+
+  The high-precision renderer receives:
+
+  - precisionFloatCount
+  - and uses the separate shader path in
+    code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts
+
+  But none of that changes:
+
+  - zoomViewport(...)
+  - displaySizeRef
+  - minimumWidth
+  - minimumHeight
+
+  So the renderer is upgraded, but the zoom policy is not.
+
+  ## Important architectural issue
+
+  The current zoom clamp is based on JavaScript Number precision, not on the active renderer precision.
+
+  That means the app has only one precision policy:
+
+  - “how far can the viewport shrink before JS numbers stop making sense?”
+
+  But what you actually need is a renderer-aware policy:
+
+  - ordinary WebGL should stop much earlier
+  - high-precision WebGL should stop later
+  - CPU might have a different threshold too
+
+  Right now there is no such distinction.
+
+  ## Headless-browser observations
+
+  I did verify the current explorer in headless Chromium and confirmed:
+
+  - the app runs and renders
+  - the explorer route is active
+  - the zoom text is derived from viewport state, not renderer-specific precision state
+
+  I also attempted a direct automated browser comparison between:
+
+  - WebGL Rendering
+  - High Precision WebGL Rendering
+
+  by scripting renderer selection and repeated wheel zoom in headless Chromium with SwiftShader.
+
+  That automation path was not fully successful because of the localhost app inside a file-origin control harness. But the code path is clear
+  enough here that the root cause does not really depend on that final browser automation succeeding.
+
+  ## Another relevant detail
+
+  The first milestone explicitly clamps the new mode to 2 floats in app state:
+
+  - code/v001/packages/web/src/app/app.tsx:601
+  - Math.min(requestedHighPrecisionFloatCount, 2)
+
+  That is honest milestone behavior, but it also confirms the current implementation focus is:
+
+  - shader arithmetic for n = 2
+    not:
+  - end-to-end deeper zoom UX
+
+  So the feature is only half-connected right now:
+
+  - rendering precision changed
+  - zoom-limit policy did not
+
+  ## Bottom line
+
+  The problem is:
+
+  - maximum zoom depth is still clamped by shared JS viewport logic
+  - that clamp is independent of renderer
+  - therefore High Precision WebGL Rendering cannot zoom deeper than ordinary WebGL, even if its shader arithmetic could support it
+
+  So this is not just “the shader didn’t help enough”.
+  It is mainly:
+
+  - the deeper renderer was added
+  - but the zoom-depth gate remained unchanged and renderer-agnostic
+
+  If you want, next I can propose the clean fix for this before changing code.
+```
+
+Your observation about the maximum zoom level limitation is true but that's not what I meant. Long before I reach the maximum zoom level (which is based on much higher precision js doubles) I reach a different constraint. The Mandlebrot canvas (and the Julia canvas) becomes "blocky" which I think is caused by the numerical errors during calculating the iterations. I would have hoped to be able to zoom a bit more before this phenomenon occurs with the high precision renderer when n=2. Please check again with a headless browser and then give me a new report please.
+
+```
+• Technical Report
+
+  I checked this again with a headless-browser comparison and the result supports your observation: with n = 2, the new High Precision WebGL
+  Rendering mode does not show a meaningful visible improvement over ordinary WebGL Rendering before the shared maximum zoom floor is reached.
+
+  ## Browser result
+
+  I created a same-origin helper page under the preview server and ran both renderers with the same wheel-zoom sequence in headless Chromium using
+  SwiftShader WebGL.
+
+  After 160 identical zoom-in wheel steps, both runs reported the same zoom overlay:
+
+  - ordinary WebGL:
+      - Active Renderer: WebGL Rendering
+      - overlay: -0.600000 + 0.000000i · 196323318177x
+  - high precision WebGL:
+      - Active Renderer: High Precision WebGL Rendering
+      - Precision Floats: 2
+      - overlay: -0.600000 + 0.000000i · 196323318177x
+
+  The rendered screenshots at that zoom were visually extremely close. I do not see a clear “high precision stays smooth while ordinary WebGL gets
+  blocky” effect in this comparison.
+
+  So the browser check does not show the expected practical benefit from the new renderer.
+
+  ## What this means
+
+  Your concern is valid:
+
+  - the new renderer is not just blocked by the shared JS zoom clamp
+  - even before that becomes the limiting factor, the high-precision path is not obviously buying better visual stability
+
+  ## Most likely root cause
+
+  The new n = 2 arithmetic is too weak / simplified to behave like a strong double-single implementation.
+
+  The main suspect is the shader arithmetic in
+  code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts.
+
+  ### 1. dsAdd() is oversimplified
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:75
+
+  Current implementation:
+
+  - sums high parts with twoSum
+  - adds low parts with plain float addition
+  - does a single normalization pass
+
+  That is much simpler than a robust double-double / double-single add. It is likely losing a meaningful part of the low-order information that the
+  whole mode is supposed to preserve.
+
+  ### 2. dsNormalize() uses quickTwoSum() without enforcing its precondition
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:71
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:42
+
+  quickTwoSum(a, b) assumes a magnitude ordering condition that is not explicitly guaranteed here.
+  If that precondition is violated, normalization is numerically weaker than intended.
+
+  So even though the code is “two-float shaped”, it may not actually maintain a good two-float representation over many fractal iterations.
+
+  ### 3. dsMul() is also simplified
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:89
+
+  It uses:
+
+  - twoProd(a.x, b.x)
+  - then adds cross terms and a.y * b.y
+  - then one normalization
+
+  That is a plausible first pass, but still lightweight compared with a more careful double-single multiply and renormalization strategy.
+
+  This again points to:
+
+  - some extra precision exists
+  - but not enough cleanly preserved precision to deliver a strong visible benefit
+
+  ## Secondary limitations
+
+  ### 4. Escape testing collapses back to ordinary float every iteration
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:199
+
+  Each iteration does:
+
+  - realApproximation = dsToFloat(zReal)
+  - imaginaryApproximation = dsToFloat(zImaginary)
+
+  and uses those float approximations for the bailout test.
+
+  That is not necessarily fatal, but it reduces the practical benefit near the boundary because the escape decision itself is not using a higher-
+  precision norm test.
+
+  ### 5. Smoothed coloring also collapses to float
+
+  Relevant code:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:225
+
+  The smoothed escape value is also derived from float-approximated z.
+  That affects coloring stability, and can contribute to “blocky / numerically unstable” appearance near deep zoom regions.
+
+  ## What is probably not the main issue here
+
+  ### Not mainly the renderer switch wiring
+
+  The browser output confirms:
+
+  - ordinary WebGL and high-precision WebGL are actually selected distinctly
+  - the new renderer is really active when requested
+
+  So this does not look like “the app accidentally still used the old renderer”.
+
+  ### Not mainly the n > 2 milestone limitation
+
+  The app honestly clamps the first milestone to 2:
+
+  - code/v001/packages/web/src/app/app.tsx:601
+
+  But your complaint is specifically about n = 2 already not helping enough, and the browser comparison is consistent with that.
+
+  ## Bottom line
+
+  The new renderer does not appear to deliver a meaningful practical precision gain at n = 2 yet.
+
+  The strongest explanation is:
+
+  - the current shader uses a simplified two-float arithmetic scheme
+  - but it is not yet numerically strong enough to behave like a good double-single implementation
+  - and parts of the iteration pipeline still collapse back to ordinary float too early
+
+  So the problem is likely not “high precision mode is ignored”.
+  It is more likely:
+
+  - high precision mode is active
+  - but its arithmetic implementation is not strong enough to noticeably reduce the blockiness you are looking for
+
+  If you want, next I can propose the cleanest fix path before changing code.
+```
+
+Yes please propose the cleanest fix (while still trying to keep aneye on performance) and focus on your 3 most likely root causes. Please don't try to fix the "Secondary limitations" you identified yet.
+
+```
+• Cleanest fix: improve the n = 2 arithmetic itself first, and leave the rest of the renderer architecture alone.
+
+  I would focus on these 3 root causes only:
+
+  1. dsAdd() is too weak
+  2. dsNormalize() uses quickTwoSum() too casually
+  3. dsMul() is too weak
+
+  ## Recommended approach
+
+  Treat n = 2 as a real specialized double-single implementation, not a lightweight approximation.
+
+  That means:
+
+  - write a small, disciplined double-single math layer
+  - use it only in the new high-precision renderer
+  - keep ordinary WebGL untouched
+  - do not yet touch bailout/color smoothing policy
+
+  ## Fix 1: replace dsNormalize() with a safer normalization rule
+
+  Current problem:
+
+  - quickTwoSum() is only safe under ordering assumptions
+  - the current code does not clearly enforce them
+
+  Clean fix:
+
+  - normalize with a safer twoSum()-based renormalization
+  - or explicitly order the components before quickTwoSum()
+
+  Best pragmatic choice:
+
+  - use a dedicated dsRenormalize(a_hi, a_lo) helper based on twoSum
+  - avoid relying on subtle preconditions unless you can prove them locally
+
+  Why this is clean:
+
+  - minimal surface area
+  - directly improves every operation that ends in normalization
+
+  Performance impact:
+
+  - small to moderate
+  - worth it because n = 2 is the default precision mode and the main interactive target
+
+  ## Fix 2: strengthen dsAdd()
+
+  Current problem:
+
+  - it adds high parts carefully
+  - but folds low parts in too crudely
+
+  Clean fix:
+
+  - implement a standard double-single add sequence:
+      1. add high parts with twoSum
+      2. accumulate low parts and carry carefully
+      3. renormalize into (hi, lo)
+
+  In other words:
+
+  - do not just do t = a.y + b.y and one final normalize
+  - use a fuller carry path
+
+  Why this matters:
+
+  - addition is everywhere:
+      - coordinate reconstruction
+      - + c
+      - intermediate accumulation
+  - if add is weak, the whole double-single representation degrades quickly
+
+  Performance impact:
+
+  - moderate
+  - but still far cheaper than adding more floats or widening the whole algorithm
+
+  ## Fix 3: strengthen dsMul()
+
+  Current problem:
+
+  - multiplication currently uses a simplified accumulation of:
+      - twoProd(a.x, b.x)
+      - cross terms
+      - one normalization
+
+  Clean fix:
+
+  - implement a more standard double-single multiply:
+      1. twoProd on the high parts
+      2. add cross terms carefully
+      3. renormalize with a stronger final step
+
+  Do not yet overcomplicate it into a generic expansion product.
+  Just make the n = 2 multiply correct and stable.
+
+  Why this matters:
+
+  - fractal iteration is multiplication-heavy
+  - most of the precision loss will show up there first
+
+  Performance impact:
+
+  - moderate
+  - but this is the highest-value arithmetic improvement for visual quality
+
+  ## What I would not change yet
+
+  Per your instruction, I would not yet change:
+
+  - float-based bailout test
+  - float-based smoothed coloring
+  - viewport zoom clamp
+  - n = 3..8 generic path
+
+  That keeps the change tightly scoped and lets us test whether the arithmetic core alone materially improves the visible result.
+
+  ## Why this is the cleanest path
+
+  It isolates the problem correctly:
+
+  - the issue is most likely weak double-single arithmetic
+  - not the explorer UI
+  - not the renderer selection
+  - not the rest of the app architecture
+
+  So the clean path is:
+
+  1. make n = 2 mathematically stronger
+  2. re-test visual stability
+  3. only then decide whether the secondary limitations matter enough to address
+
+  ## Expected outcome
+
+  If this works, you should see:
+
+  - less early “blockiness”
+  - more stable boundary structure at the same zoom
+  - visible benefit from High Precision WebGL Rendering before the shared JS zoom floor is reached
+
+  If this still does not help enough, then the next step would be:
+
+  - improve bailout and smoothing to stop collapsing back to float too early
+
+  But I agree with your sequencing: do not touch that yet.
+
+  If you want, I can next implement exactly this narrow arithmetic-strengthening pass.
+```
+
+yes, please.
+
+```
+• I strengthened only the n = 2 arithmetic core in the high-precision shader, as planned.
+
+  What changed:
+
+  - safer dsNormalize()
+  - stronger dsAdd()
+  - stronger dsMul()
+
+  I did not change:
+
+  - bailout logic
+  - smoothing/coloring logic
+  - zoom clamp policy
+  - renderer selection / fallback behavior
+
+  The change is in:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  The next useful step is your browser retest of:
+
+  - WebGL Rendering
+  - High Precision WebGL Rendering
+    at the same zoom region, to see whether the early blockiness is reduced now.
+```
+
+It still looks blocky at the same zoom level. Please check with a headless browser. Please use zoom levels of ~5000000x. I'm beginning to suspect that one of your identified "Secondary limitations" is the main culprit. Don't change any code yet please but let's try to identify the real reason for the blocky effect.
+
 
 
 

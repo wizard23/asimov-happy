@@ -69,13 +69,16 @@ vec2 twoProd(float a, float b) {
 }
 
 vec2 dsNormalize(vec2 a) {
-  return quickTwoSum(a.x, a.y);
+  vec2 s = twoSum(a.x, a.y);
+  return vec2(s.x, s.y);
 }
 
 vec2 dsAdd(vec2 a, vec2 b) {
   vec2 s = twoSum(a.x, b.x);
-  float t = a.y + b.y;
-  return dsNormalize(vec2(s.x, s.y + t));
+  vec2 t = twoSum(a.y, b.y);
+  vec2 u = twoSum(s.y, t.x);
+  vec2 v = twoSum(s.x, u.x);
+  return dsNormalize(vec2(v.x, v.y + u.y + t.y));
 }
 
 vec2 dsNeg(vec2 a) {
@@ -88,8 +91,10 @@ vec2 dsSub(vec2 a, vec2 b) {
 
 vec2 dsMul(vec2 a, vec2 b) {
   vec2 p = twoProd(a.x, b.x);
-  float e = p.y + a.x * b.y + a.y * b.x + a.y * b.y;
-  return dsNormalize(vec2(p.x, e));
+  float cross = a.x * b.y + a.y * b.x;
+  vec2 s = twoSum(p.y, cross);
+  vec2 t = twoSum(p.x, s.x);
+  return dsNormalize(vec2(t.x, t.y + s.y + a.y * b.y));
 }
 
 float dsToFloat(vec2 a) {
