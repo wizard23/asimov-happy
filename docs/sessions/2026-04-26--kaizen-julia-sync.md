@@ -3204,6 +3204,33 @@ We don't care about all the other optimizations in the alien code like old-frame
 
 Is it clear what I mean? Do you see any potential pitfalls apart from a reduced performance? 
 
+```
+• Yes, it was clear.
+
+  You mean:
+
+  - not a full renderer spec
+  - not the alien compute/reuse pipeline
+  - specifically a WebGL-compatible arbitrary-precision arithmetic library
+  - based on the alien limb-arithmetic idea
+  - to be used later by a WebGL Mandelbrot/Julia renderer
+
+  I created the spec here:
+
+  docs/specs/2026-04-28-14-05--webgl-arbitrary-precision-arithmetic-library-spec.md
+
+  The main pitfalls I see apart from reduced performance are:
+
+  - WebGL compatibility itself: the alien code depends on compute shaders, SSBOs, and shader double, so the transport/storage model must be
+    redesigned.
+  - Precision loss at the host/shader boundary: bad encoding/decoding can destroy the benefit before iteration starts.
+  - Fixed-point correctness: radix, limb ordering, binary-point placement, and truncation must be specified very carefully.
+  - Shader portability: large limb loops and texture-packed integer-like data may behave differently across browsers/drivers.
+  - Escape classification can still become the weak link if bailout is approximated too crudely.
+
+  If you want, the next step is a plan/checklist for implementing just the arithmetic library before wiring it into a renderer.
+```
+
 
 
 ---
