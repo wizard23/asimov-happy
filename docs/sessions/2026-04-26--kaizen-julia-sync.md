@@ -2445,6 +2445,139 @@ yes, please.
 It still looks blocky at the same zoom level. Please check with a headless browser. Please use zoom levels of ~5000000x. I'm beginning to suspect that one of your identified "Secondary limitations" is the main culprit. Don't change any code yet please but let's try to identify the real reason for the blocky effect.
 
 
+```
+• Yes. After rechecking with headless Chromium at about 5,072,266x, I think one of the “secondary limitations” is in fact the main blocker.
+
+  What I verified
+
+  I ran both renderers at the same scripted zoom target and center:
+
+  - WebGL Rendering
+  - High Precision WebGL Rendering with Precision Floats = 2
+
+  Both landed at:
+
+  - center: about -1.093555 + 0.002654i
+  - zoom: about 5,072,266x
+
+  And the screenshots were effectively identical. So this is not just:
+
+  - the shared JS zoom cap
+  - or a bad earlier comparison
+
+  At that zoom, the high-precision renderer is active, but it is not visibly buying you extra smoothness.
+
+  Most likely real reason
+
+  The main culprit is now very likely the per-iteration bailout test collapsing the high-precision orbit back to ordinary float.
+
+  In code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:204, every iteration does:
+
+  - realApproximation = dsToFloat(zReal)
+  - imaginaryApproximation = dsToFloat(zImaginary)
+
+  and then uses those float values for the escape test at code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:206.
+
+  That means:
+
+  - the orbit update itself is done in two-float arithmetic
+  - but the decision that determines escape iteration count is reduced back to single-float precision every iteration
+
+  For escape-time fractals, that is a very big deal, because the visible image is driven primarily by:
+
+  - when a point escapes
+  - whether neighboring pixels escape on the same iteration or not
+
+  If that decision is still float-quantized each iteration, many neighboring pixels can still collapse to the same behavior, which is exactly the
+  kind of chunky/blocky effect you’re describing.
+
+  Why I think this is the main one, not smoothing
+
+  The smoothing collapse later in the shader is here:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:230
+
+  That can affect color smoothness, but it does not explain why the two renderers produce essentially the same coarse geometry and escape
+  structure.
+
+  If smoothing were the dominant problem, I would expect:
+
+  - same broad shape
+  - but somewhat different fine color transitions
+
+  What I’m seeing is stronger than that:
+
+  - same zoom
+  - same center
+  - same overall rendered structure
+  - no meaningful visible gain from the high-precision mode
+
+  That points much more directly at the escape classification itself.
+
+  Why I do not think input transport is the main blocker
+
+  The viewport and parameter values are being split into float pairs on the CPU side:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:390
+  - uniforms loaded at code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts:445
+
+  So the high/low transport path exists. I do not think the main issue is “the low bits never reach the shader.”
+
+  One additional note
+
+  The comparison was done with 2000 iterations, because that is the current explorer setting in the page. That can also limit visible detail, but
+  it does not explain why the high-precision renderer fails to outperform ordinary WebGL at the same zoom. That specific failure is much more
+  consistent with the float bailout test.
+
+  Bottom line
+
+  The most likely real reason the high-precision renderer still looks blocky at the same zoom is:
+
+  - the orbit update uses two-float arithmetic
+  - but the bailout decision is still reduced to ordinary float every iteration
+
+  So the renderer is not actually preserving higher precision at the most important decision point for escape-time rendering.
+
+  If you want, the next step is for me to propose the narrowest fix that changes only the bailout test, without touching smoothing yet.
+```
+
+Before you do that please create a debug route for comparing the normal webgl renderer and the new high precision one. This route is to make it easier for you to compare in the future.
+
+```
+• Added a dedicated compare route at /explorer-renderer-compare.
+
+  It shows two fixed columns:
+
+  - WebGL Rendering
+  - High Precision WebGL Rendering
+
+  They share:
+
+  - selected Julia constant c
+  - palette
+  - Mandelbrot iterations
+  - Julia iterations
+  - marker scale
+  - requested precision-float count for the high-precision column
+
+  Each column keeps its own Mandelbrot/Julia viewport, which makes it useful both for manual side-by-side inspection and for future scripted same-
+  gesture comparisons.
+
+  Changes are in:
+
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/styles/app.css
+
+  It’s linked from the top nav as Renderer Compare.
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+```
+
+
+
 
 
 ---

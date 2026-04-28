@@ -64,7 +64,13 @@ import {
 import "../styles/app.css";
 
 type TrainingStatus = "idle" | "training" | "completed" | "error" | "cancelled";
-type AppRoute = "/" | "/som" | "/explorer" | "/explorer-layout-harness" | "/gui-settings";
+type AppRoute =
+  | "/"
+  | "/som"
+  | "/explorer"
+  | "/explorer-layout-harness"
+  | "/explorer-renderer-compare"
+  | "/gui-settings";
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
 const EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY = "asimov-happy.explorer-high-precision-floats";
 
@@ -103,6 +109,10 @@ function getAppRoute(pathname: string): AppRoute {
 
   if (pathname === "/explorer-layout-harness") {
     return "/explorer-layout-harness";
+  }
+
+  if (pathname === "/explorer-renderer-compare") {
+    return "/explorer-renderer-compare";
   }
 
   return pathname === "/gui-settings" ? "/gui-settings" : "/";
@@ -1341,6 +1351,215 @@ function ExplorerLayoutHarnessRoute(): preact.JSX.Element {
   );
 }
 
+function ExplorerRendererCompareRoute(): preact.JSX.Element {
+  const [selectedParameter, setSelectedParameter] = useState<ComplexParameter>({
+    real: -0.74543,
+    imaginary: 0.11301,
+  });
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
+  const [juliaIterations, setJuliaIterations] = useState(2000);
+  const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
+  const [requestedHighPrecisionFloatCount, setRequestedHighPrecisionFloatCount] = useState(2);
+  const [markerScalePercent, setMarkerScalePercent] = useState(150);
+
+  const activeHighPrecisionFloatCount = Math.min(requestedHighPrecisionFloatCount, 2);
+  const highPrecisionFloatCountStatus =
+    requestedHighPrecisionFloatCount > 2
+      ? `Precision Floats: ${activeHighPrecisionFloatCount} (requested ${requestedHighPrecisionFloatCount}; only 2 is implemented in this milestone)`
+      : `Precision Floats: ${activeHighPrecisionFloatCount}`;
+
+  return (
+    <div className="route-shell">
+      <section className="panel">
+        <div className="panel__header">
+          <p className="eyebrow">Debug</p>
+          <h1>Renderer Compare</h1>
+          <p className="panel__lede">
+            Side-by-side comparison of the existing WebGL renderer and the separate high-precision
+            WebGL renderer. Both columns share the same selected Julia constant `c`, but keep their
+            own Mandelbrot and Julia viewports so they can be zoomed independently or driven with
+            the same scripted gesture sequence.
+          </p>
+        </div>
+      </section>
+
+      <section className="compare-grid">
+        <aside className="panel">
+          <div className="panel__header">
+            <p className="eyebrow">Shared Controls</p>
+            <h2>Compare Settings</h2>
+          </div>
+          <section className="group">
+            <Field label="Selected Julia Constant">
+              <div className="field__static">{formatComplexParameter(selectedParameter)}</div>
+            </Field>
+            <Field label="Palette">
+              <select
+                className="field__input"
+                value={palette}
+                onInput={(event) => setPalette(event.currentTarget.value)}
+              >
+                {getFractalPalettes().map((paletteDefinition) => (
+                  <option key={paletteDefinition.id} value={paletteDefinition.id}>
+                    {paletteDefinition.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Mandelbrot Iterations">
+              <NumberInput
+                value={mandelbrotIterations}
+                min={16}
+                max={4096}
+                onChange={setMandelbrotIterations}
+              />
+            </Field>
+            <Field label="Julia Iterations">
+              <NumberInput
+                value={juliaIterations}
+                min={16}
+                max={4096}
+                onChange={setJuliaIterations}
+              />
+            </Field>
+            <Field
+              label="Precision Floats"
+              hint="Applies only to the high-precision column. This milestone currently implements only the specialized 2-float path."
+            >
+              <NumberInput
+                value={requestedHighPrecisionFloatCount}
+                min={2}
+                max={MAX_HIGH_PRECISION_FLOAT_COUNT}
+                onChange={setRequestedHighPrecisionFloatCount}
+              />
+            </Field>
+            <Field label="Marker Scale">
+              <input
+                className="field__input"
+                type="range"
+                min={50}
+                max={500}
+                step={10}
+                value={markerScalePercent}
+                onInput={(event) => setMarkerScalePercent(Number(event.currentTarget.value))}
+              />
+              <span className="field__hint">{markerScalePercent}%</span>
+            </Field>
+          </section>
+        </aside>
+
+        <section className="compare-columns" aria-label="Renderer comparison">
+          <article className="panel compare-column">
+            <div className="panel__header">
+              <p className="eyebrow">Renderer A</p>
+              <h2>WebGL Rendering</h2>
+              <p className="detail">Baseline renderer. This path must remain unchanged.</p>
+            </div>
+            <section className="compare-column__canvases">
+              <article className="card card--viewer">
+                <p className="eyebrow">Parameter Plane</p>
+                <h3>Mandelbrot</h3>
+                <MandelbrotOverviewCanvas
+                  parameter={selectedParameter}
+                  selectedParameter={selectedParameter}
+                  hoveredMandelbrotParameter={null}
+                  hoveredJuliaCoordinate={null}
+                  onHoverParameter={() => undefined}
+                  onSelectParameter={setSelectedParameter}
+                  iterations={mandelbrotIterations}
+                  showAxes={false}
+                  enableTwoQualityLevels={false}
+                  palette={palette}
+                  paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
+                  paletteCycles={DEFAULT_PALETTE_CYCLES}
+                  markerScale={markerScalePercent / 100}
+                  renderer={WEBGL_EXPLORER_IMAGE_RENDERER}
+                  resolutionSizingMode="contain"
+                />
+              </article>
+              <article className="card card--viewer">
+                <p className="eyebrow">Result</p>
+                <h3>Julia</h3>
+                <JuliaViewerCanvas
+                  parameter={selectedParameter}
+                  selectedParameter={selectedParameter}
+                  hoveredMandelbrotParameter={null}
+                  hoveredJuliaCoordinate={null}
+                  onSelectParameter={setSelectedParameter}
+                  onHoverCoordinate={() => undefined}
+                  iterations={juliaIterations}
+                  palette={palette}
+                  paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
+                  paletteCycles={DEFAULT_PALETTE_CYCLES}
+                  markerScale={markerScalePercent / 100}
+                  showAxes={false}
+                  enableTwoQualityLevels={false}
+                  renderer={WEBGL_EXPLORER_IMAGE_RENDERER}
+                  resolutionSizingMode="contain"
+                />
+              </article>
+            </section>
+          </article>
+
+          <article className="panel compare-column">
+            <div className="panel__header">
+              <p className="eyebrow">Renderer B</p>
+              <h2>High Precision WebGL Rendering</h2>
+              <p className="detail">{highPrecisionFloatCountStatus}</p>
+            </div>
+            <section className="compare-column__canvases">
+              <article className="card card--viewer">
+                <p className="eyebrow">Parameter Plane</p>
+                <h3>Mandelbrot</h3>
+                <MandelbrotOverviewCanvas
+                  parameter={selectedParameter}
+                  selectedParameter={selectedParameter}
+                  hoveredMandelbrotParameter={null}
+                  hoveredJuliaCoordinate={null}
+                  onHoverParameter={() => undefined}
+                  onSelectParameter={setSelectedParameter}
+                  iterations={mandelbrotIterations}
+                  showAxes={false}
+                  enableTwoQualityLevels={false}
+                  palette={palette}
+                  paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
+                  paletteCycles={DEFAULT_PALETTE_CYCLES}
+                  precisionFloatCount={activeHighPrecisionFloatCount}
+                  markerScale={markerScalePercent / 100}
+                  renderer={WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER}
+                  resolutionSizingMode="contain"
+                />
+              </article>
+              <article className="card card--viewer">
+                <p className="eyebrow">Result</p>
+                <h3>Julia</h3>
+                <JuliaViewerCanvas
+                  parameter={selectedParameter}
+                  selectedParameter={selectedParameter}
+                  hoveredMandelbrotParameter={null}
+                  hoveredJuliaCoordinate={null}
+                  onSelectParameter={setSelectedParameter}
+                  onHoverCoordinate={() => undefined}
+                  iterations={juliaIterations}
+                  palette={palette}
+                  paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
+                  paletteCycles={DEFAULT_PALETTE_CYCLES}
+                  precisionFloatCount={activeHighPrecisionFloatCount}
+                  markerScale={markerScalePercent / 100}
+                  showAxes={false}
+                  enableTwoQualityLevels={false}
+                  renderer={WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER}
+                  resolutionSizingMode="contain"
+                />
+              </article>
+            </section>
+          </article>
+        </section>
+      </section>
+    </div>
+  );
+}
+
 function MainWorkspace(props: {
   isZenView: boolean;
   onToggleZenView: () => void;
@@ -2119,6 +2338,8 @@ function App(): preact.JSX.Element {
         ? "Julia Set Kohonen Map"
       : route === "/explorer-layout-harness"
         ? "Explorer Layout Harness"
+      : route === "/explorer-renderer-compare"
+        ? "Explorer Renderer Compare"
         : "Julia Set Kohonen Map";
 
   return (
@@ -2139,6 +2360,9 @@ function App(): preact.JSX.Element {
             </NavLink>
             <NavLink href="/explorer-layout-harness" currentRoute={route}>
               Layout Harness
+            </NavLink>
+            <NavLink href="/explorer-renderer-compare" currentRoute={route}>
+              Renderer Compare
             </NavLink>
             <NavLink href="/gui-settings" currentRoute={route}>
               GUI Settings
@@ -2169,6 +2393,9 @@ function App(): preact.JSX.Element {
       </div>
       <div hidden={route !== "/explorer-layout-harness"}>
         <ExplorerLayoutHarnessRoute />
+      </div>
+      <div hidden={route !== "/explorer-renderer-compare"}>
+        <ExplorerRendererCompareRoute />
       </div>
       <div hidden={route !== "/gui-settings"}>
         <GuiSettingsRoute selectedThemeId={themeId} onSelectTheme={setThemeId} />
