@@ -2576,8 +2576,103 @@ Before you do that please create a debug route for comparing the normal webgl re
   - npm run lint passed
 ```
 
+Now let's go back to our real goal: Please propose the narrowest fix that changes only the bailout test, without touching smoothing yet.
 
 
+```
+• The narrowest fix is:
+
+  keep the current two-float iteration exactly as-is, but compute the bailout test in double-single instead of collapsing to float first.
+
+  ## What to change
+
+  Right now the shader does:
+
+  - realApproximation = dsToFloat(zReal)
+  - imaginaryApproximation = dsToFloat(zImaginary)
+  - test realApproximation^2 + imaginaryApproximation^2 > 4
+
+  That is the problem.
+
+  Instead:
+
+  1. compute zReal^2 in double-single
+  2. compute zImaginary^2 in double-single
+  3. add them in double-single
+  4. compare that double-single magnitude-squared against the exact threshold 4
+
+  ## Why this is the narrowest fix
+
+  It changes only the escape decision path:
+
+  - not the recurrence
+  - not the smoothing
+  - not the UI
+  - not the viewport logic
+  - not the existing WebGL renderer
+
+  So it isolates the suspected real blocker cleanly.
+
+  ## Concrete shader shape
+
+  Add a helper like:
+
+  - bool dsGreaterThanFloat(vec2 value, float threshold)
+
+  For normalized double-single values, comparison can be done lexicographically:
+
+  - compare hi first
+  - if equal enough, compare lo
+
+  Then inside the iteration loop:
+
+  - vec2 realSquared = dsMul(zReal, zReal);
+  - vec2 imaginarySquared = dsMul(zImaginary, zImaginary);
+  - vec2 magnitudeSquared = dsAdd(realSquared, imaginarySquared);
+
+  and replace the float bailout with:
+
+  - if (dsGreaterThanFloat(magnitudeSquared, 4.0)) { ... }
+
+  ## Why this should help
+
+  The visible fractal structure depends heavily on the exact iteration where escape happens.
+
+  Right now that decision is still being quantized to float every iteration.
+  So even if the orbit state is higher precision, the image can still collapse back to ordinary-WebGL-like behavior.
+
+  Moving just the bailout test to double-single should let nearby pixels separate more accurately in:
+
+  - escape vs non-escape
+  - exact escape iteration count
+
+  That is the highest-value minimal change.
+
+  ## What I would not change yet
+
+  Per your request, I would leave alone:
+
+  - smoothing at the end of the shader
+  - palette mapping
+  - zoom limits
+  - any n > 2 work
+  - CPU path
+
+  ## Expected outcome
+
+  If this diagnosis is right, you should see:
+
+  - less premature blockiness
+  - more distinct escape structure before the JS zoom floor
+  - a clearer visible difference between:
+      - WebGL Rendering
+      - High Precision WebGL Rendering (2 floats)
+
+  If you want, I can implement exactly this narrow bailout-only change now.
+```
+
+
+yes please.
 
 
 ---

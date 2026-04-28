@@ -97,6 +97,11 @@ vec2 dsMul(vec2 a, vec2 b) {
   return dsNormalize(vec2(t.x, t.y + s.y + a.y * b.y));
 }
 
+bool dsGreaterThanFloat(vec2 value, float threshold) {
+  vec2 difference = dsSub(value, vec2(threshold, 0.0));
+  return difference.x > 0.0 || (difference.x == 0.0 && difference.y > 0.0);
+}
+
 float dsToFloat(vec2 a) {
   return a.x + a.y;
 }
@@ -201,9 +206,8 @@ void main() {
     zReal = nextReal;
     zImaginary = nextImaginary;
 
-    float realApproximation = dsToFloat(zReal);
-    float imaginaryApproximation = dsToFloat(zImaginary);
-    if (realApproximation * realApproximation + imaginaryApproximation * imaginaryApproximation > 4.0) {
+    vec2 magnitudeSquared = dsAdd(dsMul(zReal, zReal), dsMul(zImaginary, zImaginary));
+    if (dsGreaterThanFloat(magnitudeSquared, 4.0)) {
       escaped = true;
       iteration = i;
       break;
