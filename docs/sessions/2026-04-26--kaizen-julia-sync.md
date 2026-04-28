@@ -3231,6 +3231,35 @@ Is it clear what I mean? Do you see any potential pitfalls apart from a reduced 
   If you want, the next step is a plan/checklist for implementing just the arithmetic library before wiring it into a renderer.
 ```
 
+Yes please make the plan. Please include:
+replace the old experimental webgl arbitrary precision renderer with the one we just specified. If it makes sense reuse the ui controls but update the labels and names. It is also ok to remove teh old experimental renderer and completely replace it. Whatever you think gives a cleaner outcome. Ensure that no remains of the old experimental renderer remain. So please include at least a search and cleanup step in the end but it would be best if you remove now unused remains right away.
+Any open questions before we make the plan?
+
+```
+• No blocking open questions.
+
+  The only implementation-level choice still open is the exact WebGL limb transport format, but that belongs inside Phase 1 and does not block
+  making the plan.
+
+  I created the plan here:
+
+  docs/plans/2026-04-28-14-18--webgl-arbitrary-precision-arithmetic-library-implementation-checklist.md
+
+  It explicitly includes:
+
+  - full replacement of the old High Precision WebGL Rendering
+  - UI reuse only where it stays semantically correct
+  - renaming from Precision Floats to Precision Limbs
+  - removal of the old experimental renderer implementation
+  - an explicit search/cleanup phase at the end to ensure no stale active references remain
+
+  The clean direction in the plan is:
+
+  - one experimental WebGL precision renderer only
+  - the old n-float path removed from active code
+  - the new limb-based path takes its place
+```
+
 
 
 ---
