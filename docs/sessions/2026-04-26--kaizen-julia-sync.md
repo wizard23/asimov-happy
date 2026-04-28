@@ -3260,6 +3260,40 @@ Any open questions before we make the plan?
   - the new limb-based path takes its place
 ```
 
+Please start the plan. If it is unclear how to implement anything please just ask me instead of guessing if you are unsure.
+
+```
+• Started.
+
+  I completed the first two implementation steps and began the third:
+
+  - inventoried the active old experimental renderer references
+  - locked the v1 WebGL transport/fixed-point direction
+  - added the first host-side arbitrary-precision foundation module at code/v001/packages/web/src/canvas/webgl-arbitrary-precision.ts
+
+  What is in that new module:
+
+  - base-65536 limb constants
+  - limb-count/layout helpers
+  - fixed-point encoding for real and complex values
+  - flattening into Float32Array transport data for WebGL
+  - viewport encoding for min + pixelIndex * step style reconstruction
+  - shader-define generation for the future GLSL limb library
+
+  I intentionally did not rename the active UI/runtime renderer yet, because I do not want to relabel the current experimental renderer as
+  “arbitrary precision” before the new arithmetic path is actually wired. That rename/replacement is still planned, but it should happen together
+  with the new shader path.
+
+  Verification:
+
+  - npm run build -w @asimov/minimal-web passed
+  - npm run lint passed
+
+  Next logical step is the shader-side limb arithmetic library and then swapping the old experimental renderer over to the new limb-based path.
+```
+
+
+
 
 
 ---
