@@ -166,7 +166,7 @@ export function MandelbrotOverviewCanvas(props: {
   binaryInteriorColor?: RgbColor;
   binaryExteriorColor?: RgbColor;
   escapeBands?: EscapeBandConfiguration;
-  precisionFloatCount?: number;
+  precisionLimbCount?: number;
   markerScale?: number;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
@@ -298,9 +298,9 @@ export function MandelbrotOverviewCanvas(props: {
     };
     const escapeBandOptions = props.escapeBands ? { escapeBands: props.escapeBands } : {};
     const precisionOptions =
-      props.precisionFloatCount !== undefined ? { precisionFloatCount: props.precisionFloatCount } : {};
+      props.precisionLimbCount !== undefined ? { precisionLimbCount: props.precisionLimbCount } : {};
     const nextPresentedSize =
-      renderer.id === "webgl" || renderer.id === "webgl-high-precision"
+      renderer.id === "webgl" || renderer.id === "webgl-arbitrary-precision"
         ? renderExplorerImageWithFallback(
             canvas,
             canvasResolution.renderWidth,
@@ -353,7 +353,7 @@ export function MandelbrotOverviewCanvas(props: {
     props.escapeBands,
     props.paletteCycles,
     props.paletteMappingMode,
-    props.precisionFloatCount,
+    props.precisionLimbCount,
     props.renderer,
     viewport,
   ]);

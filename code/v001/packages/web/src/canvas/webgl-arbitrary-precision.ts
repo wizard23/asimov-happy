@@ -106,6 +106,16 @@ export function flattenEncodedRealToFloat32(value: EncodedArbitraryPrecisionReal
   return Float32Array.from([value.sign, ...value.limbs]);
 }
 
+function encodeShaderSign(sign: EncodedArbitraryPrecisionReal["sign"]): number {
+  return sign === 0 ? 0 : sign > 0 ? 1 : 2;
+}
+
+export function flattenEncodedRealToUint32LittleEndian(
+  value: EncodedArbitraryPrecisionReal,
+): Uint32Array {
+  return Uint32Array.from([encodeShaderSign(value.sign), ...[...value.limbs].reverse()]);
+}
+
 export function flattenEncodedComplexToFloat32(value: EncodedArbitraryPrecisionComplex): {
   real: Float32Array;
   imaginary: Float32Array;
@@ -113,6 +123,18 @@ export function flattenEncodedComplexToFloat32(value: EncodedArbitraryPrecisionC
   return {
     real: flattenEncodedRealToFloat32(value.real),
     imaginary: flattenEncodedRealToFloat32(value.imaginary),
+  };
+}
+
+export function flattenEncodedComplexToUint32LittleEndian(
+  value: EncodedArbitraryPrecisionComplex,
+): {
+  real: Uint32Array;
+  imaginary: Uint32Array;
+} {
+  return {
+    real: flattenEncodedRealToUint32LittleEndian(value.real),
+    imaginary: flattenEncodedRealToUint32LittleEndian(value.imaginary),
   };
 }
 
@@ -145,6 +167,54 @@ export function encodeJuliaViewportForWebGl(
   layout: ArbitraryPrecisionLayout,
 ): EncodedMandelbrotViewport {
   return encodeMandelbrotViewportForWebGl(viewport, width, height, layout);
+}
+
+export function encodeMandelbrotViewportForWebGlUint(
+  viewport: ComplexBounds,
+  width: number,
+  height: number,
+  layout: ArbitraryPrecisionLayout,
+): {
+  minReal: Uint32Array;
+  maxImaginary: Uint32Array;
+  realStep: Uint32Array;
+  imaginaryStep: Uint32Array;
+  layout: ArbitraryPrecisionLayout;
+} {
+  const safeWidth = Math.max(1, Math.round(width));
+  const safeHeight = Math.max(1, Math.round(height));
+  const realSpan = viewport.maxReal - viewport.minReal;
+  const imaginarySpan = viewport.maxImaginary - viewport.minImaginary;
+  return {
+    minReal: flattenEncodedRealToUint32LittleEndian(
+      encodeArbitraryPrecisionReal(viewport.minReal, layout),
+    ),
+    maxImaginary: flattenEncodedRealToUint32LittleEndian(
+      encodeArbitraryPrecisionReal(viewport.maxImaginary, layout),
+    ),
+    realStep: flattenEncodedRealToUint32LittleEndian(
+      encodeArbitraryPrecisionReal(realSpan / safeWidth, layout),
+    ),
+    imaginaryStep: flattenEncodedRealToUint32LittleEndian(
+      encodeArbitraryPrecisionReal(imaginarySpan / safeHeight, layout),
+    ),
+    layout,
+  };
+}
+
+export function encodeJuliaViewportForWebGlUint(
+  viewport: JuliaViewport,
+  width: number,
+  height: number,
+  layout: ArbitraryPrecisionLayout,
+): {
+  minReal: Uint32Array;
+  maxImaginary: Uint32Array;
+  realStep: Uint32Array;
+  imaginaryStep: Uint32Array;
+  layout: ArbitraryPrecisionLayout;
+} {
+  return encodeMandelbrotViewportForWebGlUint(viewport, width, height, layout);
 }
 
 export function buildArbitraryPrecisionShaderDefines(layout: ArbitraryPrecisionLayout): string {

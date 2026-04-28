@@ -3292,6 +3292,27 @@ Please start the plan. If it is unclear how to implement anything please just as
   Next logical step is the shader-side limb arithmetic library and then swapping the old experimental renderer over to the new limb-based path.
 ```
 
+yes, please continue with the plan.
+
+```
+• I can continue, but one implementation choice is now important enough that I should not guess:
+
+  Should the new arbitrary-precision renderer be allowed to require WebGL2, or must it work on the current WebGL1 path?
+
+  Why this matters:
+
+  - WebGL2 makes the limb-based shader library much cleaner and more realistic.
+  - WebGL1 is still possible in principle, but the GLSL limitations make the arithmetic library significantly uglier and riskier.
+
+  My recommendation:
+
+  - allow WebGL2 for the new arbitrary-precision renderer
+  - keep the existing ordinary WebGL Rendering on the current path unchanged
+
+  If that is acceptable, I’ll continue with the shader library and renderer replacement on that basis.
+```
+
+WebGL2 please. We want a clean implementation.
 
 
 

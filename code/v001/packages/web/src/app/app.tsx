@@ -38,13 +38,14 @@ import {
   getExplorerRendererLabel,
   isExplorerRendererId,
   MAX_ESCAPE_BAND_ENTRIES,
-  MAX_HIGH_PRECISION_FLOAT_COUNT,
+  MAX_ARBITRARY_PRECISION_LIMB_COUNT,
   resolveExplorerRendererSelection,
   type EscapeBandConfiguration,
   type ExplorerRendererId,
 } from "../canvas/explorer-renderer.js";
-import { WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-high-precision-renderer.js";
+import { WEBGL_ARBITRARY_PRECISION_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-arbitrary-precision-renderer.js";
 import { WEBGL_EXPLORER_IMAGE_RENDERER } from "../canvas/explorer-webgl-renderer.js";
+import { DEFAULT_ARBITRARY_PRECISION_LIMB_COUNT } from "../canvas/webgl-arbitrary-precision.js";
 import { detectMandelbrotAttractingCyclePeriod } from "../canvas/orbit-period.js";
 import { SomMapCanvas } from "../canvas/som-map-canvas.js";
 import {
@@ -72,7 +73,8 @@ type AppRoute =
   | "/explorer-renderer-compare"
   | "/gui-settings";
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
-const EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY = "asimov-happy.explorer-high-precision-floats";
+const EXPLORER_ARBITRARY_PRECISION_LIMB_COUNT_STORAGE_KEY =
+  "asimov-happy.explorer-arbitrary-precision-limbs";
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -177,15 +179,17 @@ function getInitialExplorerRendererId(): ExplorerRendererId {
   return storedValue && isExplorerRendererId(storedValue) ? storedValue : "webgl";
 }
 
-function getInitialHighPrecisionFloatCount(): number {
+function getInitialArbitraryPrecisionLimbCount(): number {
   if (typeof window === "undefined") {
-    return 2;
+    return DEFAULT_ARBITRARY_PRECISION_LIMB_COUNT;
   }
 
-  const storedValue = Number(window.localStorage.getItem(EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY));
+  const storedValue = Number(
+    window.localStorage.getItem(EXPLORER_ARBITRARY_PRECISION_LIMB_COUNT_STORAGE_KEY),
+  );
   return Number.isFinite(storedValue)
-    ? clampNumber(Math.round(storedValue), 2, MAX_HIGH_PRECISION_FLOAT_COUNT)
-    : 2;
+    ? clampNumber(Math.round(storedValue), 2, MAX_ARBITRARY_PRECISION_LIMB_COUNT)
+    : DEFAULT_ARBITRARY_PRECISION_LIMB_COUNT;
 }
 
 function getCellByIndex(result: SomTrainingResult | null, cellIndex: number | null) {
@@ -365,8 +369,8 @@ function getImplementedExplorerImageRenderer(rendererId: ExplorerRendererId) {
       return CPU_EXPLORER_IMAGE_RENDERER;
     case "webgl":
       return WEBGL_EXPLORER_IMAGE_RENDERER;
-    case "webgl-high-precision":
-      return WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER;
+    case "webgl-arbitrary-precision":
+      return WEBGL_ARBITRARY_PRECISION_EXPLORER_IMAGE_RENDERER;
     case "webgpu":
     default:
       return CPU_EXPLORER_IMAGE_RENDERER;
@@ -574,8 +578,8 @@ function ExplorerWorkspace(props: {
   const [requestedRenderer, setRequestedRenderer] = useState<ExplorerRendererId>(
     getInitialExplorerRendererId,
   );
-  const [requestedHighPrecisionFloatCount, setRequestedHighPrecisionFloatCount] = useState(
-    getInitialHighPrecisionFloatCount,
+  const [requestedArbitraryPrecisionLimbCount, setRequestedArbitraryPrecisionLimbCount] = useState(
+    getInitialArbitraryPrecisionLimbCount,
   );
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [binaryInteriorColor, setBinaryInteriorColor] = useState<RgbColor>(() => {
@@ -608,13 +612,11 @@ function ExplorerWorkspace(props: {
     [availableRenderers, requestedRenderer],
   );
   const activeImageRenderer = getImplementedExplorerImageRenderer(rendererSelection.active);
-  const activeHighPrecisionFloatCount = rendererSelection.active === "webgl-high-precision"
-    ? Math.min(requestedHighPrecisionFloatCount, 2)
+  const activeArbitraryPrecisionLimbCount = rendererSelection.active === "webgl-arbitrary-precision"
+    ? requestedArbitraryPrecisionLimbCount
     : null;
-  const highPrecisionFloatCountStatus = rendererSelection.active === "webgl-high-precision"
-    ? requestedHighPrecisionFloatCount > 2
-      ? `Precision Floats: ${activeHighPrecisionFloatCount} (requested ${requestedHighPrecisionFloatCount}; only 2 is implemented in this milestone)`
-      : `Precision Floats: ${activeHighPrecisionFloatCount}`
+  const arbitraryPrecisionLimbCountStatus = rendererSelection.active === "webgl-arbitrary-precision"
+    ? `Precision Limbs: ${activeArbitraryPrecisionLimbCount}`
     : null;
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
@@ -631,8 +633,8 @@ function ExplorerWorkspace(props: {
       return null;
     }
 
-    return getAttractingPeriodLabel(
-      detectMandelbrotAttractingCyclePeriod(activeParameter, periodDetectionSteps, maxDetectedPeriod),
+      return getAttractingPeriodLabel(
+        detectMandelbrotAttractingCyclePeriod(activeParameter, periodDetectionSteps, maxDetectedPeriod),
     );
   }, [activeParameter, maxDetectedPeriod, periodDetectionSteps, showAttractingPeriod]);
 
@@ -642,10 +644,10 @@ function ExplorerWorkspace(props: {
 
   useEffect(() => {
     window.localStorage.setItem(
-      EXPLORER_HIGH_PRECISION_FLOAT_COUNT_STORAGE_KEY,
-      String(requestedHighPrecisionFloatCount),
+      EXPLORER_ARBITRARY_PRECISION_LIMB_COUNT_STORAGE_KEY,
+      String(requestedArbitraryPrecisionLimbCount),
     );
-  }, [requestedHighPrecisionFloatCount]);
+  }, [requestedArbitraryPrecisionLimbCount]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -783,8 +785,8 @@ function ExplorerWorkspace(props: {
             Active Renderer: {getExplorerRendererLabel(rendererSelection.active)}
             {rendererSelection.fallbackReason ? ` (${rendererSelection.fallbackReason})` : ""}
           </p>
-          {rendererSelection.active === "webgl-high-precision" ? (
-            <p className="detail">{highPrecisionFloatCountStatus}</p>
+          {rendererSelection.active === "webgl-arbitrary-precision" ? (
+            <p className="detail">{arbitraryPrecisionLimbCountStatus}</p>
           ) : null}
           <Field label="Palette">
             <select
@@ -821,16 +823,16 @@ function ExplorerWorkspace(props: {
               disabled={paletteMappingMode !== "cyclic" && paletteMappingMode !== "cyclic-mirrored"}
             />
           </Field>
-          {requestedRenderer === "webgl-high-precision" ? (
+          {requestedRenderer === "webgl-arbitrary-precision" ? (
             <Field
-              label="Precision Floats"
-              hint="Experimental. This first milestone implements the specialized 2-float double-single path only."
+              label="Precision Limbs"
+              hint="Experimental WebGL2 arbitrary-precision fixed-point arithmetic. Higher values increase precision and cost sharply."
             >
               <NumberInput
-                value={requestedHighPrecisionFloatCount}
+                value={requestedArbitraryPrecisionLimbCount}
                 min={2}
-                max={MAX_HIGH_PRECISION_FLOAT_COUNT}
-                onChange={setRequestedHighPrecisionFloatCount}
+                max={MAX_ARBITRARY_PRECISION_LIMB_COUNT}
+                onChange={setRequestedArbitraryPrecisionLimbCount}
               />
             </Field>
           ) : null}
@@ -1106,8 +1108,8 @@ function ExplorerWorkspace(props: {
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
               escapeBands={escapeBandConfiguration}
-              {...(activeHighPrecisionFloatCount !== null
-                ? { precisionFloatCount: activeHighPrecisionFloatCount }
+              {...(activeArbitraryPrecisionLimbCount !== null
+                ? { precisionLimbCount: activeArbitraryPrecisionLimbCount }
                 : {})}
               markerScale={markerScalePercent / 100}
               renderer={activeImageRenderer}
@@ -1175,8 +1177,8 @@ function ExplorerWorkspace(props: {
               binaryInteriorColor={binaryInteriorColor}
               binaryExteriorColor={binaryExteriorColor}
               escapeBands={escapeBandConfiguration}
-              {...(activeHighPrecisionFloatCount !== null
-                ? { precisionFloatCount: activeHighPrecisionFloatCount }
+              {...(activeArbitraryPrecisionLimbCount !== null
+                ? { precisionLimbCount: activeArbitraryPrecisionLimbCount }
                 : {})}
               markerScale={markerScalePercent / 100}
               showAxes={showAxes}
@@ -1359,16 +1361,15 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
   const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
   const [juliaIterations, setJuliaIterations] = useState(2000);
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
-  const [requestedHighPrecisionFloatCount, setRequestedHighPrecisionFloatCount] = useState(2);
+  const [requestedArbitraryPrecisionLimbCount, setRequestedArbitraryPrecisionLimbCount] = useState(
+    DEFAULT_ARBITRARY_PRECISION_LIMB_COUNT,
+  );
   const [markerScalePercent, setMarkerScalePercent] = useState(150);
   const leftColumnRef = useRef<HTMLElement | null>(null);
   const rightColumnRef = useRef<HTMLElement | null>(null);
 
-  const activeHighPrecisionFloatCount = Math.min(requestedHighPrecisionFloatCount, 2);
-  const highPrecisionFloatCountStatus =
-    requestedHighPrecisionFloatCount > 2
-      ? `Precision Floats: ${activeHighPrecisionFloatCount} (requested ${requestedHighPrecisionFloatCount}; only 2 is implemented in this milestone)`
-      : `Precision Floats: ${activeHighPrecisionFloatCount}`;
+  const activeArbitraryPrecisionLimbCount = requestedArbitraryPrecisionLimbCount;
+  const arbitraryPrecisionLimbCountStatus = `Precision Limbs: ${activeArbitraryPrecisionLimbCount}`;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1443,7 +1444,7 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
           <p className="eyebrow">Debug</p>
           <h1>Renderer Compare</h1>
           <p className="panel__lede">
-            Side-by-side comparison of the existing WebGL renderer and the separate high-precision
+            Side-by-side comparison of the existing WebGL renderer and the separate arbitrary-precision
             WebGL renderer. Both columns share the same selected Julia constant `c`, but keep their
             own Mandelbrot and Julia viewports so they can be zoomed independently or driven with
             the same scripted gesture sequence.
@@ -1491,14 +1492,14 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
               />
             </Field>
             <Field
-              label="Precision Floats"
-              hint="Applies only to the high-precision column. This milestone currently implements only the specialized 2-float path."
+              label="Precision Limbs"
+              hint="Applies only to the arbitrary-precision column."
             >
               <NumberInput
-                value={requestedHighPrecisionFloatCount}
+                value={requestedArbitraryPrecisionLimbCount}
                 min={2}
-                max={MAX_HIGH_PRECISION_FLOAT_COUNT}
-                onChange={setRequestedHighPrecisionFloatCount}
+                max={MAX_ARBITRARY_PRECISION_LIMB_COUNT}
+                onChange={setRequestedArbitraryPrecisionLimbCount}
               />
             </Field>
             <Field label="Marker Scale">
@@ -1572,8 +1573,8 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
           <article ref={rightColumnRef} className="panel compare-column">
             <div className="panel__header">
               <p className="eyebrow">Renderer B</p>
-              <h2>High Precision WebGL Rendering</h2>
-              <p className="detail">{highPrecisionFloatCountStatus}</p>
+              <h2>Arbitrary Precision WebGL Rendering</h2>
+              <p className="detail">{arbitraryPrecisionLimbCountStatus}</p>
             </div>
             <section className="compare-column__canvases">
               <article className="card card--viewer">
@@ -1592,9 +1593,9 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
                   palette={palette}
                   paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
                   paletteCycles={DEFAULT_PALETTE_CYCLES}
-                  precisionFloatCount={activeHighPrecisionFloatCount}
+                  precisionLimbCount={activeArbitraryPrecisionLimbCount}
                   markerScale={markerScalePercent / 100}
-                  renderer={WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER}
+                  renderer={WEBGL_ARBITRARY_PRECISION_EXPLORER_IMAGE_RENDERER}
                   resolutionSizingMode="contain"
                 />
               </article>
@@ -1612,11 +1613,11 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
                   palette={palette}
                   paletteMappingMode={DEFAULT_PALETTE_MAPPING_MODE}
                   paletteCycles={DEFAULT_PALETTE_CYCLES}
-                  precisionFloatCount={activeHighPrecisionFloatCount}
+                  precisionLimbCount={activeArbitraryPrecisionLimbCount}
                   markerScale={markerScalePercent / 100}
                   showAxes={false}
                   enableTwoQualityLevels={false}
-                  renderer={WEBGL_HIGH_PRECISION_EXPLORER_IMAGE_RENDERER}
+                  renderer={WEBGL_ARBITRARY_PRECISION_EXPLORER_IMAGE_RENDERER}
                   resolutionSizingMode="contain"
                 />
               </article>
