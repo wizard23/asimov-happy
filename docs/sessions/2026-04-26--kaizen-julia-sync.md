@@ -2941,6 +2941,271 @@ We change direction now and switch to a different approach:
 I found an implementation of arbitrary precision mandelbrot and julia sets and put it here: docs/alien/FractalShaderArbPre
 Based on this please create a completely new renderer that uses this technique. Before we do this please analyze the code I gave you and give me a full technical report on how and why it works. Please also estimate performance.
 
+
+```
+• Technical Report
+
+  I analyzed the code in docs/alien/FractalShaderArbPrec. The short version is: this is a real arbitrary-precision fractal renderer, but it is not
+  a WebGL fragment-shader technique. It is a desktop OpenGL 4.3 compute-shader pipeline with big-number arithmetic implemented manually on arrays
+  of integer limbs.
+
+  What It Is
+
+  The core pieces are:
+
+  - docs/alien/FractalShaderArbPrec/Main.py
+  - docs/alien/FractalShaderArbPrec/CInitShader.glsl
+  - docs/alien/FractalShaderArbPrec/MandelbrotShader.glsl
+  - docs/alien/FractalShaderArbPrec/JuliaShader.glsl
+  - docs/alien/FractalShaderArbPrec/ColoringShader.glsl
+
+  The Python host uses:
+
+  - decimal.Decimal with precision 256
+  - moderngl
+  - pygame
+
+  The shaders use:
+
+  - #version 430
+  - compute shaders
+  - SSBOs
+  - uint arrays for big numbers
+  - even uniform double
+
+  So this works because it avoids normal float precision almost entirely for the orbit state. Instead, each real number is stored as:
+
+  - one sign slot
+  - n_ints base-65536 limbs
+
+  In other words, every complex coordinate is stored as two arbitrary-precision signed fixed-point numbers.
+
+  How The Number Representation Works
+
+  In docs/alien/FractalShaderArbPrec/Main.py, decimal_to_uint_ar(...) converts a Decimal into an array of limbs. The base is 65536, so each limb
+  carries 16 useful bits.
+
+  That means a real number is approximately:
+
+  - sign
+  - plus n_ints digits in base 2^16
+
+  With the default n_ints = 12, each real coordinate gets about:
+
+  - 12 * 16 = 192 bits of limb precision
+  - plus sign handling
+
+  That is already far beyond f32, and above JS Number mantissa precision.
+
+  How The Pipeline Works
+
+  There are really three stages.
+
+  1. Coordinate initialization
+     docs/alien/FractalShaderArbPrec/CInitShader.glsl creates the initial per-pixel z and c values in limb form.
+
+  For Mandelbrot:
+
+  - pixel offset is computed from screen position and scale
+  - offset is converted into limb representation
+  - offset is added to the arbitrary-precision center
+  - that result becomes per-pixel c
+  - z starts at zero
+
+  For Julia:
+
+  - per-pixel z is initialized from the viewport coordinate
+  - c is a single global arbitrary-precision constant buffer
+
+  Important detail:
+
+  - pixel offsets are first formed in shader double
+  - then converted into limb arrays
+  - so this stage still leans on desktop GPU doubles before switching to arbitrary-precision integer arithmetic
+
+  2. Iteration
+     docs/alien/FractalShaderArbPrec/MandelbrotShader.glsl and docs/alien/FractalShaderArbPrec/JuliaShader.glsl perform the actual recurrence.
+
+  They implement manual big-number operations:
+
+  - compare mantissas
+  - add mantissas
+  - subtract mantissas
+  - multiply mantissas
+  - signed add
+  - signed multiply
+  - 2xy via shift
+
+  Then each iteration does the usual:
+
+  - x' = x^2 - y^2 + c_re
+  - y' = 2xy + c_im
+
+  This is why it works: the orbit state is updated in limb arithmetic, not float arithmetic.
+
+  3. Coloring and reuse
+     docs/alien/FractalShaderArbPrec/ColoringShader.glsl is a separate compute pass that:
+
+  - turns iteration counts into colors
+  - reuses prior iteration texture data when possible
+  - supports progressive refinement across viewport changes
+
+  This reuse layer is important. It is one of the main reasons this design can be usable despite expensive arithmetic.
+
+  Why It Works Better Than Our Current n=2 WebGL Attempt
+
+  Our current high-precision experiment keeps trying to preserve more precision inside float-based shader arithmetic.
+
+  This alien implementation does something qualitatively different:
+
+  - it does not emulate “a slightly better float”
+  - it represents each coordinate as a true multi-limb big number
+  - addition and multiplication are done directly on those limbs
+
+  So the orbit state is not constantly collapsing back toward ordinary f32 behavior in the same way.
+
+  That is the core reason it can go much deeper.
+
+  Where It Still Uses Approximation
+
+  It is not “perfect arbitrary precision everywhere.”
+
+  The biggest approximation is the bailout test in the Mandelbrot and Julia shaders. After computing high-precision x^2 and y^2, it estimates the
+  radius squared by reading only the leading limbs and forming a float approximation. Then it compares against a threshold.
+
+  So:
+
+  - the orbit update is arbitrary precision
+  - the escape decision is approximate
+
+  But this is still much better than our current situation, because the approximation happens after the high-precision state has already been
+  evolved.
+
+  There is also an empirical smoothing formula in the escape coloring path. That affects aesthetics, not the core deep-zoom state representation.
+
+  Why The Architecture Is Performance-Conscious
+
+  The arithmetic is expensive, so the code uses several structural tricks.
+
+  - It stores z and c in SSBOs, so state persists between compute passes.
+  - It has a num_iter uniform, so a dispatch can advance only a chunk of iterations instead of recomputing everything from scratch every frame.
+  - The coloring shader reuses previous iteration data during zoom/pan changes.
+
+  This means it is not a naive “recompute the whole fractal from zero every frame” design. It is incremental.
+
+  That is probably the single best architectural idea in the codebase you found.
+
+  Estimated Performance
+
+  The dominant cost is big-number multiplication.
+
+  With n_ints = 12:
+
+  - one multiply is roughly O(n_ints^2) = about 144 limb-products, plus carries
+  - each Mandelbrot/Julia iteration needs about:
+      - x*x
+      - y*y
+      - x*y
+      - several signed adds/subtracts
+      - one doubled product path
+
+  So compared to normal WebGL fractal rendering, this is vastly more expensive per pixel per iteration.
+
+  A rough practical estimate:
+
+  - much slower than ordinary WebGL fragment rendering
+  - probably one to two orders of magnitude slower per fresh full-frame solve, depending on resolution and iteration count
+  - still potentially usable interactively because of:
+      - incremental iteration
+      - persistent buffers
+      - old-frame reuse
+
+  What I would expect in practice:
+
+  - fresh full-resolution recomputation: expensive
+  - panning/zooming with reuse and progressive update: much more plausible
+  - high iteration counts plus large n_ints: expensive quickly
+
+  The default n_ints = 12 is already fairly ambitious. If increased further, runtime will grow sharply.
+
+  Most Important Constraint For Us
+
+  This code is not portable to WebGL as-is.
+
+  Reasons:
+
+  - compute shaders
+  - SSBOs
+  - GLSL #version 430
+  - uniform double
+
+  That means:
+
+  - this is a strong reference design
+  - but not a drop-in WebGL renderer for our app
+
+  If we want “a completely new renderer that uses this technique,” the cleanest target is probably:
+
+  - WebGPU compute
+
+  not:
+
+  - another WebGL fragment renderer
+
+  Trying to force this exact technique into WebGL would likely require a major redesign and would lose many of the benefits that make it
+  attractive.
+
+  Bottom Line
+
+  This works because it stores fractal state as arbitrary-precision limb arrays and performs the recurrence directly on those arrays in compute
+  shaders. That is fundamentally stronger than our current two-float emulation approach.
+
+  Why it is promising:
+
+  - true multi-limb state
+  - incremental iteration
+  - old-frame reuse
+  - much better basis for deep zoom
+
+  Why it is not trivial for us:
+
+  - it is desktop OpenGL compute, not WebGL
+  - performance depends heavily on persistent buffers and progressive refinement
+  - the right adaptation path is likely a new compute-based renderer, probably WebGPU
+
+  If you want, the next step is for me to turn this analysis into:
+
+  1. a migration feasibility report for adapting this technique into our app, or
+  2. a spec for a new WebGPU-based arbitrary-precision renderer inspired by this code.
+```
+
+Option 2. Please create a spec for a new WebGPU-based arbitrary-precision renderer inspired by this code.
+
+```
+• Created the spec here:
+
+  docs/specs/2026-04-28-13-35--explorer-webgpu-arbitrary-precision-renderer-spec.md
+
+  It defines:
+
+  - a separate renderer: Arbitrary Precision WebGPU Rendering
+  - a compute-based, persistent-buffer architecture
+  - limb-based arbitrary-precision state inspired by the alien code
+  - renderer-specific controls like Precision Limbs and Iterations Per Pass
+  - progressive refinement and prior-state reuse as core requirements
+  - explicit performance expectations and fallback behavior
+
+  The next sensible step is a checklist in docs/plans before implementation.
+```
+
+
+For now we stick to our goal to create a WebGL arbitrary precision renderer. Please create specs for a webgl arbitrary precision arithmetic library based on the alien code.
+We don't care about all the other optimizations in the alien code like old-frame reuse and just use the arbitrary precision arithmetic.
+
+Is it clear what I mean? Do you see any potential pitfalls apart from a reduced performance? 
+
+
+
 ---
 
 
