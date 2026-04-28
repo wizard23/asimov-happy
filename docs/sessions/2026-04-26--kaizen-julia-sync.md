@@ -2675,6 +2675,144 @@ Now let's go back to our real goal: Please propose the narrowest fix that change
 yes please.
 
 
+```
+• I changed only the high-precision WebGL bailout test.
+
+  Before, the shader converted z back to float every iteration and used that for escape. Now it computes |z|^2 in double-single and compares that
+  against 4.0 without collapsing first. The recurrence and smoothing paths are unchanged.
+
+  File changed:
+
+  - code/v001/packages/web/src/canvas/explorer-webgl-high-precision-renderer.ts
+
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+
+  The next useful check is a browser comparison on code/v001/packages/web/src/app/app.tsx at the same region and zoom.
+```
+
+this did not change much. at 500000 to 1000000 zoom it is still blocky. Please do the following systematic approach.
+Use the debug route to confirm what I described using 1000000 zoom. Then systematically test how to get higher precision by trying out the most likely candidates for clean fixes.
+Give me a full report about what you tried ad how these looked.
+
+```
+• I did the systematic pass and reverted the experimental shader changes afterward. The code is back to the stable state with only the earlier
+  bailout-in-double-single change.
+
+  What I confirmed
+
+  I created the dedicated compare route and added a debug-zoom hook to it, but direct headless capture of that route was unreliable under this
+  static-preview setup because non-root routing and long-running WebGL kept Chromium from shutting down cleanly. To keep the render comparisons
+  deterministic, I used a stable single-renderer headless harness at the same zoom target and center.
+
+  The reliable baseline capture was at about:
+
+  - center: -1.093555 + 0.002654i
+  - zoom: 998599x
+
+  At that zoom:
+
+  - WebGL Rendering and High Precision WebGL Rendering with n = 2 still looked effectively identical.
+  - The Mandelbrot view was still essentially a blocky near-solid black region at that location.
+  - The Julia view still had the same coarse large-scale shape in both renderers.
+
+  So your observation is correct: at around 500000x to 1000000x, the new mode still does not meaningfully outperform ordinary WebGL.
+
+  What I tried
+
+  1. Baseline with the current narrow bailout fix
+
+  - This is the current stable state:
+      - two-float iteration
+      - bailout test in double-single
+      - smoothing still float-based
+  - Result:
+      - no meaningful visual improvement over ordinary WebGL at ~998599x
+
+  2. Candidate 1: keep smoothing input in double-single longer
+
+  - I changed only the post-escape smoothing input so |z|^2 was computed in double-single before converting to float for the final log2(log2(...)).
+  - Result:
+      - no visible change at the same zoom and center
+  - Conclusion:
+      - smoothing is not the main culprit for the blocky effect you care about
+
+  3. Candidate 2: center-relative coordinate reconstruction
+
+  - I changed the shader to reconstruct pixel coordinates relative to the viewport center instead of min + width * u.
+  - Result:
+      - not an improvement
+      - the Mandelbrot view stayed essentially the same
+      - the Julia view became dramatically worse, nearly collapsing to a black panel at the same zoom
+  - Conclusion:
+      - this is not a clean fix
+      - it introduced instability rather than improving useful precision
+
+  What this means
+
+  The tests point away from the “secondary limitations” being the main cause.
+
+  More specifically:
+
+  - float-based smoothing is not the main blocker
+  - coordinate reconstruction form is not the clean win either
+
+  The remaining most likely culprit is still the core two-float arithmetic itself:
+
+  - dsAdd
+  - dsMul
+  - and, by extension, repeated orbit iteration error accumulation
+
+  In other words:
+
+  - the renderer is using higher-precision structure
+  - but the current n = 2 arithmetic is still not strong enough to materially separate nearby pixels before the image becomes visually chunky
+
+  That matches the behavior you described much better than the smoothing hypothesis.
+
+  Current best diagnosis
+
+  Most likely real blocker:
+
+  - the double-single arithmetic implementation is still too weak for the practical deep-zoom benefit you want
+
+  Less likely now:
+
+  - smoothing collapse to float
+  - coordinate transport form
+
+  Status of the code
+
+  I reverted the two experimental candidates after testing:
+
+  - smoothing-in-DS candidate reverted
+  - center-relative coordinate reconstruction candidate reverted
+
+  So the code is back to:
+
+  - stable bailout-in-DS version
+  - build passes
+  - lint passes
+
+  Best next step
+
+  The next highest-value experiment is not another UI or transport tweak. It is to strengthen the arithmetic core again, specifically:
+
+  1. add a specialized dsSquare(vec2) path
+
+  - fractal iteration does a lot of squaring
+  - this is a good place to recover precision without broad architectural change
+
+  2. replace the current lightweight double-single ops with a more standard double-double / QD-style formulation
+
+  - especially dsAdd
+  - especially dsMul
+
+  That is now the most promising path if the goal is visible improvement at ~1e6x.
+```
+
 ---
 
 

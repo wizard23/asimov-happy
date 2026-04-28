@@ -1361,12 +1361,80 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [requestedHighPrecisionFloatCount, setRequestedHighPrecisionFloatCount] = useState(2);
   const [markerScalePercent, setMarkerScalePercent] = useState(150);
+  const leftColumnRef = useRef<HTMLElement | null>(null);
+  const rightColumnRef = useRef<HTMLElement | null>(null);
 
   const activeHighPrecisionFloatCount = Math.min(requestedHighPrecisionFloatCount, 2);
   const highPrecisionFloatCountStatus =
     requestedHighPrecisionFloatCount > 2
       ? `Precision Floats: ${activeHighPrecisionFloatCount} (requested ${requestedHighPrecisionFloatCount}; only 2 is implemented in this milestone)`
       : `Precision Floats: ${activeHighPrecisionFloatCount}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const zoomSteps = Number(params.get("debugZoomSteps") ?? "0");
+    const zoomTarget = params.get("debugZoomTarget") ?? "both";
+
+    if (!Number.isFinite(zoomSteps) || zoomSteps <= 0) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function runDebugZoom(): Promise<void> {
+      const targets: HTMLCanvasElement[] = [];
+
+      if (zoomTarget === "both" || zoomTarget === "left") {
+        const canvas = leftColumnRef.current?.querySelector<HTMLCanvasElement>(".canvas--mandelbrot.canvas--overlay");
+        if (canvas) {
+          targets.push(canvas);
+        }
+      }
+
+      if (zoomTarget === "both" || zoomTarget === "right") {
+        const canvas = rightColumnRef.current?.querySelector<HTMLCanvasElement>(".canvas--mandelbrot.canvas--overlay");
+        if (canvas) {
+          targets.push(canvas);
+        }
+      }
+
+      if (targets.length === 0) {
+        return;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+
+      for (let index = 0; index < zoomSteps; index += 1) {
+        if (cancelled) {
+          return;
+        }
+
+        for (const canvas of targets) {
+          const rect = canvas.getBoundingClientRect();
+          const event = new WheelEvent("wheel", {
+            deltaY: -120,
+            clientX: rect.left + rect.width * 0.35,
+            clientY: rect.top + rect.height * 0.5,
+            bubbles: true,
+            cancelable: true,
+          });
+          canvas.dispatchEvent(event);
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 20));
+      }
+    }
+
+    void runDebugZoom();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="route-shell">
@@ -1449,7 +1517,7 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
         </aside>
 
         <section className="compare-columns" aria-label="Renderer comparison">
-          <article className="panel compare-column">
+          <article ref={leftColumnRef} className="panel compare-column">
             <div className="panel__header">
               <p className="eyebrow">Renderer A</p>
               <h2>WebGL Rendering</h2>
@@ -1501,7 +1569,7 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
             </section>
           </article>
 
-          <article className="panel compare-column">
+          <article ref={rightColumnRef} className="panel compare-column">
             <div className="panel__header">
               <p className="eyebrow">Renderer B</p>
               <h2>High Precision WebGL Rendering</h2>
