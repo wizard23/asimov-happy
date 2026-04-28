@@ -2813,6 +2813,134 @@ Give me a full report about what you tried ad how these looked.
   That is now the most promising path if the goal is visible improvement at ~1e6x.
 ```
 
+yes, please do the next experiments.
+
+```
+• I did the next experimental pass and reverted the unsuccessful shader changes afterward. The code is back to the stable state with:
+
+  - the debug compare route still present
+  - the high-precision renderer still using the earlier double-single bailout test
+  - no extra experimental arithmetic changes left in place
+
+  Test setup
+
+  I used:
+
+  - the new /explorer-renderer-compare route for manual comparison and future debugging
+  - a temporary headless helper page to drive the explorer to a consistent zoom and center, because direct headless capture of the compare route
+    itself was unreliable under static preview routing
+
+  Reliable baseline test point:
+
+  - center: about -1.093555 + 0.002654i
+  - zoom: about 998599x
+
+  At that point, the baseline result was still:
+
+  - WebGL Rendering: blocky
+  - High Precision WebGL Rendering (2 floats): visually almost identical
+
+  So your observation remains correct.
+
+  What I tried
+
+  1. Baseline with current stable high-precision path
+
+  - current state:
+      - two-float iteration
+      - bailout in double-single
+      - smoothing still float-based
+  - result:
+      - no meaningful improvement over ordinary WebGL at ~1e6x
+
+  2. Candidate: keep smoothing input in double-single longer
+
+  - change:
+      - compute final |z|^2 for smoothing in double-single before converting to float
+  - result:
+      - no visible change at the same zoom and center
+  - conclusion:
+      - float-based smoothing is not the main cause of the blocky effect
+
+  3. Candidate: center-relative coordinate reconstruction
+
+  - change:
+      - reconstruct pixel coordinates relative to viewport center instead of min + width * u
+  - result:
+      - not an improvement
+      - Mandelbrot stayed effectively the same
+      - Julia became much worse and nearly collapsed to black at the same zoom
+  - conclusion:
+      - this is not a clean fix
+      - it introduces instability rather than useful precision
+
+  4. Candidate: specialized dsSquare()
+
+  - change:
+      - add a square-specific double-single path and use it in the recurrence and bailout norm
+  - result:
+      - at the same ~1e6x target, the headless run became so slow that it would not complete in a reasonable window
+  - conclusion:
+      - even if it might help numerically, this form is too expensive to be a clean next step in this renderer
+
+  What this tells us
+
+  The experiments now point fairly strongly to this conclusion:
+
+  - the main blocker is still the quality of the core n = 2 arithmetic itself
+  - not the float-based smoothing path
+  - not the coordinate reconstruction form
+
+  So the likely real problem is:
+
+  - the current dsAdd / dsMul implementation is still too weak to preserve enough practical separation between nearby pixels at deep zoom
+  - and some “more precise but heavier” variants become too slow to be useful in the fragment shader
+
+  Current best diagnosis
+
+  Most likely real blocker:
+
+  - the present double-single arithmetic is not strong enough to produce visible deep-zoom gains before performance and accumulated error wash them
+    out
+
+  Most likely next experiment:
+
+  - a more standard, carefully tuned double-double style dsAdd / dsMul implementation
+  - not more transport tweaks
+  - not more smoothing tweaks
+  - and probably not a naive square-specialization if it costs this much
+
+  Code status
+
+  I reverted the experimental shader changes after testing them.
+
+  What remains:
+
+  - the compare route
+  - the stable high-precision renderer with the earlier bailout-in-double-single improvement
+
+  Verification after cleanup:
+
+  - npm run build passed
+  - npm run lint passed
+
+  If you want, the next logical step is:
+
+  - implement one stronger but still disciplined double-double arithmetic formulation for dsAdd and dsMul
+  - then rerun the exact same ~1e6x comparison against the baseline.
+```
+
+yes please continue
+
+```
+```
+
+Yes please write a note in asimov-happy/docs/explain on what you did and why it did not work. 
+
+We change direction now and switch to a different approach: 
+I found an implementation of arbitrary precision mandelbrot and julia sets and put it here: docs/alien/FractalShaderArbPre
+Based on this please create a completely new renderer that uses this technique. Before we do this please analyze the code I gave you and give me a full technical report on how and why it works. Please also estimate performance.
+
 ---
 
 
