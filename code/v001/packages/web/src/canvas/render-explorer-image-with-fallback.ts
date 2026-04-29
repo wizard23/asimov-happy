@@ -52,14 +52,21 @@ export function renderExplorerImageWithSwap(
     webglContext.finish();
   }
 
-  visibleCanvas.width = effectiveWidth;
-  visibleCanvas.height = effectiveHeight;
   const context = visibleCanvas.getContext("2d");
   if (!context) {
     throw new Error("2D canvas context unavailable for explorer image presentation.");
   }
 
-  context.clearRect(0, 0, visibleCanvas.width, visibleCanvas.height);
-  context.drawImage(stagingCanvas, 0, 0);
+  const destinationWidth = Math.max(1, visibleCanvas.width || width);
+  const destinationHeight = Math.max(1, visibleCanvas.height || height);
+  if (visibleCanvas.width !== destinationWidth) {
+    visibleCanvas.width = destinationWidth;
+  }
+  if (visibleCanvas.height !== destinationHeight) {
+    visibleCanvas.height = destinationHeight;
+  }
+
+  context.clearRect(0, 0, destinationWidth, destinationHeight);
+  context.drawImage(stagingCanvas, 0, 0, effectiveWidth, effectiveHeight, 0, 0, destinationWidth, destinationHeight);
   return { effectiveWidth, effectiveHeight };
 }

@@ -3586,7 +3586,303 @@ I debugged it and the arbitrary-precision computation is correct. To me it looks
 no. I checked this in the actual browser. During my tests I noticed that the cpu renderer has the same problem. Please leave the AP renderer unchanged and focus on the bug I described in the cpu renderer. First look at the code to find likely candidates for the bug. Maybe it's a race condition but i don't know for sure.
 
 
+```
+• Yes. Looking at the code, there is a very plausible bug candidate in the CPU path, and it fits your “second pass gets messed up” observation much
+  better than a true multithreaded race.
 
+  Most likely cause
+
+  The CPU renderer uses renderExplorerImageWithSwap() in:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  That helper does this:
+
+  - render into a detached staging canvas
+  - set visibleCanvas.width / visibleCanvas.height
+  - drawImage(stagingCanvas, 0, 0)
+  - return the rendered size
+
+  Then the component does:
+
+  - setPresentedRenderSize(...)
+
+  And the JSX binds the visible canvas size to that state:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  with:
+
+  <canvas
+    width={presentedRenderSize.width}
+    height={presentedRenderSize.height}
+  />
+
+  That is dangerous because changing a canvas width or height clears its bitmap immediately.
+
+  So the likely sequence is:
+
+  1. Coarse pass renders to staging.
+  2. Coarse pass copies into visible canvas.
+  3. setPresentedRenderSize(coarseSize) triggers rerender.
+  4. JSX reapplies width/height to the visible canvas and clears it.
+  5. Fine pass later renders to staging.
+  6. Fine pass copies into visible canvas.
+  7. setPresentedRenderSize(fineSize) triggers rerender.
+  8. JSX reapplies width/height again and clears it.
+
+  That would make the final fine pass appear blank or unstable.
+
+  This is not really a thread race. It is a lifecycle / canvas-reset bug.
+
+  Why this matches your observation
+
+  - It is specific to the two-quality-level transition.
+  - It is especially plausible for the CPU path because that path uses staged presentation through renderExplorerImageWithSwap().
+  - The final pass is the one most likely to get cleared and then stay cleared, because there is no later pass to repaint it.
+
+  Second likely candidate
+
+  There is also no render-generation guard.
+
+  The quality flow is:
+
+  - markInteractiveQuality() sets qualityScale = 0.2
+  - after 160ms, timeout sets qualityScale = 1
+
+  If multiple interactions happen close together, or if viewport/parameter changes happen while a render is in progress, there is nothing
+  preventing an older render result from being presented after a newer one.
+
+  Because CPU rendering is synchronous, this is less of a classic async race than in a worker-based setup, but stale presentation is still
+  structurally possible:
+
+  - old effect run renders
+  - new effect run renders
+  - last commit to canvas wins, regardless of which state it belongs to
+
+  So this is a real secondary candidate, but it is weaker than the canvas-clearing issue above.
+
+  Third candidate
+
+  setPresentedRenderSize(...) is called unconditionally after every render, even if the size did not materially change.
+
+  That increases the chance of unnecessary rerenders and repeated canvas resets. Even if the dimensions are numerically the same, reapplying canvas
+  size is dangerous because canvas size assignment is destructive.
+
+  This probably amplifies the first bug rather than being independent.
+
+  What I do not think is the main cause
+
+  - The CPU fractal math itself
+  - A browser GPU issue
+  - A true parallel race between coarse and fine rendering
+  - The responsive resolution hook itself
+
+  The strongest problem is much more mundane:
+
+  - the visible canvas is drawn into
+  - then later cleared again by size-state reconciliation
+
+  Bottom line
+
+  The most likely bug is:
+
+  - renderExplorerImageWithSwap() presents the CPU image to the visible canvas
+  - then component state updates presentedRenderSize
+  - then JSX reapplies width / height
+  - that clears the just-rendered fine frame
+
+  So yes, your “second render pass gets messed up” observation is very plausible, but the likely mechanism is a canvas-reset lifecycle bug rather
+  than a classic race condition.
+```
+
+Thank you for the analysis.
+We fixed a very similar bug in the normal WebGL renderer in this commit: 84b2bd27e5109b11c4058391391be04100acef94
+Please look at this commit and find out if we have a similar problem now and how it compares to your analysis.
+
+```
+• Yes. This commit is highly relevant, and it matches my analysis very closely.
+
+  What the commit did
+  In 84b2bd2, the app changed the CPU-style rendering path from direct same-canvas rendering to staged swap rendering:
+
+  - renderExplorerImageWithFallback() was replaced by renderExplorerImageWithSwap() in:
+      - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+      - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  It also introduced:
+
+  - presentedRenderSize state
+  - JSX binding of the visible image canvas width / height to that state
+
+  That is exactly the mechanism I called out.
+
+  Why it matches my analysis
+  The problematic pattern introduced in that commit is:
+
+  1. render to staging canvas
+  2. copy staging into visible canvas
+  3. call setPresentedRenderSize(...)
+  4. JSX re-renders with:
+      - width={presentedRenderSize.width}
+      - height={presentedRenderSize.height}
+
+  Changing those canvas attributes clears the visible bitmap.
+
+  So the commit introduced the same class of bug I described:
+
+  - not really a multithreaded race
+  - a canvas lifecycle / destructive resize problem
+
+  How it compares to the WebGL case
+  This is very similar in shape to the bug you referenced from the normal WebGL renderer, but with one important distinction:
+
+  - In the CPU path from 84b2bd2, the bug is directly caused by the staged-swap presentation plus React/Preact-controlled width/height.
+  - In the WebGL case, the historical issue involved visible-canvas clearing around coarse/fine transitions too, but the implementation details
+    differed because WebGL had its own direct-render/staging concerns.
+
+  So:
+
+  - same family of UX bug: coarse/fine transition leaves the user with a blank or wrong final frame
+  - same root pattern: destructive canvas resize/presentation sequencing
+  - different renderer internals
+
+  Strongest evidence in the commit
+  The key lines from that commit are effectively:
+
+  - add presentedRenderSize state
+  - change canvas JSX from:
+      - width={canvasResolution.renderWidth}
+      - height={canvasResolution.renderHeight}
+  - to:
+      - width={presentedRenderSize.width}
+      - height={presentedRenderSize.height}
+
+  while also doing imperative presentation inside renderExplorerImageWithSwap().
+
+  That is the exact “two owners of visible canvas size” problem.
+
+  So is there a similar problem now?
+  Yes. More than similar: this commit appears to be the direct origin of the current CPU issue.
+
+  The current CPU path still has that structure:
+
+  - staged render
+  - imperative copy into visible canvas
+  - then state-driven visible canvas size reconciliation
+
+  That is exactly why your browser observation about the second pass failing is credible.
+
+  Bottom line
+  Your referenced commit does not just resemble the current issue. It largely confirms it.
+
+  My earlier analysis:
+
+  - “the visible canvas is being cleared again by size-state reconciliation after presentation”
+
+  is consistent with what 84b2bd2 introduced.
+
+  So the likely conclusion is:
+
+  - the CPU renderer still carries the buggy fix pattern from that commit
+  - and the current bug is probably the same class of bug, not a new unrelated race condition
+```
+
+Does the AP renderer have the same bug?
+
+Please propose a clean fix for the CPU renderer (we will take care of the AP renderer later).
+
+```
+• A clean fix is to remove the visible-canvas size/state ownership split for the CPU path.
+
+  ## Recommended fix
+
+  For CPU rendering:
+
+  - stop using renderExplorerImageWithSwap()
+  - stop using presentedRenderSize for the CPU image canvas
+  - render into a staging canvas if you want to keep the no-flash behavior
+  - but keep the visible canvas size owned in exactly one place
+
+  Best practical version:
+
+  1. Keep the visible CPU canvas width / height bound directly to canvasResolution.renderWidth and canvasResolution.renderHeight.
+  2. Render the next frame into a detached staging canvas.
+  3. After the staging render is complete, copy it into the already-sized visible canvas.
+  4. Do not update a second presentedRenderSize state for the visible CPU canvas.
+
+  ## Why this is clean
+
+  Right now the bug comes from two conflicting owners:
+
+  - imperative presentation code in renderExplorerImageWithSwap()
+  - declarative size control via presentedRenderSize
+
+  The fix is to have one owner only.
+
+  ## Two good implementation options
+
+  ### Option A: simplest and safest
+
+  Revert CPU back to direct same-canvas rendering:
+
+  - use renderExplorerImageWithFallback() for CPU too
+  - accept that the old blank-frame issue may come back
+
+  This is simplest, but regresses the original UX fix.
+
+  ### Option B: recommended
+
+  Keep staging, but do not let JSX own a separate presented size:
+
+  - visible canvas always sized from canvasResolution
+  - staging canvas handles retries / fallback sizes
+  - blit staging into visible canvas
+  - if fallback reduces render size, upscale with drawImage(...)
+
+  This preserves:
+
+  - no visible blank transition
+  - no destructive visible-canvas resize after presentation
+
+  ## Why Option B is better
+
+  It fixes both problems:
+
+  - avoids the original flash
+  - avoids the current second-pass clear bug
+
+  ## What I would change structurally
+
+  In both:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  for CPU path:
+
+  - remove presentedRenderSize usage for the image canvas
+  - bind image canvas size directly to canvasResolution.renderWidth / renderHeight
+
+  Then adjust code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts or replace it with a CPU-specific helper that:
+
+  - renders to staging
+  - copies into the already-sized visible canvas
+  - returns fallback render size only for internal scaling, not for JSX canvas sizing
+
+  ## Bottom line
+
+  The clean fix is:
+
+  - keep staged CPU rendering if desired
+  - but remove presentedRenderSize as a second owner of the visible canvas size
+
+  That is the direct fix for the bug introduced by 84b2bd2.
+```
+
+please implement the clean fix.
 
 
 

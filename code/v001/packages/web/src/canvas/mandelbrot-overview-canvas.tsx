@@ -749,8 +749,16 @@ export function MandelbrotOverviewCanvas(props: {
         <canvas
           ref={imageCanvasRef}
           className="canvas canvas--mandelbrot"
-          width={presentedRenderSize.width}
-          height={presentedRenderSize.height}
+          width={
+            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+              ? canvasResolution.renderWidth
+              : presentedRenderSize.width
+          }
+          height={
+            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+              ? canvasResolution.renderHeight
+              : presentedRenderSize.height
+          }
           style={{ backgroundColor: getPaletteCssBackground(props.palette ?? "ember") }}
         />
         <canvas

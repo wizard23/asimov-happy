@@ -714,8 +714,16 @@ export function JuliaViewerCanvas(props: {
         <canvas
           ref={imageCanvasRef}
           className="canvas canvas--viewer"
-          width={presentedRenderSize.width}
-          height={presentedRenderSize.height}
+          width={
+            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+              ? canvasResolution.renderWidth
+              : presentedRenderSize.width
+          }
+          height={
+            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+              ? canvasResolution.renderHeight
+              : presentedRenderSize.height
+          }
           style={{ backgroundColor: getPaletteCssBackground(props.palette) }}
         />
         <canvas
