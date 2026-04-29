@@ -3470,6 +3470,121 @@ yes please do the clean fix
 
 I just get blank canvases. Please actually debug it
 
+```
+• I debugged it with the headless browser and the result is more specific than “WebGL2 is blank”.
+
+  What I confirmed:
+
+  - The AP renderer is not failing at context creation anymore.
+  - It is not failing at shader compilation anymore.
+  - It is not failing at draw submission anymore.
+  - It is writing real pixels into the framebuffer.
+
+  I verified that by instrumenting the AP canvas and reading back sample pixels from the WebGL2 framebuffer in the compare route. The AP canvas
+  reported values like:
+
+  - Mandelbrot: tl=25,38,65,255 | c=9,12,22,255 | tr=30,65,104,255 | ...
+  - Julia: tl=25,38,65,255 | c=9,12,22,255 | ...
+
+  So the renderer is producing non-black pixels. The “blank canvas” appearance is because the produced image collapses mostly to:
+
+  - dark interior color near the center
+  - smooth blue background outside
+
+  with little or no visible fractal boundary structure.
+
+  That means the current blocker is no longer the WebGL2 presentation path. The real problem is in the AP math/render result itself.
+
+  What this rules out:
+
+  - not a missing gl.finish()
+  - not a broken VAO / triangle draw
+  - not a totally dead fragment shader
+  - not a canvas-presentation bug
+
+  What it strongly suggests:
+
+  - the arbitrary-precision arithmetic is mathematically wrong enough that the escape-time image degenerates into a coarse “inside vs far outside”
+    field
+  - the most likely culprit is now the fixed-point limb arithmetic, especially multiplication / rescaling, not the canvas plumbing
+
+  Why I think that:
+
+  - even at full-view, low-cost settings (64 iterations, 2 limbs), the AP Mandelbrot does not resemble the baseline WebGL Mandelbrot
+  - but it does produce a smooth nontrivial color field
+  - that is exactly what you’d expect if coordinate transport is roughly alive, but the recurrence math is wrong
+
+  So the current diagnosis is:
+
+  - draw path: working
+  - framebuffer: working
+  - AP math: not working correctly yet
+
+  I have temporary debug instrumentation in place right now:
+
+  - AP framebuffer sample values are written into data-ap-debug on the AP canvases
+  - Mandelbrot/Julia overlay error surfacing is still present
+
+  Next clean step is to debug the math layer directly, starting with:
+
+  1. verify limb ordering end-to-end with a coordinate-debug shader
+  2. verify apMul() fixed-point rescaling against known test cases
+  3. only after that, re-check the recurrence and bailout behavior
+
+  I have not fixed the renderer yet. I have identified that the real bug is now in the arbitrary-precision computation, not in WebGL2 presentation.
+
+  31 background terminals running · /ps to view · /stop to close
+```
+
+I debugged it and the arbitrary-precision computation is correct. To me it looks like the "two quality levels" messes up the second render pass. Please debug this to find out if my observation is correct.
+
+```
+• I debugged that specific hypothesis, and I do not see evidence that Two Quality Levels is the thing breaking the AP renderer.
+
+  What I tested:
+
+  - Used the real /explorer-renderer-compare route in headless Chromium with SwiftShader WebGL2.
+  - Temporarily enabled enableTwoQualityLevels for the AP compare column only.
+  - Triggered an actual zoom interaction on the AP Mandelbrot canvas with ?debugZoomSteps=1&debugZoomTarget=right, which forces:
+      - coarse render at qualityScale = 0.2
+      - then the delayed fine render at qualityScale = 1
+  - Instrumented the AP canvas to inspect framebuffer output after render.
+
+  What I found:
+
+  - The AP canvas did render after the second pass.
+  - The final AP canvas size changed, which proves the second pass actually happened:
+      - before: about 654x436
+      - after the forced zoom: about 656x437
+  - The rendered AP pixels after that second pass were still non-empty and looked consistent with the non-Two Quality Levels case.
+  - In other words: the second render pass did not collapse into a fresh blank/cleared canvas.
+
+  The strongest evidence:
+
+  - With Two Quality Levels enabled and a forced zoom, the AP framebuffer still contained nontrivial pixel values after the fine pass.
+  - Those values were in the same family as the non-Two Quality Levels case, not “all zero / all black / draw never happened”.
+
+  So the conclusion is:
+
+  - Your observation is understandable from the UI behavior,
+  - but from the renderer-level debugging, I cannot confirm that Two Quality Levels is the root cause.
+  - The AP renderer’s output stays wrong in essentially the same way with and without the coarse-to-fine second pass.
+
+  What this means technically:
+
+  - The second pass is happening.
+  - The AP canvas is not being left blank by that transition.
+  - The underlying AP render result is already wrong independently of that feature.
+
+  I reverted the temporary Two Quality Levels compare-route change and removed the extra AP framebuffer readback instrumentation after the test.
+  Build still passes.
+
+  If you want, the next useful step is to debug the AP renderer’s actual output semantics again, but now with Two Quality Levels effectively ruled
+  out as the main culprit.
+```
+
+no. I checked this in the actual browser. During my tests I noticed that the cpu renderer has the same problem. Please leave the AP renderer unchanged and focus on the bug I described in the cpu renderer. First look at the code to find likely candidates for the bug. Maybe it's a race condition but i don't know for sure.
+
 
 
 
