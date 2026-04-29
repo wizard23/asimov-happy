@@ -63,7 +63,6 @@ function createFragmentShaderSource(layout: ArbitraryPrecisionLayout): string {
   return `#version 300 es
 precision highp float;
 precision highp int;
-precision highp uint;
 
 ${defineBlock}
 #define AP_COMPONENT_COUNT ${componentCount}

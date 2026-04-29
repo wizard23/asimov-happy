@@ -3399,6 +3399,77 @@ yes please continue
   If you want, I’ll do the next pass with framebuffer/readback diagnostics, which is now the shortest path to a real answer.
 ```
 
+yes, please.
+```
+• I found the real blocker.
+
+  The AP Mandelbrot failure is a shader compile error in the WebGL2 path, not a deep arithmetic bug. In headless Chromium on /explorer-renderer-
+  compare, the AP Mandelbrot overlay surfaced:
+
+  ERROR: 0:4 'uint' : illegal type argument for default precision qualifier
+
+  So the failure happens before any arbitrary-precision orbit math runs. The renderer falls back to the CSS background, which is why the panel
+  looked like a flat black rectangle. That also explains why the earlier experiments with coordinate-color debug and gl_FragCoord gradient appeared
+  to do nothing: the fragment shader was never compiling successfully.
+
+  What I did:
+
+  - used the compare route with SwiftShader WebGL2
+  - added temporary UI and framebuffer diagnostics
+  - narrowed the failure to the AP Mandelbrot render effect
+  - surfaced the actual shader compile message in the canvas overlay
+  - removed the temporary diagnostics afterward
+
+  What remains true:
+
+  - the explicit VAO setup is still in the AP renderer
+  - build passes
+  - lint passes
+
+  The next clean fix is very focused:
+
+  - remove or rewrite the invalid precision declaration for uint in code/v001/packages/web/src/canvas/explorer-webgl-arbitrary-precision-
+    renderer.ts
+  - then rerun the compare route before touching any arithmetic logic
+
+  So the current priority is shader portability cleanup, not arbitrary-precision math tuning.
+```
+
+yes please do the clean fix
+
+```
+• I applied the clean fix.
+
+  Change:
+
+  - removed the invalid WebGL2 shader line precision highp uint; from code/v001/packages/web/src/canvas/explorer-webgl-arbitrary-precision-
+    renderer.ts
+
+  That was the concrete blocker behind the AP Mandelbrot failure:
+
+  - ERROR: 0:4 'uint' : illegal type argument for default precision qualifier
+
+  I also kept the explicit VAO setup in the AP renderer, since that is a clean WebGL2 improvement and does not conflict with the fix.
+
+  Verification:
+
+  - npm run build -w @asimov/minimal-web passed
+  - npm run lint passed
+
+  Headless note:
+
+  - the old immediate shader-compile failure is fixed
+  - but full headless visual QA on /explorer-renderer-compare with SwiftShader is now very slow and did not complete in a short timeout, so I can’t
+    yet claim end-to-end visual correctness from headless alone
+
+  The next useful step is either:
+
+  - a normal browser check of Arbitrary Precision WebGL Rendering, or
+  - another targeted headless pass with a smaller canvas / lower iterations to validate actual image output quickly.
+```
+
+
+
 
 
 
