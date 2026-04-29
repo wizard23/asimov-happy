@@ -191,6 +191,7 @@ export function JuliaViewerCanvas(props: {
     width: VIEWER_FALLBACK_SIZE,
     height: VIEWER_FALLBACK_SIZE,
   }));
+  const [renderError, setRenderError] = useState<string | null>(null);
   const resolutionOptions = useMemo(
     () => ({
       fallbackDisplayWidth: VIEWER_FALLBACK_SIZE,
@@ -222,7 +223,9 @@ export function JuliaViewerCanvas(props: {
         : null,
     [props.hoveredJuliaCoordinate, viewport],
   );
-  const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}`;
+  const overlayText = `${formatComplex(props.parameter)} \u00b7 ${formatZoomLevel(viewport)}${
+    renderError ? ` \u00b7 ERR ${renderError}` : ""
+  }`;
   const hoverOverlayText = formatComplex(hoveredCoordinate);
   const markerSize = 36 * (props.markerScale ?? 1);
 
@@ -320,52 +323,57 @@ export function JuliaViewerCanvas(props: {
     const escapeBandOptions = props.escapeBands ? { escapeBands: props.escapeBands } : {};
     const precisionOptions =
       props.precisionLimbCount !== undefined ? { precisionLimbCount: props.precisionLimbCount } : {};
-    const nextPresentedSize =
-      renderer.id === "webgl" || renderer.id === "webgl-arbitrary-precision"
-        ? renderExplorerImageWithFallback(
-            canvas,
-            canvasResolution.renderWidth,
-            canvasResolution.renderHeight,
-            (effectiveWidth, effectiveHeight) => {
-              renderer.renderJulia(canvas, {
-                parameter,
-                viewport,
-                width: effectiveWidth,
-                height: effectiveHeight,
-                iterations: props.iterations,
-                palette: props.palette,
-                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
-                paletteCycles: props.paletteCycles ?? 6,
-                ...binaryColorOptions,
-                ...escapeBandOptions,
-                ...precisionOptions,
-              });
-            },
-          )
-        : renderExplorerImageWithSwap(
-            canvas,
-            canvasResolution.renderWidth,
-            canvasResolution.renderHeight,
-            (renderTarget, effectiveWidth, effectiveHeight) => {
-              renderer.renderJulia(renderTarget, {
-                parameter,
-                viewport,
-                width: effectiveWidth,
-                height: effectiveHeight,
-                iterations: props.iterations,
-                palette: props.palette,
-                paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
-                paletteCycles: props.paletteCycles ?? 6,
-                ...binaryColorOptions,
-                ...escapeBandOptions,
-                ...precisionOptions,
-              });
-            },
-          );
-    setPresentedRenderSize({
-      width: nextPresentedSize.effectiveWidth,
-      height: nextPresentedSize.effectiveHeight,
-    });
+    try {
+      const nextPresentedSize =
+        renderer.id === "webgl" || renderer.id === "webgl-arbitrary-precision"
+          ? renderExplorerImageWithFallback(
+              canvas,
+              canvasResolution.renderWidth,
+              canvasResolution.renderHeight,
+              (effectiveWidth, effectiveHeight) => {
+                renderer.renderJulia(canvas, {
+                  parameter,
+                  viewport,
+                  width: effectiveWidth,
+                  height: effectiveHeight,
+                  iterations: props.iterations,
+                  palette: props.palette,
+                  paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                  paletteCycles: props.paletteCycles ?? 6,
+                  ...binaryColorOptions,
+                  ...escapeBandOptions,
+                  ...precisionOptions,
+                });
+              },
+            )
+          : renderExplorerImageWithSwap(
+              canvas,
+              canvasResolution.renderWidth,
+              canvasResolution.renderHeight,
+              (renderTarget, effectiveWidth, effectiveHeight) => {
+                renderer.renderJulia(renderTarget, {
+                  parameter,
+                  viewport,
+                  width: effectiveWidth,
+                  height: effectiveHeight,
+                  iterations: props.iterations,
+                  palette: props.palette,
+                  paletteMappingMode: props.paletteMappingMode ?? "logarithmic",
+                  paletteCycles: props.paletteCycles ?? 6,
+                  ...binaryColorOptions,
+                  ...escapeBandOptions,
+                  ...precisionOptions,
+                });
+              },
+            );
+      setPresentedRenderSize({
+        width: nextPresentedSize.effectiveWidth,
+        height: nextPresentedSize.effectiveHeight,
+      });
+      setRenderError(null);
+    } catch (error) {
+      setRenderError(error instanceof Error ? error.message : String(error));
+    }
   }, [
     canvasResolution.renderHeight,
     canvasResolution.renderWidth,

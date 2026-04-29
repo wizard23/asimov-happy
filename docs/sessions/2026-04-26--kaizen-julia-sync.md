@@ -3468,6 +3468,8 @@ yes please do the clean fix
   - another targeted headless pass with a smaller canvas / lower iterations to validate actual image output quickly.
 ```
 
+I just get blank canvases. Please actually debug it
+
 
 
 

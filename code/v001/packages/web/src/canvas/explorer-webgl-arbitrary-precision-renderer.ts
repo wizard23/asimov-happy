@@ -774,6 +774,27 @@ function renderToCanvas(
   context.uniform1iv(state.escapeBandThresholdsLocation, new Int32Array(escapeBandThresholds));
 
   context.drawArrays(context.TRIANGLES, 0, 6);
+  context.finish();
+  function samplePixel(normalizedX: number, normalizedY: number): string {
+    const pixel = new Uint8Array(4);
+    context.readPixels(
+      Math.max(0, Math.min(canvas.width - 1, Math.floor(canvas.width * normalizedX))),
+      Math.max(0, Math.min(canvas.height - 1, Math.floor(canvas.height * normalizedY))),
+      1,
+      1,
+      context.RGBA,
+      context.UNSIGNED_BYTE,
+      pixel,
+    );
+    return `${pixel[0]},${pixel[1]},${pixel[2]},${pixel[3]}`;
+  }
+  canvas.dataset.apDebug = [
+    `tl=${samplePixel(0.05, 0.95)}`,
+    `c=${samplePixel(0.5, 0.5)}`,
+    `tr=${samplePixel(0.95, 0.95)}`,
+    `bl=${samplePixel(0.05, 0.05)}`,
+    `br=${samplePixel(0.95, 0.05)}`,
+  ].join(" | ");
   context.bindVertexArray(null);
 }
 

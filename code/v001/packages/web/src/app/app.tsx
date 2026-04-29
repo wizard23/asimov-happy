@@ -597,8 +597,8 @@ function ExplorerWorkspace(props: {
   const [escapeBandColors, setEscapeBandColors] = useState<RgbColor[]>(createDefaultEscapeBandColors);
   const [escapeBandThresholds, setEscapeBandThresholds] =
     useState<number[]>(createDefaultEscapeBandThresholds);
-  const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
-  const [juliaIterations, setJuliaIterations] = useState(2000);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(64);
+  const [juliaIterations, setJuliaIterations] = useState(64);
   const [showAttractingPeriod, setShowAttractingPeriod] = useState(false);
   const [periodDetectionSteps, setPeriodDetectionSteps] = useState(10000);
   const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(3000);
@@ -1358,11 +1358,11 @@ function ExplorerRendererCompareRoute(): preact.JSX.Element {
     real: -0.74543,
     imaginary: 0.11301,
   });
-  const [mandelbrotIterations, setMandelbrotIterations] = useState(2000);
-  const [juliaIterations, setJuliaIterations] = useState(2000);
+  const [mandelbrotIterations, setMandelbrotIterations] = useState(64);
+  const [juliaIterations, setJuliaIterations] = useState(64);
   const [palette, setPalette] = useState<FractalPaletteId>(DEFAULT_FRACTAL_PALETTE_ID);
   const [requestedArbitraryPrecisionLimbCount, setRequestedArbitraryPrecisionLimbCount] = useState(
-    DEFAULT_ARBITRARY_PRECISION_LIMB_COUNT,
+    2,
   );
   const [markerScalePercent, setMarkerScalePercent] = useState(150);
   const leftColumnRef = useRef<HTMLElement | null>(null);
