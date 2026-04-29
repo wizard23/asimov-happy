@@ -3885,6 +3885,56 @@ Please propose a clean fix for the CPU renderer (we will take care of the AP ren
 please implement the clean fix.
 
 
+```
+• I hit the open-process limit warning, so I’m reusing only these two running checks and not opening more sessions. I’m just polling build/lint to
+  completion now.
+
+• Waited for background terminal
+
+• Waited for background terminal
+
+• I implemented the CPU-side fix.
+
+  What changed:
+
+  - The staged CPU render helper no longer resizes the visible canvas during presentation. It now draws the staged result into the already-sized
+    visible canvas.
+  - The visible CPU image canvases are now sized directly from canvasResolution.renderWidth / renderHeight, instead of from presentedRenderSize.
+
+  Files changed:
+
+  - code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
+
+  This fixes the bug class introduced by 84b2bd2: the CPU path no longer has two competing owners of the visible canvas size during the coarse/fine
+  transition.
+
+  Verification:
+
+  - npm run build -w @asimov/minimal-web passed
+  - npm run lint passed
+
+  The next meaningful check is your real-browser retest of CPU rendering with Two Quality Levels enabled, since that was where you were seeing the
+  bad second pass.
+```
+
+The cpu renderer bug has been fixed. Thank you!
+
+Sadly I have to terminate this session.
+
+Please create a markdown file that contains the relevant instructions to approximately get a new session up to the current task at hand.
+
+Please create this file in: docs/saved-contexts/
+
+Name it like this please: codex-saved-context-<YYYY-MM-DD--HH-MM>--<label>.md
+
+<YYYY-MM-DD--HH-MM> should be the current timestamp.
+<label> should be "arbitrary-precision-webgl-renderer-and-cleanup"
+
+
+
+
 
 ---
 

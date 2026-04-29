@@ -4,7 +4,7 @@ Please create a markdown file that contains the relevant instructions to approxi
 
 Please create this file in: docs/saved-contexts/
 
-Name it like this please: codex-saved-context-<YYYY-MM-DD--HH-MM>--<tags>.md
+Name it like this please: codex-saved-context-<YYYY-MM-DD--HH-MM>--<label>.md
 
 <YYYY-MM-DD--HH-MM> should be the current timestamp.
-<label> should be: "project-infrastructure-dx"
+<label> should be "arbitrary-precision-webgl-renderer-and-cleanup"
