@@ -147,10 +147,24 @@ When resuming:
 
 ## Relevant Commit / History Notes
 
-Important commit related to the CPU bug:
+Important commits related to the recurring second-pass bug pattern:
 - `84b2bd27e5109b11c4058391391be04100acef94`
+  - subject: `buggy fix for blank frame problem during transition between coarse and detailed rendering`
+  - relevance:
+    - this was the earlier normal WebGL / coarse-to-fine transition fix attempt
+    - it is part of the historical pattern to compare against when investigating second-pass failures
+    - it is important context because later renderer bugs appear to rhyme with this class of transition/presentation problem
+- `41f70cc4c00f3f9fd882679afd8d06169cbc2ccc`
+  - subject: `fix cpu renderer *but why not everything)`
+  - relevance:
+    - this is the CPU renderer fix that was confirmed by the user in this session
+    - it resolved the CPU canvas-ownership / second-pass clearing problem
+    - it should be treated as a concrete reference for the kind of clean lifecycle/presentation fix that may also be needed elsewhere
 
-That commit introduced the staged CPU swap pattern which caused the just-fixed CPU bug.
+Important interpretation for the next session:
+- `84b2bd2` is the historical “similar bug in normal WebGL” reference point.
+- `41f70cc` is the fresh “CPU bug fixed cleanly” reference point.
+- The AP second-pass black-canvas investigation should explicitly compare its render lifecycle against both of those histories.
 
 ## Summary
 

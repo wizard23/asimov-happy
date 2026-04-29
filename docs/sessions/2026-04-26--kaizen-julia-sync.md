@@ -3941,8 +3941,22 @@ Please fix in the saved context: the AP renderer works. The math is correct, I v
 ```
 Please fix any inconsistencies in the saved context that might have appeared because of our edits.
 
+```
+• I fixed the saved-context inconsistencies in docs/saved-contexts/codex-saved-context-2026-04-29--08-38--arbitrary-precision-webgl-renderer-and-
+  cleanup.md.
+
+  Changes:
+
+  - replaced the broken pseudo-link [/explorer-renderer-compare] with plain route text
+  - softened the AP wording so it now consistently says to treat the AP implementation and math as correct unless new evidence proves otherwise
+
+  The rest of the file was already consistent with the later session corrections.
+```
+
 We fixed a very similar bug in the normal WebGL renderer in this commit: 84b2bd27e5109b11c4058391391be04100acef94
 And we fixed the cpu renderer in this commit: 41f70cc4c00f3f9fd882679afd8d06169cbc2ccc
+
+please document these commits in the context.
 
 
 You gained many insights into the codebase and how to debug them. Please document them in docs/insights/ using our usual naming scheme <YYYY-MM-DD-HH-MM>--<label>.md
