@@ -3932,6 +3932,22 @@ Name it like this please: codex-saved-context-<YYYY-MM-DD--HH-MM>--<label>.md
 <YYYY-MM-DD--HH-MM> should be the current timestamp.
 <label> should be "arbitrary-precision-webgl-renderer-and-cleanup"
 
+```
+```
+
+Please fix in the saved context: the AP renderer works. The math is correct, I verified this. The bug is that in the second pass we end up with a black canvas somehow. This needs to be investigated and looked at. Since we just now had a similar bug in the cpu renderer and earlier in the webgl renderer there seems to be a pattern of messed up second passes. This needs to be investigated and fixed in a clean reliable way. We want a very high quality, performance optimized codebase. 
+
+```
+```
+Please 
+
+We fixed a very similar bug in the normal WebGL renderer in this commit: 84b2bd27e5109b11c4058391391be04100acef94
+And we fixed the cpu renderer in this commit: 41f70cc4c00f3f9fd882679afd8d06169cbc2ccc
+
+
+You gained many insights into the codebase and how to debug them. Please document them in docs/insights/ using our usual naming scheme <YYYY-MM-DD-HH-MM>--<label>.md
+
+
 
 
 

@@ -29,7 +29,9 @@ Verification already done:
 
 ## Arbitrary Precision WebGL Renderer
 
-The arbitrary-precision WebGL renderer is still broken and needs follow-up.
+The arbitrary-precision WebGL renderer math is considered correct by the user and should be treated as such in the next session.
+
+The open bug is not “bad AP math.” The open bug is that the second render pass somehow ends up with a black canvas.
 
 Renderer files:
 - [`explorer-webgl-arbitrary-precision-renderer.ts`](/home/wizard/projects/asimov/asimov-happy/code/v001/packages/web/src/canvas/explorer-webgl-arbitrary-precision-renderer.ts)
@@ -44,43 +46,42 @@ Important prior work:
 
 ## What Was Learned About The AP Renderer
 
-Earlier hypotheses that are now largely ruled out:
-- Not a WebGL2 context-creation failure.
-- Not the earlier shader compile failure from `precision highp uint;` anymore.
-- Not the same staged-swap / presented-size bug as the CPU renderer.
-- Not primarily `Two Quality Levels`.
+Important correction:
+- The user explicitly verified that the AP math is correct.
+- The saved context should not frame the renderer as “mathematically wrong.”
 
-Specific AP findings from headless SwiftShader debugging:
-- The AP path does render something into the framebuffer.
-- Temporary instrumentation showed sampled AP pixels like:
-  - Mandelbrot: `tl=25,38,65,255 | c=9,12,22,255 | tr=30,65,104,255 | bl=25,38,65,255 | br=31,65,105,255`
-  - Julia: `tl=25,38,65,255 | c=9,12,22,255 | tr=25,38,65,255 | bl=25,38,65,255 | br=25,38,65,255`
-- Visually, the AP column looked mostly like:
-  - dark interior color near center
-  - smooth blue outer field
-  - little or no correct boundary structure
+What should be assumed instead:
+- The AP renderer works in principle.
+- The current bug is that the second pass ends up black.
+- This is likely part of a broader pattern of “messed up second passes” that has now appeared in:
+  - the normal WebGL renderer earlier
+  - the CPU renderer just now
+  - the AP renderer now
 
-Interpretation:
-- The AP renderer is not “blank” in the low-level sense.
-- The output semantics are wrong.
-- The likely problem is still inside the arbitrary-precision coordinate / recurrence math.
+So the likely direction is not “debug AP math again,” but:
+- investigate second-pass lifecycle / presentation / canvas ownership patterns across renderers
+- identify the common structural flaw
+- fix it in a clean and reliable way
 
-## Two Quality Levels Investigation
+## Second-Pass Investigation Direction
 
-The user suspected the AP bug might be caused by the second pass from `Two Quality Levels`.
+Important correction:
+- The next session should assume that the AP renderer’s visible failure is a second-pass problem until proven otherwise.
+- The user explicitly connected this to the newly fixed CPU bug and the earlier normal WebGL issue.
 
-That was explicitly checked.
+Working hypothesis for the next session:
+- there is a recurring structural bug pattern around coarse/fine or first/second pass transitions
+- this may involve:
+  - visible canvas ownership
+  - staged presentation
+  - render-size transitions
+  - delayed follow-up renders
+  - stale or destructive canvas resets
 
-What was tested:
-- In the compare route, `enableTwoQualityLevels` was temporarily enabled for the AP column.
-- A scripted zoom event was triggered with:
-  - `?debugZoomSteps=1&debugZoomTarget=right`
-- The fine pass did happen.
-- The AP output after the fine pass still had the same “wrong but non-empty” character.
-
-Conclusion:
-- `Two Quality Levels` is not the primary AP bug.
-- The AP renderer remains wrong with and without that feature.
+Goal for the next session:
+- investigate the common second-pass pattern across CPU, WebGL, and AP WebGL
+- fix it in a clean, reliable, performance-conscious way
+- preserve a high-quality, performance-optimized codebase rather than stacking renderer-specific hacks
 
 ## Useful Routes / Tools
 
@@ -129,18 +130,20 @@ Those currently append `ERR ...` into overlay text when the render effect throws
 
 ## Recommended Next Step
 
-When resuming, focus on the AP renderer only.
-
-Recommended next debugging direction:
-1. Keep CPU path unchanged.
-2. Use `/explorer-renderer-compare` as the main verification route.
-3. Re-check the AP math layer itself:
-   - limb ordering
-   - fixed-point scaling / rescaling
-   - `apMul`
-   - coordinate reconstruction
-   - bailout / recurrence correctness
-4. Compare AP Mandelbrot full-view output against normal WebGL first, before deep zoom.
+When resuming:
+1. Keep the CPU fix intact.
+2. Treat the AP math as correct unless new evidence proves otherwise.
+3. Focus on second-pass behavior and shared render/presentation structure.
+4. Use `/explorer-renderer-compare` as the main verification route.
+5. Compare the render lifecycle across:
+   - CPU
+   - normal WebGL
+   - AP WebGL
+6. Look for a common clean abstraction that avoids:
+   - destructive second-pass canvas resets
+   - conflicting ownership of visible canvas size/presentation
+   - stale pass presentation
+7. Prefer a reliable architectural cleanup over renderer-specific special cases.
 
 ## Relevant Commit / History Notes
 
@@ -152,7 +155,7 @@ That commit introduced the staged CPU swap pattern which caused the just-fixed C
 ## Summary
 
 - CPU coarse/fine transition bug: fixed and user-confirmed.
-- AP renderer: still wrong.
-- AP issue is **not** the same staged-swap bug as CPU.
-- AP issue is **not** primarily caused by `Two Quality Levels`.
-- Next session should resume with AP math/render debugging and keep the CPU fix intact.
+- AP renderer math: user-verified as correct.
+- AP renderer visible failure: treat as a second-pass black-canvas bug.
+- There is likely a recurring structural second-pass bug pattern across multiple renderers.
+- Next session should investigate and fix that pattern cleanly and reliably, with strong attention to code quality and performance.
