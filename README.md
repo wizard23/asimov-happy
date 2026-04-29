@@ -44,6 +44,8 @@ Top-level layout:
   Active TypeScript workspace for the current app.
 - `docs/specs/`
   Product and technical specifications.
+- `docs/insights/`
+  Durable engineering lessons and debugging findings from implementation work.
 - `docs/progress/`
   Implementation-status and gap-analysis documents.
 - `docs/bugs/`, `docs/plans/`, `docs/sessions/`, `docs/system-description/`
@@ -240,6 +242,20 @@ This matters because explorer interaction depends on exact alignment between:
 - complex-plane coordinates
 
 If those diverge, the first visible symptom is usually incorrect click selection in the Mandelbrot pane.
+
+### Multi-Pass Renderer Pitfalls
+
+Several explorer renderer bugs in this repo were not primarily fractal-math bugs. They were render-lifecycle bugs around coarse/fine or first/second passes.
+
+Important rule:
+
+- a visible canvas should have one clear owner for backing-buffer size and final presentation
+
+If imperative render code and declarative UI state both resize the same visible canvas, the later resize can clear a successfully rendered frame.
+
+For the current durable lessons, see:
+
+- [docs/insights/2026-04-29-09-06--renderer-debugging-and-second-pass-lifecycle-bugs.md](docs/insights/2026-04-29-09-06--renderer-debugging-and-second-pass-lifecycle-bugs.md)
 
 ## How To Implement Features
 

@@ -3960,6 +3960,7 @@ please document these commits in the context.
 
 
 You gained many insights into the codebase and how to debug them. Please document them in docs/insights/ using our usual naming scheme <YYYY-MM-DD-HH-MM>--<label>.md
+If it is relevant also document it in the README.
 
 
 
