@@ -41,7 +41,7 @@ Renderer files:
 Important prior work:
 - The old experimental `High Precision WebGL Rendering` path was removed and replaced by the new limb-based `Arbitrary Precision WebGL Rendering`.
 - The compare route exists and is useful:
-  - [`/explorer-renderer-compare`]
+  - `/explorer-renderer-compare`
   - implemented in [`app.tsx`](/home/wizard/projects/asimov/asimov-happy/code/v001/packages/web/src/app/app.tsx)
 
 ## What Was Learned About The AP Renderer
@@ -51,7 +51,7 @@ Important correction:
 - The saved context should not frame the renderer as “mathematically wrong.”
 
 What should be assumed instead:
-- The AP renderer works in principle.
+- Treat the AP renderer implementation and math as correct unless new evidence proves otherwise.
 - The current bug is that the second pass ends up black.
 - This is likely part of a broader pattern of “messed up second passes” that has now appeared in:
   - the normal WebGL renderer earlier

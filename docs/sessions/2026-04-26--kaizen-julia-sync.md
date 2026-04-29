@@ -3939,7 +3939,7 @@ Please fix in the saved context: the AP renderer works. The math is correct, I v
 
 ```
 ```
-Please 
+Please fix any inconsistencies in the saved context that might have appeared because of our edits.
 
 We fixed a very similar bug in the normal WebGL renderer in this commit: 84b2bd27e5109b11c4058391391be04100acef94
 And we fixed the cpu renderer in this commit: 41f70cc4c00f3f9fd882679afd8d06169cbc2ccc
