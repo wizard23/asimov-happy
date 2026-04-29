@@ -37,6 +37,8 @@ const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
 };
 const ZOOM_IN_FACTOR = 0.85;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
+const DEFAULT_INTERACTIVE_QUALITY_SCALE = 0.2;
+const DEFAULT_QUALITY_SETTLE_DELAY_MS = 300;
 
 interface DragState {
   pointerStartX: number;
@@ -158,6 +160,8 @@ export function MandelbrotOverviewCanvas(props: {
   showAxes?: boolean;
   showOrbit?: boolean;
   enableTwoQualityLevels?: boolean;
+  interactiveQualityScale?: number;
+  qualitySettleDelayMs?: number;
   orbitSteps?: number;
   iterations?: number;
   palette?: FractalPaletteId;
@@ -270,14 +274,14 @@ export function MandelbrotOverviewCanvas(props: {
       return;
     }
 
-    setQualityScale(0.2);
+    setQualityScale(props.interactiveQualityScale ?? DEFAULT_INTERACTIVE_QUALITY_SCALE);
     if (settleQualityTimeoutRef.current !== null) {
       window.clearTimeout(settleQualityTimeoutRef.current);
     }
     settleQualityTimeoutRef.current = window.setTimeout(() => {
       setQualityScale(1);
       settleQualityTimeoutRef.current = null;
-    }, 160);
+    }, props.qualitySettleDelayMs ?? DEFAULT_QUALITY_SETTLE_DELAY_MS);
   }
 
   useEffect(() => {

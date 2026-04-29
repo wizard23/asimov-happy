@@ -3963,6 +3963,89 @@ You gained many insights into the codebase and how to debug them. Please documen
 If it is relevant also document it in the README.
 
 
+What parameters does the two pass rendering have? I'm thinking about making the parameters configurable in the advanced section.
+
+
+```
+• Yes. The actual two-pass rendering currently has only a few real tuning parameters.
+
+  Current implementation:
+
+  - enable/disable switch: enableTwoQualityLevels
+  - coarse-pass quality scale: 0.2
+  - settle delay before fine pass: 160ms
+
+  Where this lives:
+
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx:268
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx:267
+
+  The logic is:
+
+  setQualityScale(0.2);
+  settleQualityTimeoutRef.current = window.setTimeout(() => {
+    setQualityScale(1);
+  }, 160);
+
+  So the current two-level model is:
+
+  - during interaction: render at 20%
+  - after 160ms without further interaction: render at 100%
+
+  How that quality scale is applied:
+
+  - it multiplies the render resolution before renderer-specific caps are applied
+  - implemented in code/v001/packages/web/src/canvas/use-responsive-canvas-resolution.ts:24
+
+  Concretely:
+
+  - rawRenderWidth = displayWidth * devicePixelRatio * qualityScale
+  - rawRenderHeight = displayHeight * devicePixelRatio * qualityScale
+
+  Then it is bounded by per-canvas max sizes.
+
+  Related parameters that affect the result, but are not really “two-pass parameters”:
+
+  - max render width/height
+      - Mandelbrot: 2048 x 1365
+      - Julia: 2048 x 2048
+  - device pixel ratio
+  - display size / sizing mode
+  - fallback halving on render failure in code/v001/packages/web/src/canvas/render-explorer-image-with-fallback.ts
+
+  Those influence final resolution, but they are not the coarse/fine policy itself.
+
+  What is already configurable in the UI:
+
+  - only the boolean Two Quality Levels
+
+  What is hard-coded today:
+  - settle delay 160ms
+
+  My recommendation if you want to expose advanced controls:
+
+  1. Interactive Quality
+
+  - default 160ms
+
+  I would not expose Fine Quality, because it is just 100% and making that configurable adds complexity with little value.
+
+  Optional third control, only if you want more power:
+  So the clean advanced-section parameter set would likely be:
+
+  - Two Quality Levels
+  - Interactive Quality
+  - Quality Settle Delay
+› please create a new section with in the advanced settings for these parameters:
+  * coarse-pass quality scale: default 0.2 range 0.05 to 0.5
+  * settle delay before fine pass: default 300ms range 100-5000ms
+```
+
+please create a new section with in the advanced settings for these parameters:
+* coarse-pass quality scale: default 0.2 range 0.05 to 0.5
+* settle delay before fine pass: default 300ms range 100-5000ms
+
+
 
 
 

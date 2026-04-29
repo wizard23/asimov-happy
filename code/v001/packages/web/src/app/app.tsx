@@ -75,6 +75,8 @@ type AppRoute =
 const EXPLORER_RENDERER_STORAGE_KEY = "asimov-happy.explorer-renderer";
 const EXPLORER_ARBITRARY_PRECISION_LIMB_COUNT_STORAGE_KEY =
   "asimov-happy.explorer-arbitrary-precision-limbs";
+const DEFAULT_INTERACTIVE_QUALITY_SCALE = 0.2;
+const DEFAULT_QUALITY_SETTLE_DELAY_MS = 300;
 
 interface TrainingSessionState {
   status: TrainingStatus;
@@ -397,6 +399,7 @@ function NumberInput(props: {
   max: number;
   onChange: (value: number) => void;
   disabled?: boolean;
+  step?: number;
 }): preact.JSX.Element {
   function commitValue(rawValue: string): void {
     const nextValue = Number(rawValue);
@@ -414,7 +417,7 @@ function NumberInput(props: {
       value={props.value}
       min={props.min}
       max={props.max}
-      step={1}
+      step={props.step ?? 1}
       disabled={props.disabled}
       onInput={(event) => commitValue(event.currentTarget.value)}
       onChange={(event) => commitValue(event.currentTarget.value)}
@@ -571,6 +574,8 @@ function ExplorerWorkspace(props: {
   const [hoveredJuliaCoordinate, setHoveredJuliaCoordinate] = useState<ComplexParameter | null>(null);
   const [isLivePreviewEnabled, setIsLivePreviewEnabled] = useState(true);
   const [useTwoQualityLevels, setUseTwoQualityLevels] = useState(true);
+  const [interactiveQualityScale, setInteractiveQualityScale] = useState(DEFAULT_INTERACTIVE_QUALITY_SCALE);
+  const [qualitySettleDelayMs, setQualitySettleDelayMs] = useState(DEFAULT_QUALITY_SETTLE_DELAY_MS);
   const [showOrbit, setShowOrbit] = useState(false);
   const [showAxes, setShowAxes] = useState(false);
   const [orbitSteps, setOrbitSteps] = useState(100);
@@ -986,6 +991,27 @@ function ExplorerWorkspace(props: {
             </section>
           ) : null}
           <section className="advanced-settings__section">
+            <h3 className="advanced-settings__heading">Two Quality Levels</h3>
+            <Field label="Coarse-Pass Quality Scale">
+              <NumberInput
+                value={interactiveQualityScale}
+                min={0.05}
+                max={0.5}
+                step={0.05}
+                onChange={(value) => setInteractiveQualityScale(clampNumber(value, 0.05, 0.5))}
+              />
+            </Field>
+            <Field label="Settle Delay Before Fine Pass">
+              <NumberInput
+                value={qualitySettleDelayMs}
+                min={100}
+                max={5000}
+                step={50}
+                onChange={(value) => setQualitySettleDelayMs(clampNumber(Math.round(value), 100, 5000))}
+              />
+            </Field>
+          </section>
+          <section className="advanced-settings__section">
             <h3 className="advanced-settings__heading">Period Detection</h3>
             <Field label="Show Attracting Period">
               <input
@@ -1102,6 +1128,8 @@ function ExplorerWorkspace(props: {
               showOrbit={showOrbit}
               orbitSteps={orbitSteps}
               enableTwoQualityLevels={useTwoQualityLevels}
+              interactiveQualityScale={interactiveQualityScale}
+              qualitySettleDelayMs={qualitySettleDelayMs}
               palette={palette}
               paletteMappingMode={paletteMappingMode}
               paletteCycles={paletteCycles}
@@ -1183,6 +1211,8 @@ function ExplorerWorkspace(props: {
               markerScale={markerScalePercent / 100}
               showAxes={showAxes}
               enableTwoQualityLevels={useTwoQualityLevels}
+              interactiveQualityScale={interactiveQualityScale}
+              qualitySettleDelayMs={qualitySettleDelayMs}
               renderer={activeImageRenderer}
               resolutionSizingMode={zenCanvasSizingMode}
             />

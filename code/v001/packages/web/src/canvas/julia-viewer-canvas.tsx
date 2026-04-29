@@ -26,6 +26,8 @@ const VIEWPORT_PRECISION_SAFETY_FACTOR = 8;
 const CLICK_SELECTION_THRESHOLD = 5;
 const ZOOM_IN_FACTOR = 0.85;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
+const DEFAULT_INTERACTIVE_QUALITY_SCALE = 0.2;
+const DEFAULT_QUALITY_SETTLE_DELAY_MS = 300;
 
 interface DragState {
   pointerStartX: number;
@@ -164,6 +166,8 @@ export function JuliaViewerCanvas(props: {
   markerScale?: number;
   showAxes?: boolean;
   enableTwoQualityLevels?: boolean;
+  interactiveQualityScale?: number;
+  qualitySettleDelayMs?: number;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
   frameStyle?: preact.JSX.CSSProperties;
@@ -269,14 +273,14 @@ export function JuliaViewerCanvas(props: {
       return;
     }
 
-    setQualityScale(0.2);
+    setQualityScale(props.interactiveQualityScale ?? DEFAULT_INTERACTIVE_QUALITY_SCALE);
     if (settleQualityTimeoutRef.current !== null) {
       window.clearTimeout(settleQualityTimeoutRef.current);
     }
     settleQualityTimeoutRef.current = window.setTimeout(() => {
       setQualityScale(1);
       settleQualityTimeoutRef.current = null;
-    }, 160);
+    }, props.qualitySettleDelayMs ?? DEFAULT_QUALITY_SETTLE_DELAY_MS);
   }
 
   useEffect(() => {
