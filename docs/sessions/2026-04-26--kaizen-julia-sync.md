@@ -4036,21 +4036,36 @@ What parameters does the two pass rendering have? I'm thinking about making the 
   - Two Quality Levels
   - Interactive Quality
   - Quality Settle Delay
-› please create a new section with in the advanced settings for these parameters:
-  * coarse-pass quality scale: default 0.2 range 0.05 to 0.5
-  * settle delay before fine pass: default 300ms range 100-5000ms
 ```
 
 please create a new section with in the advanced settings for these parameters:
 * coarse-pass quality scale: default 0.2 range 0.05 to 0.5
 * settle delay before fine pass: default 300ms range 100-5000ms
 
+```
+• Added a new Advanced Settings -> Two Quality Levels section with:
 
+  - Coarse-Pass Quality Scale
+      - default 0.2
+      - range 0.05..0.5
+  - Settle Delay Before Fine Pass
+      - default 300ms
+      - range 100..5000ms
 
+  I also updated the shared NumberInput to support decimal steps, then threaded both new values into the Mandelbrot and Julia canvases so they
+  replace the old hard-coded 0.2 and 160ms.
 
+  Files changed:
 
+  - code/v001/packages/web/src/app/app.tsx
+  - code/v001/packages/web/src/canvas/mandelbrot-overview-canvas.tsx
+  - code/v001/packages/web/src/canvas/julia-viewer-canvas.tsx
 
----
+  Verification:
+
+  - npm run build passed
+  - npm run lint passed
+```
 
 
 I want to create a spec for exporting and importing settings.
@@ -4058,7 +4073,7 @@ There should be a export/import section with an import button and an export butt
 
 * selected Renderer (the renderer could be parametrized in the future)
 * palette(s)
-* mansdelbrot settings
+* mandelbrot settings
 * julia settings
 * other settings that I forgot to mention. What would be a good name for these? Should there be more than on group of settings in this section?
 
@@ -4082,6 +4097,371 @@ for now don't create the spec yet but please give me feedback if this makes sens
 
 I want to create another spec for combining palettes. 
 In this advanced feature the user can select two palettes 
+
+
+```
+• Yes, it makes sense, but it is not fully specified yet.
+
+  The main good idea is:
+
+  - import/export should be selective
+  - selection should happen by settings groups, not one giant opaque blob
+  - JSON is the right format
+
+  What is still unclear is the grouping model.
+
+  My recommendation is to define the export/import sections around stable domains:
+
+  - Renderer
+      - selected renderer
+      - renderer-specific parameters
+      - future-proof place for AP/WebGL/WebGPU renderer settings
+  - Palette
+      - palette choice
+      - palette mapping mode
+      - palette cycles
+      - binary colors
+      - escape-band settings
+  - Mandelbrot View
+      - iterations
+      - viewport
+      - orbit / period-detection settings that belong to Mandelbrot exploration
+  - Julia View
+      - iterations
+      - viewport
+      - selected parameter if you want Julia state restored with the view
+  - Interaction
+      - live preview
+      - two quality levels
+      - coarse/fine quality settings
+      - marker scale
+      - show axes / show orbit
+  - Layout
+      - zen mode
+      - split ratio
+      - maybe route-specific layout state if you want that portable
+
+  So yes: there probably should be more than one “other settings” group.
+
+  I would not call the leftover bucket Other Settings, because that usually becomes sloppy over time. Better names are:
+
+  - Interaction
+  - Layout
+  - possibly Display
+
+  Best-practice JSON direction:
+
+  - top-level format version
+  - object keyed by groups
+  - only include selected groups on export
+  - import should merge only the selected groups, leaving everything else unchanged
+  - unknown groups and unknown fields should be ignored safely
+  - renderer-specific settings should live under renderer-specific subkeys, not flattened globally
+
+  Recommended top-level shape:
+
+  {
+    "format": "asimov-explorer-settings",
+    "version": 1,
+    "exportedAt": "2026-05-01T12:00:00Z",
+    "groups": {
+      "renderer": {},
+      "palette": {},
+      "mandelbrotView": {},
+      "juliaView": {},
+      "interaction": {},
+      "layout": {}
+    }
+  }
+
+  Important spec questions still open:
+
+  1. Should import replace or merge?
+
+  - I recommend: merge selected groups into current settings.
+
+  2. Should viewport state be included?
+
+  - I recommend: yes, for Mandelbrot and Julia groups.
+
+  3. Should the currently selected parameter be included?
+
+  - I recommend: yes.
+
+  4. Should transient hover state be included?
+
+  - I recommend: no.
+
+  5. Should route/UI state like open advanced sections be included?
+
+  - I recommend: no.
+
+  6. Should import allow partial files?
+
+  - I recommend: yes.
+
+  7. Should export presets exist?
+
+  - I recommend: maybe later, not v1.
+
+  So: the idea is good, but before writing the spec I would lock:
+
+  - exact setting groups
+  - whether viewports are included
+  - merge semantics on import
+  - whether zen/layout state is included
+
+  My recommended v1 groups are:
+
+  - Renderer
+  - Palette
+  - Mandelbrot View
+  - Julia View
+  - Interaction
+  - Layout
+
+  If you want, next I can turn that into a cleaned-up proposed grouping and list exactly which fields belong in each group before writing the spec.
+```
+
+Your recommendation is good. Yes please turn that into a cleaned-up proposed grouping and list exactly which fields belong in each group before writing the spec.
+
+
+```
+• Proposed v1 grouping:
+
+  ## Renderer
+
+  Purpose:
+
+  - rendering backend choice and backend-specific tuning
+
+  Fields:
+
+  - selected renderer id
+  - arbitrary-precision limb count
+  - future renderer-specific parameter objects keyed by renderer id
+
+  Example shape:
+
+  "renderer": {
+    "selected": "webgl",
+    "webglArbitraryPrecision": {
+      "precisionLimbs": 2
+    }
+  }
+
+  ## Palette
+
+  Purpose:
+
+  - all fractal coloring configuration
+
+  Fields:
+
+  - palette id
+  - palette mapping mode
+  - palette cycles
+  - binary inside color
+  - binary outside color
+  - escape band entry count
+  - escape band colors
+  - escape band thresholds
+
+  Example shape:
+
+  "palette": {
+    "paletteId": "ember",
+    "mappingMode": "logarithmic",
+    "cycles": 6,
+    "binary": {
+      "insideColor": "#000000",
+      "outsideColor": "#ffffff"
+    },
+    "escapeBands": {
+      "entryCount": 3,
+      "colors": ["#a855f7", "#2edcc8", "#000000"],
+      "thresholds": [10, 5000]
+    }
+  }
+
+  ## Mandelbrot View
+
+  Purpose:
+
+  - settings and state specific to the Mandelbrot pane
+
+  Fields:
+
+  - iterations
+  - viewport
+  - show orbit
+  - orbit steps
+  - show attracting period
+  - period detection steps
+  - max detected period
+
+  Example shape:
+
+  "mandelbrotView": {
+    "iterations": 1000,
+    "viewport": {
+      "minReal": -2.2,
+      "maxReal": 1.0,
+      "minImaginary": -1.0666666666666667,
+      "maxImaginary": 1.0666666666666667
+    },
+    "showOrbit": false,
+    "orbitSteps": 100,
+    "periodDetection": {
+      "enabled": false,
+      "steps": 10000,
+      "maxDetectedPeriod": 3000
+    }
+  }
+
+  ## Julia View
+
+  Purpose:
+
+  - settings and state specific to the Julia pane
+
+  Fields:
+
+  - iterations
+  - viewport
+  - selected Julia constant / active parameter
+
+  I recommend the selected parameter lives here only if we define it as “the parameter driving the Julia view.”
+  Alternative: put it in its own Selection group. For v1, I think keeping it here is acceptable.
+
+  Example shape:
+
+  "juliaView": {
+    "iterations": 1000,
+    "viewport": {
+      "minReal": -1.6,
+      "maxReal": 1.6,
+      "minImaginary": -1.6,
+      "maxImaginary": 1.6
+    },
+    "parameter": {
+      "real": -0.74543,
+      "imaginary": 0.11301
+    }
+  }
+
+  ## Interaction
+
+  Purpose:
+
+  - controls that affect interaction behavior and overlays, not mathematical view state
+
+  Fields:
+
+  - live preview
+  - two quality levels
+  - coarse-pass quality scale
+  - settle delay before fine pass
+  - show axes
+  - marker scale
+
+  Example shape:
+
+  "interaction": {
+    "livePreview": true,
+    "twoQualityLevels": {
+      "enabled": true,
+      "coarsePassQualityScale": 0.2,
+      "settleDelayMs": 300
+    },
+    "showAxes": false,
+    "markerScale": 1.5
+  }
+
+  ## Layout
+
+  Purpose:
+
+  - page/view arrangement state
+
+  Fields:
+
+  - zen mode
+  - zen split ratio
+
+  Example shape:
+
+  "layout": {
+    "zenMode": false,
+    "zenSplitRatio": 0.5
+  }
+
+  ## What should not be exported
+
+  I recommend excluding:
+
+  - hover state
+  - open/closed advanced settings UI
+  - temporary render errors
+  - detected current hover coordinates
+  - measured canvas sizes
+  - active coarse/fine transient pass state
+
+  ## Merge semantics
+
+  Recommended import behavior:
+
+  - user selects which groups to import
+  - only those groups are merged into current state
+  - unspecified groups remain unchanged
+  - missing fields inside a selected group remain unchanged unless the spec explicitly says otherwise
+
+  ## One small structural question
+
+  I think there is one possible improvement:
+
+  Instead of putting the selected parameter inside Julia View, create:
+
+  ## Selection
+
+  Fields:
+
+  - selected parameter
+
+  That would be a bit cleaner conceptually, because the parameter is shared between Mandelbrot and Julia.
+
+  My recommendation:
+
+  - use a separate Selection group if you want the model to be semantically cleaner
+  - otherwise keep it in Julia View for v1 simplicity
+
+  So the two best options are:
+
+  1. Simpler v1:
+
+  - Renderer
+  - Palette
+  - Mandelbrot View
+  - Julia View
+  - Interaction
+  - Layout
+
+  2. Cleaner model:
+
+  - Renderer
+  - Palette
+  - Mandelbrot View
+  - Julia View
+  - Selection
+  - Interaction
+  - Layout
+
+  I recommend option 2. The selected parameter is important enough to deserve its own group.
+
+  If you want, next I can turn this into a final proposed import/export model and then write the spec.
+```
+
+Please create the spec for your recommend option 2. 
 
 
 
