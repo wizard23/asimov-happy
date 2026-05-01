@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
+  JULIA_VIEWPORT,
   createReproducibilityFingerprint,
   createSettingsDocument,
   createTrainingResultDocument,
@@ -10,7 +11,9 @@ import {
   splitAppSettings,
   validateAppSettings,
   type AppSettings,
+  type ComplexBounds,
   type ComplexParameter,
+  type JuliaViewport,
   type PerformanceMode,
   type ReproducibilityFingerprint,
   type SomTrainingProgress,
@@ -18,7 +21,10 @@ import {
   type Topology,
 } from "@asimov/minimal-shared";
 import { JuliaViewerCanvas } from "../canvas/julia-viewer-canvas.js";
-import { MandelbrotOverviewCanvas } from "../canvas/mandelbrot-overview-canvas.js";
+import {
+  DEFAULT_MANDELBROT_VIEWPORT,
+  MandelbrotOverviewCanvas,
+} from "../canvas/mandelbrot-overview-canvas.js";
 import {
   DEFAULT_PALETTE_CYCLES,
   DEFAULT_PALETTE_MAPPING_MODE,
@@ -57,6 +63,16 @@ import {
   type ThemeDefinition,
   type ThemeId,
 } from "./themes.js";
+import {
+  EXPLORER_SETTINGS_GROUPS,
+  createExplorerSettingsDocument,
+  getExplorerSettingsDocumentGroupIds,
+  mergeExplorerWorkspaceSettingsState,
+  parseExplorerSettingsDocument,
+  type ExplorerSettingsDocument,
+  type ExplorerSettingsGroupId,
+  type ExplorerWorkspaceSettingsState,
+} from "./explorer-settings-document.js";
 import {
   createTrainingWorker,
   type TrainingWorkerController,
@@ -459,6 +475,11 @@ function downloadJsonFile(filename: string, value: unknown): void {
   URL.revokeObjectURL(objectUrl);
 }
 
+function createTimestampedFilename(prefix: string): string {
+  const timestamp = new Date().toISOString().replace(/:/g, "-").replace(/\.\d{3}Z$/, "Z");
+  return `${prefix}-${timestamp}.json`;
+}
+
 function ThemePreviewCard(props: {
   theme: ThemeDefinition;
   selectedThemeId: ThemeId;
@@ -562,10 +583,12 @@ function GuiSettingsRoute(props: {
 function ExplorerWorkspace(props: {
   isZenView: boolean;
   onToggleZenView: () => void;
+  onSetZenView: (isZenView: boolean) => void;
   themeId: ThemeId;
 }): preact.JSX.Element {
   const zenLayoutRef = useRef<HTMLElement | null>(null);
   const zenDragAxisRef = useRef<"horizontal" | "vertical" | null>(null);
+  const explorerSettingsImportInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedParameter, setSelectedParameter] = useState<ComplexParameter>({
     real: -0.74543,
     imaginary: 0.11301,
@@ -609,6 +632,22 @@ function ExplorerWorkspace(props: {
   const [maxDetectedPeriod, setMaxDetectedPeriod] = useState(3000);
   const [zenSplitRatio, setZenSplitRatio] = useState(0.5);
   const [isNarrowZenLayout, setIsNarrowZenLayout] = useState(false);
+  const [mandelbrotViewportSnapshot, setMandelbrotViewportSnapshot] = useState<ComplexBounds>(
+    DEFAULT_MANDELBROT_VIEWPORT,
+  );
+  const [juliaViewportSnapshot, setJuliaViewportSnapshot] = useState<JuliaViewport>(JULIA_VIEWPORT);
+  const [mandelbrotViewportOverrideVersion, setMandelbrotViewportOverrideVersion] = useState(0);
+  const [juliaViewportOverrideVersion, setJuliaViewportOverrideVersion] = useState(0);
+  const [selectedExplorerSettingsGroups, setSelectedExplorerSettingsGroups] = useState<
+    Record<ExplorerSettingsGroupId, boolean>
+  >(() =>
+    Object.fromEntries(EXPLORER_SETTINGS_GROUPS.map((group) => [group.id, true])) as Record<
+      ExplorerSettingsGroupId,
+      boolean
+    >,
+  );
+  const [pendingImportDocument, setPendingImportDocument] = useState<ExplorerSettingsDocument | null>(null);
+  const [explorerImportError, setExplorerImportError] = useState<string | null>(null);
 
   const palettes = getFractalPalettes();
   const availableRenderers = useMemo(detectAvailableExplorerRenderers, []);
@@ -625,6 +664,90 @@ function ExplorerWorkspace(props: {
     : null;
   const activeParameter =
     isLivePreviewEnabled && hoveredParameter !== null ? hoveredParameter : selectedParameter;
+  const currentExplorerSettingsState = useMemo(
+    () => ({
+      requestedRenderer,
+      requestedArbitraryPrecisionLimbCount,
+      palette,
+      paletteMappingMode,
+      paletteCycles,
+      binaryInteriorColor,
+      binaryExteriorColor,
+      escapeBandEntryCount,
+      escapeBandColors,
+      escapeBandThresholds,
+      mandelbrotIterations,
+      mandelbrotViewport: mandelbrotViewportSnapshot,
+      showOrbit,
+      orbitSteps,
+      showAttractingPeriod,
+      periodDetectionSteps,
+      maxDetectedPeriod,
+      juliaIterations,
+      juliaViewport: juliaViewportSnapshot,
+      selectedParameter,
+      isLivePreviewEnabled,
+      useTwoQualityLevels,
+      interactiveQualityScale,
+      qualitySettleDelayMs,
+      showAxes,
+      markerScale: markerScalePercent / 100,
+      isZenView: props.isZenView,
+      zenSplitRatio,
+    }),
+    [
+      binaryExteriorColor,
+      binaryInteriorColor,
+      escapeBandColors,
+      escapeBandEntryCount,
+      escapeBandThresholds,
+      interactiveQualityScale,
+      isLivePreviewEnabled,
+      juliaIterations,
+      juliaViewportSnapshot,
+      mandelbrotIterations,
+      mandelbrotViewportSnapshot,
+      markerScalePercent,
+      maxDetectedPeriod,
+      orbitSteps,
+      palette,
+      paletteCycles,
+      paletteMappingMode,
+      periodDetectionSteps,
+      props.isZenView,
+      qualitySettleDelayMs,
+      requestedArbitraryPrecisionLimbCount,
+      requestedRenderer,
+      selectedParameter,
+      showAttractingPeriod,
+      showAxes,
+      showOrbit,
+      useTwoQualityLevels,
+      zenSplitRatio,
+    ],
+  );
+  const selectedExplorerSettingsGroupSet = useMemo(
+    () =>
+      new Set(
+        EXPLORER_SETTINGS_GROUPS.filter((group) => selectedExplorerSettingsGroups[group.id]).map(
+          (group) => group.id,
+        ),
+      ),
+    [selectedExplorerSettingsGroups],
+  );
+  const pendingImportGroupIds = useMemo(
+    () => (pendingImportDocument ? new Set(getExplorerSettingsDocumentGroupIds(pendingImportDocument)) : null),
+    [pendingImportDocument],
+  );
+  const importableSelectedGroupIds = useMemo(
+    () =>
+      pendingImportGroupIds
+        ? EXPLORER_SETTINGS_GROUPS.filter(
+            (group) => selectedExplorerSettingsGroups[group.id] && pendingImportGroupIds.has(group.id),
+          ).map((group) => group.id)
+        : [],
+    [pendingImportGroupIds, selectedExplorerSettingsGroups],
+  );
   const escapeBandConfiguration = useMemo<EscapeBandConfiguration>(
     () => ({
       entryCount: escapeBandEntryCount,
@@ -730,6 +853,108 @@ function ExplorerWorkspace(props: {
       next[index] = clampNumber(Math.round(nextValue), lowerBound, upperBound);
       return next;
     });
+  }
+
+  function setExplorerSettingsGroupSelected(groupId: ExplorerSettingsGroupId, isSelected: boolean): void {
+    setSelectedExplorerSettingsGroups((current) => ({
+      ...current,
+      [groupId]: isSelected,
+    }));
+  }
+
+  async function readSelectedFile(input: HTMLInputElement | null): Promise<string | null> {
+    const file = input?.files?.[0];
+    if (!file) {
+      return null;
+    }
+
+    return file.text();
+  }
+
+  function applyExplorerSettingsState(nextState: ExplorerWorkspaceSettingsState): void {
+    setHoveredParameter(null);
+    setHoveredJuliaCoordinate(null);
+    setRequestedRenderer(nextState.requestedRenderer);
+    setRequestedArbitraryPrecisionLimbCount(nextState.requestedArbitraryPrecisionLimbCount);
+    setPalette(nextState.palette);
+    setPaletteMappingMode(nextState.paletteMappingMode);
+    setPaletteCycles(nextState.paletteCycles);
+    setBinaryInteriorColor(nextState.binaryInteriorColor);
+    setBinaryExteriorColor(nextState.binaryExteriorColor);
+    setEscapeBandEntryCount(nextState.escapeBandEntryCount);
+    setEscapeBandColors(nextState.escapeBandColors);
+    setEscapeBandThresholds(nextState.escapeBandThresholds);
+    setMandelbrotIterations(nextState.mandelbrotIterations);
+    setMandelbrotViewportSnapshot(nextState.mandelbrotViewport);
+    setMandelbrotViewportOverrideVersion((current) => current + 1);
+    setShowOrbit(nextState.showOrbit);
+    setOrbitSteps(nextState.orbitSteps);
+    setShowAttractingPeriod(nextState.showAttractingPeriod);
+    setPeriodDetectionSteps(nextState.periodDetectionSteps);
+    setMaxDetectedPeriod(nextState.maxDetectedPeriod);
+    setJuliaIterations(nextState.juliaIterations);
+    setJuliaViewportSnapshot(nextState.juliaViewport);
+    setJuliaViewportOverrideVersion((current) => current + 1);
+    setSelectedParameter(nextState.selectedParameter);
+    setIsLivePreviewEnabled(nextState.isLivePreviewEnabled);
+    setUseTwoQualityLevels(nextState.useTwoQualityLevels);
+    setInteractiveQualityScale(nextState.interactiveQualityScale);
+    setQualitySettleDelayMs(nextState.qualitySettleDelayMs);
+    setShowAxes(nextState.showAxes);
+    setMarkerScalePercent(Math.round(nextState.markerScale * 100));
+    setZenSplitRatio(nextState.zenSplitRatio);
+    if (props.isZenView !== nextState.isZenView) {
+      props.onSetZenView(nextState.isZenView);
+    }
+  }
+
+  function handleExportExplorerSettings(): void {
+    const document = createExplorerSettingsDocument(
+      currentExplorerSettingsState,
+      selectedExplorerSettingsGroupSet,
+    );
+    downloadJsonFile(
+      createTimestampedFilename("asimov-explorer-settings"),
+      document,
+    );
+    setExplorerImportError(null);
+  }
+
+  async function handlePrepareImportExplorerSettings(): Promise<void> {
+    try {
+      const content = await readSelectedFile(explorerSettingsImportInputRef.current);
+      if (!content) {
+        return;
+      }
+
+      const document = parseExplorerSettingsDocument(content);
+      setPendingImportDocument(document);
+      setExplorerImportError(null);
+    } catch (error) {
+      setPendingImportDocument(null);
+      setExplorerImportError(
+        error instanceof Error ? error.message : "Failed to parse explorer settings import.",
+      );
+    } finally {
+      if (explorerSettingsImportInputRef.current) {
+        explorerSettingsImportInputRef.current.value = "";
+      }
+    }
+  }
+
+  function handleApplyImportedExplorerSettings(): void {
+    if (!pendingImportDocument) {
+      return;
+    }
+
+    const nextState = mergeExplorerWorkspaceSettingsState(
+      currentExplorerSettingsState,
+      pendingImportDocument,
+      new Set(importableSelectedGroupIds),
+    );
+    applyExplorerSettingsState(nextState);
+    setPendingImportDocument(null);
+    setExplorerImportError(null);
   }
 
   function getZenLayoutStyle(): preact.JSX.CSSProperties | undefined {
@@ -945,6 +1170,60 @@ function ExplorerWorkspace(props: {
           </div>
         </section>
 
+        <section className="group">
+          <h2>Import / Export</h2>
+          {EXPLORER_SETTINGS_GROUPS.map((group) => {
+            const importGroupPresent = pendingImportGroupIds?.has(group.id) ?? true;
+            return (
+              <Field key={group.id} label={group.label}>
+                <input
+                  type="checkbox"
+                  checked={selectedExplorerSettingsGroups[group.id]}
+                  disabled={pendingImportDocument !== null && !importGroupPresent}
+                  onInput={(event) =>
+                    setExplorerSettingsGroupSelected(group.id, event.currentTarget.checked)}
+                />
+              </Field>
+            );
+          })}
+          <div className="actions">
+            <button className="button" type="button" onClick={handleExportExplorerSettings}>
+              Export Selected
+            </button>
+            <button
+              className="button"
+              type="button"
+              onClick={() => explorerSettingsImportInputRef.current?.click()}
+            >
+              Choose Import File
+            </button>
+            <button
+              className="button"
+              type="button"
+              disabled={pendingImportDocument === null || importableSelectedGroupIds.length === 0}
+              onClick={handleApplyImportedExplorerSettings}
+            >
+              Import Selected
+            </button>
+          </div>
+          <input
+            ref={explorerSettingsImportInputRef}
+            className="file-input"
+            type="file"
+            accept="application/json"
+            onChange={() => void handlePrepareImportExplorerSettings()}
+          />
+          {pendingImportDocument ? (
+            <p className="detail">
+              Import file ready. Available groups:{" "}
+              {EXPLORER_SETTINGS_GROUPS.filter((group) => pendingImportGroupIds?.has(group.id))
+                .map((group) => group.label)
+                .join(", ")}
+            </p>
+          ) : null}
+          {explorerImportError ? <p className="error-banner">{explorerImportError}</p> : null}
+        </section>
+
         <details className="group advanced-settings">
           <summary className="advanced-settings__summary">Advanced Settings</summary>
           {paletteMappingMode === "escape-bands" ? (
@@ -1123,6 +1402,9 @@ function ExplorerWorkspace(props: {
               hoveredJuliaCoordinate={hoveredJuliaCoordinate}
               onHoverParameter={setHoveredParameter}
               onSelectParameter={setSelectedParameter}
+              onViewportChange={setMandelbrotViewportSnapshot}
+              initialViewport={mandelbrotViewportSnapshot}
+              viewportOverrideVersion={mandelbrotViewportOverrideVersion}
               iterations={mandelbrotIterations}
               showAxes={showAxes}
               showOrbit={showOrbit}
@@ -1198,6 +1480,9 @@ function ExplorerWorkspace(props: {
               hoveredJuliaCoordinate={hoveredJuliaCoordinate}
               onSelectParameter={setSelectedParameter}
               onHoverCoordinate={setHoveredJuliaCoordinate}
+              onViewportChange={setJuliaViewportSnapshot}
+              initialViewport={juliaViewportSnapshot}
+              viewportOverrideVersion={juliaViewportOverrideVersion}
               iterations={juliaIterations}
               palette={palette}
               paletteMappingMode={paletteMappingMode}
@@ -2487,6 +2772,7 @@ function App(): preact.JSX.Element {
         <ExplorerWorkspace
           isZenView={isZenView}
           onToggleZenView={() => setIsZenView((current) => !current)}
+          onSetZenView={setIsZenView}
           themeId={themeId}
         />
       </div>

@@ -29,7 +29,7 @@ const MANDELBROT_MAX_RENDER_HEIGHT = 1365;
 const MANDELBROT_MAX_ITERATIONS = 96;
 const CLICK_SELECTION_THRESHOLD = 5;
 const VIEWPORT_PRECISION_SAFETY_FACTOR = 8;
-const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
+export const DEFAULT_MANDELBROT_VIEWPORT: ComplexBounds = {
   minReal: -2.2,
   maxReal: 1.0,
   minImaginary: -1.0666666666666667,
@@ -162,6 +162,9 @@ export function MandelbrotOverviewCanvas(props: {
   enableTwoQualityLevels?: boolean;
   interactiveQualityScale?: number;
   qualitySettleDelayMs?: number;
+  initialViewport?: ComplexBounds;
+  viewportOverrideVersion?: number;
+  onViewportChange?: (viewport: ComplexBounds) => void;
   orbitSteps?: number;
   iterations?: number;
   palette?: FractalPaletteId;
@@ -190,9 +193,9 @@ export function MandelbrotOverviewCanvas(props: {
   const enableTwoQualityLevelsRef = useRef(Boolean(props.enableTwoQualityLevels));
   const onHoverParameterRef = useRef(props.onHoverParameter);
   const onSelectParameterRef = useRef(props.onSelectParameter);
-  const viewportRef = useRef<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
+  const viewportRef = useRef<ComplexBounds>(props.initialViewport ?? DEFAULT_MANDELBROT_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
-  const [viewport, setViewport] = useState<ComplexBounds>(DEFAULT_MANDELBROT_VIEWPORT);
+  const [viewport, setViewport] = useState<ComplexBounds>(props.initialViewport ?? DEFAULT_MANDELBROT_VIEWPORT);
   const [hoveredParameter, setHoveredParameter] = useState<ComplexParameter | null>(null);
   const [qualityScale, setQualityScale] = useState(1);
   const [presentedRenderSize, setPresentedRenderSize] = useState(() => ({
@@ -253,6 +256,19 @@ export function MandelbrotOverviewCanvas(props: {
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+
+  useEffect(() => {
+    props.onViewportChange?.(viewport);
+  }, [props.onViewportChange, viewport]);
+
+  useEffect(() => {
+    if (!props.initialViewport) {
+      return;
+    }
+
+    viewportRef.current = props.initialViewport;
+    setViewport(props.initialViewport);
+  }, [props.initialViewport, props.viewportOverrideVersion]);
 
   useEffect(() => {
     displaySizeRef.current = {

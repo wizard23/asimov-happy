@@ -168,6 +168,9 @@ export function JuliaViewerCanvas(props: {
   enableTwoQualityLevels?: boolean;
   interactiveQualityScale?: number;
   qualitySettleDelayMs?: number;
+  initialViewport?: JuliaViewport;
+  viewportOverrideVersion?: number;
+  onViewportChange?: (viewport: JuliaViewport) => void;
   renderer?: ExplorerImageRenderer;
   resolutionSizingMode?: "contain" | "cover" | "width-driven" | "height-driven";
   frameStyle?: preact.JSX.CSSProperties;
@@ -186,9 +189,9 @@ export function JuliaViewerCanvas(props: {
   const parameterRef = useRef(props.parameter);
   const onSelectParameterRef = useRef(props.onSelectParameter);
   const onHoverCoordinateRef = useRef(props.onHoverCoordinate);
-  const viewportRef = useRef<JuliaViewport>(JULIA_VIEWPORT);
+  const viewportRef = useRef<JuliaViewport>(props.initialViewport ?? JULIA_VIEWPORT);
   const settleQualityTimeoutRef = useRef<number | null>(null);
-  const [viewport, setViewport] = useState<JuliaViewport>(JULIA_VIEWPORT);
+  const [viewport, setViewport] = useState<JuliaViewport>(props.initialViewport ?? JULIA_VIEWPORT);
   const [hoveredCoordinate, setHoveredCoordinate] = useState<ComplexParameter | null>(null);
   const [qualityScale, setQualityScale] = useState(1);
   const [presentedRenderSize, setPresentedRenderSize] = useState(() => ({
@@ -236,6 +239,19 @@ export function JuliaViewerCanvas(props: {
   useEffect(() => {
     viewportRef.current = viewport;
   }, [viewport]);
+
+  useEffect(() => {
+    props.onViewportChange?.(viewport);
+  }, [props.onViewportChange, viewport]);
+
+  useEffect(() => {
+    if (!props.initialViewport) {
+      return;
+    }
+
+    viewportRef.current = props.initialViewport;
+    setViewport(props.initialViewport);
+  }, [props.initialViewport, props.viewportOverrideVersion]);
 
   useEffect(() => {
     parameterRef.current = props.parameter;
