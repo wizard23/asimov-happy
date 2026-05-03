@@ -4938,6 +4938,102 @@ please create a plan to fix it in a clean way that prevents similar errors in th
 ready to implement the plan? Any open questions?
 
 
+```
+
+• Ready to implement.
+
+  I do not see any blocking open questions. The key architectural choice is already made in the plan:
+
+  - separate visible image canvases by renderer family
+
+  That resolves the main ambiguity cleanly.
+
+  One small implementation choice remains, but I do not think it blocks coding:
+
+  - whether to keep all family canvases mounted and hide inactive ones
+  - or remount only the active family canvas
+
+  My recommendation:
+
+  - keep them mounted
+  - hide inactive ones
+
+  Reason:
+
+  - simpler context ownership
+  - fewer remount surprises
+  - safer for future multi-pass/debugging work
+
+  So from my side:
+
+  - no blocking spec gaps
+  - no need for another plan
+  - ready to implement the renderer-family split directly
+```
+
+no that takes up too many resources. Only one canvas should be kept. Do you see any problems with this?
+
+
+```
+• Yes, there is one important problem with “only one canvas should be kept” if you mean one single persistent DOM canvas element.
+
+  That is exactly what is causing the current bug.
+
+  A single canvas element cannot safely be reused across:
+
+  - 2d
+  - webgl
+  - webgl2
+
+  So if “only one canvas” means:
+
+  - keep one DOM canvas and switch its renderer family
+
+  then that is not cleanly viable.
+
+  But if you mean:
+
+  - only one visible canvas mounted at a time
+  - and recreate/replace the DOM canvas element whenever the renderer family changes
+
+  then yes, that is workable.
+
+  My recommendation:
+
+  - keep only one active image canvas in the DOM
+  - but key/remount it by renderer family
+
+  So:
+
+  - switching within the same family can reuse the canvas
+  - switching across families must destroy the old canvas element and create a new one
+
+  That gives you:
+
+  - low resource use
+  - correct context ownership
+  - no illegal context switching
+
+  The only real tradeoff:
+
+  - renderer-family switch becomes a deliberate remount boundary
+  - any per-canvas caches must tolerate recreation
+
+  That is acceptable and much cleaner than trying to mutate one canvas across incompatible context types.
+
+  So:
+
+  - one persistent shared canvas element: bad
+  - one active canvas element, recreated on family change: good
+
+  If you want, I’m ready to implement it that way.
+
+  34 background terminals running · /ps to view · /stop to close
+```
+
+yes, please make it so.
+
+
 
 
 

@@ -12,7 +12,11 @@ import {
   type RgbColor,
 } from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
-import type { EscapeBandConfiguration, ExplorerImageRenderer } from "./explorer-renderer.js";
+import {
+  getExplorerRendererSurfaceFamily,
+  type EscapeBandConfiguration,
+  type ExplorerImageRenderer,
+} from "./explorer-renderer.js";
 import { drawJuliaAxesOverlay } from "./explorer-overlays.js";
 import {
   renderExplorerImageWithFallback,
@@ -212,6 +216,8 @@ export function JuliaViewerCanvas(props: {
     [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
+  const imageRenderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+  const rendererSurfaceFamily = getExplorerRendererSurfaceFamily(imageRenderer.id);
   const activeCrosshairPosition = useMemo(
     () => (props.parameter ? mapToRelativePosition(props.parameter, viewport) : null),
     [props.parameter, viewport],
@@ -311,6 +317,10 @@ export function JuliaViewerCanvas(props: {
     }
   }, [props.parameter]);
 
+  useEffect(() => {
+    setRenderError(null);
+  }, [rendererSurfaceFamily]);
+
   useLayoutEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) {
@@ -334,7 +344,7 @@ export function JuliaViewerCanvas(props: {
       return;
     }
 
-    const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+    const renderer = imageRenderer;
     const parameter = props.parameter;
     const binaryColorOptions = {
       ...(props.binaryInteriorColor ? { binaryInteriorColor: props.binaryInteriorColor } : {}),
@@ -406,7 +416,7 @@ export function JuliaViewerCanvas(props: {
     props.paletteMappingMode,
     props.parameter,
     props.precisionLimbCount,
-    props.renderer,
+    imageRenderer,
     viewport,
   ]);
 
@@ -732,15 +742,16 @@ export function JuliaViewerCanvas(props: {
         }}
       >
         <canvas
+          key={rendererSurfaceFamily}
           ref={imageCanvasRef}
           className="canvas canvas--viewer"
           width={
-            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+            imageRenderer.id === "cpu"
               ? canvasResolution.renderWidth
               : presentedRenderSize.width
           }
           height={
-            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+            imageRenderer.id === "cpu"
               ? canvasResolution.renderHeight
               : presentedRenderSize.height
           }

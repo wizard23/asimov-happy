@@ -2,6 +2,7 @@ import type { ComplexBounds, ComplexParameter, JuliaViewport } from "@asimov/min
 import type { FractalPaletteId, PaletteMappingMode, RgbColor } from "./fractal-palette.js";
 
 export type ExplorerRendererId = "cpu" | "webgl" | "webgl-arbitrary-precision" | "webgpu";
+export type ExplorerRendererSurfaceFamily = "cpu-2d" | "webgl" | "webgl2" | "webgpu";
 export const MAX_ESCAPE_BAND_ENTRIES = 12;
 export const MAX_ARBITRARY_PRECISION_LIMB_COUNT = 16;
 
@@ -68,6 +69,21 @@ export function isExplorerRendererId(value: string): value is ExplorerRendererId
 
 export function getExplorerRendererLabel(rendererId: ExplorerRendererId): string {
   return EXPLORER_RENDERER_OPTIONS.find((option) => option.id === rendererId)?.label ?? rendererId;
+}
+
+export function getExplorerRendererSurfaceFamily(
+  rendererId: ExplorerRendererId,
+): ExplorerRendererSurfaceFamily {
+  switch (rendererId) {
+    case "cpu":
+      return "cpu-2d";
+    case "webgl":
+      return "webgl";
+    case "webgl-arbitrary-precision":
+      return "webgl2";
+    case "webgpu":
+      return "webgpu";
+  }
 }
 
 export function detectAvailableExplorerRenderers(): ExplorerRendererId[] {

@@ -8,7 +8,11 @@ import {
   type RgbColor,
 } from "./fractal-palette.js";
 import { CPU_EXPLORER_IMAGE_RENDERER } from "./explorer-cpu-renderer.js";
-import type { EscapeBandConfiguration, ExplorerImageRenderer } from "./explorer-renderer.js";
+import {
+  getExplorerRendererSurfaceFamily,
+  type EscapeBandConfiguration,
+  type ExplorerImageRenderer,
+} from "./explorer-renderer.js";
 import {
   drawMandelbrotAxesOverlay,
   drawOrbitOverlay,
@@ -216,6 +220,8 @@ export function MandelbrotOverviewCanvas(props: {
     [props.resolutionSizingMode, qualityScale],
   );
   const canvasResolution = useResponsiveCanvasResolution(frameRef, resolutionOptions);
+  const imageRenderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+  const rendererSurfaceFamily = getExplorerRendererSurfaceFamily(imageRenderer.id);
 
   const activeCrosshairPosition = useMemo(
     () => (props.parameter ? mapToRelativePosition(props.parameter, viewport) : null),
@@ -306,13 +312,17 @@ export function MandelbrotOverviewCanvas(props: {
     }
   }, [props.enableTwoQualityLevels]);
 
+  useEffect(() => {
+    setRenderError(null);
+  }, [rendererSurfaceFamily]);
+
   useLayoutEffect(() => {
     const canvas = imageCanvasRef.current;
     if (!canvas) {
       return;
     }
 
-    const renderer = props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER;
+    const renderer = imageRenderer;
     const binaryColorOptions = {
       ...(props.binaryInteriorColor ? { binaryInteriorColor: props.binaryInteriorColor } : {}),
       ...(props.binaryExteriorColor ? { binaryExteriorColor: props.binaryExteriorColor } : {}),
@@ -380,7 +390,7 @@ export function MandelbrotOverviewCanvas(props: {
     props.paletteCycles,
     props.paletteMappingMode,
     props.precisionLimbCount,
-    props.renderer,
+    imageRenderer,
     viewport,
   ]);
 
@@ -767,15 +777,16 @@ export function MandelbrotOverviewCanvas(props: {
         }}
       >
         <canvas
+          key={rendererSurfaceFamily}
           ref={imageCanvasRef}
           className="canvas canvas--mandelbrot"
           width={
-            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+            imageRenderer.id === "cpu"
               ? canvasResolution.renderWidth
               : presentedRenderSize.width
           }
           height={
-            (props.renderer ?? CPU_EXPLORER_IMAGE_RENDERER).id === "cpu"
+            imageRenderer.id === "cpu"
               ? canvasResolution.renderHeight
               : presentedRenderSize.height
           }
